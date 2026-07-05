@@ -35,8 +35,6 @@ externals:
   MauiMPlusTimer/Libs/AceGUI-3.0-SharedMediaWidgets: https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk
   MauiMPlusTimer/Libs/LibSerialize: https://github.com/rossnichols/LibSerialize.git
   MauiMPlusTimer/Libs/LibDeflate: https://github.com/SafeteeWoW/LibDeflate.git
-  MauiMPlusTimer/Libs/LibDataBroker-1.1: https://repos.curseforge.com/wow/libdatabroker-1-1/trunk/LibDataBroker-1.1
-  MauiMPlusTimer/Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
 
 move-folders:
   MPT_Staging/MauiMPlusTimer: MauiMPlusTimer

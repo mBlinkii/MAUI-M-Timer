@@ -23,8 +23,4 @@
     <!-- Serialization (profile import/export) -->
     <Script file="Libs\LibSerialize\LibSerialize.lua"/>
     <Script file="Libs\LibDeflate\LibDeflate.lua"/>
-
-    <!-- Broker + minimap button -->
-    <Script file="Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua"/>
-    <Include file="Libs\LibDBIcon-1.0\lib.xml"/>
 </Ui>

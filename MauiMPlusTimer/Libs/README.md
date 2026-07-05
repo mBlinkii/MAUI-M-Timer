@@ -12,10 +12,6 @@ They are **not** checked into the repo; add them before running the addon.
 - **LibSerialize** — https://github.com/rossnichols/LibSerialize
 - **LibDeflate** — https://github.com/SafeteeWoW/LibDeflate
 
-## Optional (minimap button)
-
-- **LibDataBroker-1.1** and **LibDBIcon-1.0**
-
 ## How to populate
 
 Option A — manual: download each library and extract so the folder layout matches

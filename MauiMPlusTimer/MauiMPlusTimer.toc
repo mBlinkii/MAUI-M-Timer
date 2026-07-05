@@ -2,7 +2,7 @@
 ## Title: MAUI M+ Timer
 ## Notes: Modular Mythic+ timer for World of Warcraft (Midnight)
 ## Author: Blinkii
-## Version: 1.0.0
+## Version: 1.1.1
 ## SavedVariables: MauiMPlusTimerDB
 ## X-Category: Mythic+
 ## X-License: MIT
@@ -26,7 +26,7 @@ Core\RunController.lua
 Core\Demo.lua
 Core\Profiles.lua
 Core\Config.lua
-Core\Broker.lua
+Core\MinimapButton.lua
 
 # --- UI layer ---
 UI\Themes.lua

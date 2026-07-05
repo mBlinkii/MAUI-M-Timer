@@ -419,6 +419,7 @@ end
 -- Broadcast a profile change so modules can re-read db.profile.
 function Addon:OnProfileChanged()
     if self.Widgets then self.Widgets:InvalidateStyle() end -- new profile -> new styles
+    if self.RefreshMinimapButton then self:RefreshMinimapButton() end -- new minimap state
     self:SendMessage("MMT_PROFILE_CHANGED")
 end
 

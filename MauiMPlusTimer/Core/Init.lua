@@ -37,8 +37,8 @@ function Addon:OnInitialize()
     -- Build and register the options GUI + slash command (Core/Config.lua).
     self:SetupConfig()
 
-    -- Broker data object + optional minimap button (Core/Broker.lua).
-    self:SetupBroker()
+    -- Minimap button + compartment entry (Core/MinimapButton.lua).
+    self:SetupMinimapButton()
 
     self:Debug("Initialized v%s", self.version)
 end

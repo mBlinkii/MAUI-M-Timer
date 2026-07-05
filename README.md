@@ -28,7 +28,7 @@ Everything is configurable through a single central options window (no chat-base
 ## Requirements
 
 - World of Warcraft **Retail**, Midnight (12.0.x).
-- The embedded libraries listed in [`MauiMPlusTimer/Libs/README.md`](MauiMPlusTimer/Libs/README.md) (Ace3, LibSharedMedia-3.0, LibSerialize, LibDeflate, optionally LibDataBroker-1.1 + LibDBIcon-1.0). These are **not** checked into this repository — see [Installation](#installation).
+- The embedded libraries listed in [`MauiMPlusTimer/Libs/README.md`](MauiMPlusTimer/Libs/README.md) (Ace3, LibSharedMedia-3.0, LibSerialize, LibDeflate). These are **not** checked into this repository — see [Installation](#installation).
 
 ## Installation
 
@@ -48,7 +48,7 @@ Type `/mauimpt` (or `/maui`, `/mpt`) to open the options window. Subcommands jum
 
 ## Architecture
 
-The addon follows a strict modular architecture: the Core has no module-specific logic, modules communicate only via an internal `AceEvent` message bus (`MMT_*`), all SavedVariables access is encapsulated in `Core/DB.lua`, and all UI is separated from data logic. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full design document, including the module data flow, per-module WoW API surface, and instructions for adding a new module.
+The addon follows a strict modular architecture: the Core has no module-specific logic, modules communicate only via an internal `AceEvent` message bus (`MMT_*`), all SavedVariables access is encapsulated in `Core/DB.lua`, and all UI is separated from data logic.
 
 ## Localization
 
@@ -56,7 +56,7 @@ All user-facing strings are localized via `AceLocale` (`L["KEY"]`). Currently su
 
 ## Contributing
 
-Issues and pull requests are welcome. Please keep changes consistent with the module contract and conventions described in `ARCHITECTURE.md` (no global variables, no direct SavedVariables access outside `Core/DB.lua`, all visible text localized).
+Issues and pull requests are welcome. Please keep changes consistent with the module contract and conventions described above (no global variables, no direct SavedVariables access outside `Core/DB.lua`, all visible text localized).
 
 ## License
 

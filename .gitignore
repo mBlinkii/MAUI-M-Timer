@@ -1,3 +1,6 @@
+# --- Internal planning doc, not for the public repo ---
+ARCHITECTURE.md
+
 # --- Vendored/external libraries ---
 # Pulled in automatically by the packager via .pkgmeta,
 # so they are not tracked in version control (see MauiMPlusTimer/Libs/README.md).
