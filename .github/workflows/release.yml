@@ -9,6 +9,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,7 +21,9 @@ jobs:
           # Add the secrets below in "Settings > Secrets and variables > Actions"
           # to publish to CurseForge / WoWInterface / Wago / GitHub Releases.
           # Any token left unset is simply skipped for that destination.
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          # NOTE: release.sh reads CF_API_KEY and GITHUB_OAUTH specifically
+          # (not CF_API_TOKEN / GITHUB_API_TOKEN, despite some docs saying so).
+          CF_API_KEY: ${{ secrets.CF_API_TOKEN }}
           WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
-          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
