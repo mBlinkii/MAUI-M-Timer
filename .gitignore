@@ -1,6 +1,6 @@
 # --- Vendored/external libraries ---
-# Pulled in automatically by the packager via MauiMPlusTimer/.pkgmeta,
-# so they are not tracked in version control (see Libs/README.md).
+# Pulled in automatically by the packager via .pkgmeta,
+# so they are not tracked in version control (see MauiMPlusTimer/Libs/README.md).
 MauiMPlusTimer/Libs/*
 !MauiMPlusTimer/Libs/README.md
 

@@ -39,7 +39,7 @@ Download the packaged zip from the [Releases](https://github.com/mBlinkii/MAUI-M
 ### From source
 
 1. Clone this repository.
-2. Populate `MauiMPlusTimer/Libs/` with the libraries listed in `MauiMPlusTimer/Libs/README.md`, either manually or by running the [BigWigs packager](https://github.com/BigWigsMods/packager) against `MauiMPlusTimer/.pkgmeta`.
+2. Populate `MauiMPlusTimer/Libs/` with the libraries listed in `MauiMPlusTimer/Libs/README.md`, either manually or by running the [BigWigs packager](https://github.com/BigWigsMods/packager) against the repo-root `.pkgmeta`.
 3. Copy (or symlink) the `MauiMPlusTimer` folder into `World of Warcraft/_retail_/Interface/AddOns/`.
 
 ## Usage

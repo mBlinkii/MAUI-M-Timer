@@ -15,10 +15,6 @@ jobs:
 
       - name: Package and release
         uses: BigWigsMods/packager@v2
-        with:
-          # The .toc/.pkgmeta live in the MauiMPlusTimer/ subfolder rather than
-          # the repo root, so tell release.sh where the top-level addon dir is.
-          args: -t MauiMPlusTimer
         env:
           # Add the secrets below in "Settings > Secrets and variables > Actions"
           # to publish to CurseForge / WoWInterface / Wago / GitHub Releases.

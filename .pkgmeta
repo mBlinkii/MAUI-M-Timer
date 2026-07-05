@@ -1,0 +1,49 @@
+# This root-level .pkgmeta drives the GitHub Actions release workflow.
+# The addon itself lives in the MauiMPlusTimer/ subfolder (kept as-is for
+# local WoW testing, where the AddOns folder name must match the .toc name).
+# package-as uses a temporary staging name so it doesn't collide with the
+# MauiMPlusTimer/ subfolder; move-folders then hoists that subfolder up to
+# become the actual package root.
+
+package-as: MPT_Staging
+
+enable-nolib-creation: no
+
+externals:
+  MauiMPlusTimer/Libs/LibStub: https://repos.curseforge.com/wow/libstub/trunk
+  MauiMPlusTimer/Libs/CallbackHandler-1.0:
+    url: https://repos.curseforge.com/wow/callbackhandler/trunk/CallbackHandler-1.0
+  MauiMPlusTimer/Libs/AceAddon-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceAddon-3.0
+  MauiMPlusTimer/Libs/AceEvent-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceEvent-3.0
+  MauiMPlusTimer/Libs/AceConsole-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceConsole-3.0
+  MauiMPlusTimer/Libs/AceTimer-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceTimer-3.0
+  MauiMPlusTimer/Libs/AceDB-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceDB-3.0
+  MauiMPlusTimer/Libs/AceDBOptions-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceDBOptions-3.0
+  MauiMPlusTimer/Libs/AceGUI-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0
+  MauiMPlusTimer/Libs/AceConfig-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0
+  MauiMPlusTimer/Libs/AceLocale-3.0:
+    url: https://repos.curseforge.com/wow/ace3/trunk/AceLocale-3.0
+  MauiMPlusTimer/Libs/LibSharedMedia-3.0: https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
+  MauiMPlusTimer/Libs/AceGUI-3.0-SharedMediaWidgets: https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk
+  MauiMPlusTimer/Libs/LibSerialize: https://github.com/rossnichols/LibSerialize.git
+  MauiMPlusTimer/Libs/LibDeflate: https://github.com/SafeteeWoW/LibDeflate.git
+  MauiMPlusTimer/Libs/LibDataBroker-1.1: https://repos.curseforge.com/wow/libdatabroker-1-1/trunk/LibDataBroker-1.1
+  MauiMPlusTimer/Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
+
+move-folders:
+  MPT_Staging/MauiMPlusTimer: MauiMPlusTimer
+
+ignore:
+  - ARCHITECTURE.md
+  - LICENSE
+  - preview
+  - "*.md"
+  - "*.png"
