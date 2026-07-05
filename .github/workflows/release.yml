@@ -1,29 +1,87 @@
-name: Package and Release
+name: Release
 
+# Runs on every version tag, e.g.: git tag v1.1.9 && git push origin v1.1.9
 on:
   push:
     tags:
-      - '*'
-  workflow_dispatch:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Package and release
-        uses: BigWigsMods/packager@v2
-        env:
-          # Add the secrets below in "Settings > Secrets and variables > Actions"
-          # to publish to CurseForge / WoWInterface / Wago / GitHub Releases.
-          # Any token left unset is simply skipped for that destination.
-          # NOTE: release.sh reads CF_API_KEY and GITHUB_OAUTH specifically
-          # (not CF_API_TOKEN / GITHUB_API_TOKEN, despite some docs saying so).
-          CF_API_KEY: ${{ secrets.CF_API_TOKEN }}
-          WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
-          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read version, interface, and date from the TOC
+        id: meta
+        run: |
+          TOC="MauiMPlusTimer/MauiMPlusTimer.toc"
+          VERSION=$(grep -oP '^## Version:\s*\K.+' "$TOC" | tr -d '\r')
+          IFACE=$(grep -oP '^## Interface:\s*\K.+' "$TOC" | tr -d '\r ')
+          DATE=$(date +%Y-%m-%d)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "zipname=MauiMPlusTimer-v${VERSION}-${DATE}" >> "$GITHUB_OUTPUT"
+
+          # Convert "120005,..." Interface values to "12.0.5,..." for CurseForge.
+          VERSIONS=""
+          IFS=',' read -ra ARR <<< "$IFACE"
+          for I in "${ARR[@]}"; do
+            V="$((10#$I / 10000)).$(((10#$I % 10000) / 100)).$((10#$I % 100))"
+            VERSIONS="${VERSIONS:+$VERSIONS,}$V"
+          done
+          echo "game_versions=$VERSIONS" >> "$GITHUB_OUTPUT"
+
+      - name: Install Subversion
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq subversion
+
+      - name: Fetch Ace3 + helper libraries into Libs/
+        run: |
+          set -e
+          LIBS="MauiMPlusTimer/Libs"
+          mkdir -p "$LIBS"
+
+          svn export --force https://repos.curseforge.com/wow/libstub/trunk "$LIBS/LibStub"
+          svn export --force https://repos.curseforge.com/wow/callbackhandler/trunk/CallbackHandler-1.0 "$LIBS/CallbackHandler-1.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceAddon-3.0 "$LIBS/AceAddon-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceEvent-3.0 "$LIBS/AceEvent-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceConsole-3.0 "$LIBS/AceConsole-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceTimer-3.0 "$LIBS/AceTimer-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceDB-3.0 "$LIBS/AceDB-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceDBOptions-3.0 "$LIBS/AceDBOptions-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0 "$LIBS/AceGUI-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0 "$LIBS/AceConfig-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceLocale-3.0 "$LIBS/AceLocale-3.0"
+          svn export --force https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0 "$LIBS/LibSharedMedia-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk "$LIBS/AceGUI-3.0-SharedMediaWidgets"
+
+          git clone --depth 1 https://github.com/rossnichols/LibSerialize.git "$LIBS/LibSerialize"
+          rm -rf "$LIBS/LibSerialize/.git"
+          git clone --depth 1 https://github.com/SafeteeWoW/LibDeflate.git "$LIBS/LibDeflate"
+          rm -rf "$LIBS/LibDeflate/.git"
+
+      - name: Build zip
+        run: |
+          cd MauiMPlusTimer
+          rm -f .pkgmeta
+          zip -r "../${{ steps.meta.outputs.zipname }}.zip" . -x ".git*"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: MAUI M+ Timer v${{ steps.meta.outputs.version }}
+          files: ${{ steps.meta.outputs.zipname }}.zip
+          generate_release_notes: true
+
+      - name: Upload to CurseForge
+        uses: itsmeow/curseforge-upload@v3
+        with:
+          token: ${{ secrets.CF_API_TOKEN }}
+          project_id: "1599022"
+          game_endpoint: wow
+          file_path: ${{ steps.meta.outputs.zipname }}.zip
+          display_name: MAUI M+ Timer v${{ steps.meta.outputs.version }}
+          game_versions: ${{ steps.meta.outputs.game_versions }}
+          release_type: release

@@ -6,12 +6,13 @@ Build-Release.ps1
 Build-Release.bat
 
 # --- Vendored/external libraries ---
-# Pulled in automatically by the packager via .pkgmeta,
-# so they are not tracked in version control (see MauiMPlusTimer/Libs/README.md).
+# Fetched fresh by the release workflow (.github/workflows/release.yml) and by
+# Build-Release.ps1, so they are not tracked in version control
+# (see MauiMPlusTimer/Libs/README.md).
 MauiMPlusTimer/Libs/*
 !MauiMPlusTimer/Libs/README.md
 
-# --- Packager output ---
+# --- Release build output ---
 .release/
 *.zip
 
