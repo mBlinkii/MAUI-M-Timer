@@ -1,13 +1,25 @@
 ## Interface: 120005
-## Title: MAUI M+ Timer
+## Title: |cfff0f0f0Ma|r|cff29a8f0U|r|cfff09020I|r |cff8b40f0M|r|cfff040a0+|r |cfff0f0f0Timer|r
 ## Notes: Modular Mythic+ timer for World of Warcraft (Midnight)
 ## Author: Blinkii
-## Version: 1.1.1
+## Version: 1.1.8
 ## SavedVariables: MauiMPlusTimerDB
-## X-Category: Mythic+
-## X-License: MIT
 ## IconTexture: Interface\AddOns\MauiMPlusTimer\Assets\icon_small
 ## AddonCompartmentFunc: MauiMPlusTimer_OnCompartmentClick
+## X-License: MIT
+
+# --- AddOn list category (official Blizzard names, all supported locales) ---
+## Category: Dungeons & Raids
+## Category-deDE: Dungeons & Schlachtzüge
+## Category-esES: Mazmorras y bandas
+## Category-esMX: Calabozos y bandas
+## Category-frFR: Donjons et raids
+## Category-itIT: Spedizioni e incursioni
+## Category-koKR: 던전 및 공격대
+## Category-ptBR: Masmorras e Raides
+## Category-ruRU: Подземелья и рейды
+## Category-zhCN: 地下城和团队副本
+## Category-zhTW: 地城與團隊
 
 # --- Embedded libraries (Ace3 + helpers, see Libs/README.md) ---
 embeds.xml
@@ -16,73 +28,11 @@ embeds.xml
 Localization\enUS.lua
 Localization\deDE.lua
 
-# --- Core (Init creates the addon object and must load first) ---
-Core\Init.lua
-Core\Utilities.lua
-Core\Logger.lua
-Core\DB.lua
-Core\RunState.lua
-Core\RunController.lua
-Core\Demo.lua
-Core\Profiles.lua
-Core\Config.lua
-Core\MinimapButton.lua
+# --- Core (order lives in Core\Core.xml) ---
+Core\Core.xml
 
-# --- UI layer ---
-UI\Themes.lua
-UI\Media.lua
-UI\Icons.lua
-UI\Widgets.lua
-UI\RunCard.lua
-UI\MainWindow.lua
-UI\StyleOptions.lua
+# --- UI layer (order lives in UI\UI.xml) ---
+UI\UI.xml
 
-# --- Module base class (must load before any module) ---
-Modules\ModuleTemplate.lua
-
-# --- Modules ---
-Modules\Dungeon\Module.lua
-Modules\Dungeon\UI.lua
-Modules\Dungeon\Options.lua
-
-Modules\Timer\Module.lua
-Modules\Timer\Data.lua
-Modules\Timer\UI.lua
-Modules\Timer\Options.lua
-
-Modules\EnemyForces\Module.lua
-Modules\EnemyForces\Data.lua
-Modules\EnemyForces\UI.lua
-Modules\EnemyForces\Options.lua
-
-Modules\Objectives\Module.lua
-Modules\Objectives\Data.lua
-Modules\Objectives\UI.lua
-Modules\Objectives\Options.lua
-
-Modules\Deaths\Module.lua
-Modules\Deaths\UI.lua
-Modules\Deaths\Options.lua
-
-Modules\Splits\Module.lua
-Modules\Splits\Data.lua
-Modules\Splits\UI.lua
-Modules\Splits\Manager.lua
-Modules\Splits\Options.lua
-
-Modules\Checkpoints\Module.lua
-Modules\Checkpoints\Data.lua
-Modules\Checkpoints\UI.lua
-Modules\Checkpoints\Editor.lua
-Modules\Checkpoints\Options.lua
-
-Modules\Cooldowns\Module.lua
-Modules\Cooldowns\UI.lua
-Modules\Cooldowns\Options.lua
-
-Modules\Sound\Module.lua
-Modules\Sound\Data.lua
-Modules\Sound\Options.lua
-
-Modules\Automation\Module.lua
-Modules\Automation\Options.lua
+# --- Modules (base class + all modules; order lives in Modules\Modules.xml) ---
+Modules\Modules.xml

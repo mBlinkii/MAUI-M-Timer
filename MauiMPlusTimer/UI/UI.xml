@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- Shared factories, themes and the HUD container -->
+    <Script file="Themes.lua"/>
+    <Script file="Media.lua"/>
+    <Script file="Icons.lua"/>
+    <Script file="Widgets.lua"/>
+    <Script file="RunCard.lua"/>
+    <Script file="MainWindow.lua"/>
+    <Script file="StyleOptions.lua"/>
+</Ui>
