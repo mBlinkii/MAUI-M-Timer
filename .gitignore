@@ -1,6 +1,10 @@
 # --- Internal planning doc, not for the public repo ---
 ARCHITECTURE.md
 
+# --- Local-only manual release script ---
+Build-Release.ps1
+Build-Release.bat
+
 # --- Vendored/external libraries ---
 # Pulled in automatically by the packager via .pkgmeta,
 # so they are not tracked in version control (see MauiMPlusTimer/Libs/README.md).
