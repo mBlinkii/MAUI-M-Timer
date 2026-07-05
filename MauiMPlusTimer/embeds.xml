@@ -1,0 +1,30 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- Core stub + callbacks -->
+    <Script file="Libs\LibStub\LibStub.lua"/>
+    <Include file="Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml"/>
+
+    <!-- Ace3 -->
+    <Include file="Libs\AceAddon-3.0\AceAddon-3.0.xml"/>
+    <Include file="Libs\AceEvent-3.0\AceEvent-3.0.xml"/>
+    <Include file="Libs\AceConsole-3.0\AceConsole-3.0.xml"/>
+    <Include file="Libs\AceTimer-3.0\AceTimer-3.0.xml"/>
+    <Include file="Libs\AceDB-3.0\AceDB-3.0.xml"/>
+    <Include file="Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml"/>
+    <Include file="Libs\AceGUI-3.0\AceGUI-3.0.xml"/>
+    <Include file="Libs\AceConfig-3.0\AceConfig-3.0.xml"/>
+    <Include file="Libs\AceLocale-3.0\AceLocale-3.0.xml"/>
+
+    <!-- Shared media registry + preview dropdown widgets (textures/borders/
+         fonts/sounds). LibSharedMedia must load before the widgets and before
+         AceGUI consumers; the widgets depend on AceGUI (above) being loaded. -->
+    <Include file="Libs\LibSharedMedia-3.0\lib.xml"/>
+    <Include file="Libs\AceGUI-3.0-SharedMediaWidgets\AceGUI-3.0-SharedMediaWidgets\widget.xml"/>
+
+    <!-- Serialization (profile import/export) -->
+    <Script file="Libs\LibSerialize\LibSerialize.lua"/>
+    <Script file="Libs\LibDeflate\LibDeflate.lua"/>
+
+    <!-- Broker + minimap button -->
+    <Script file="Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua"/>
+    <Include file="Libs\LibDBIcon-1.0\lib.xml"/>
+</Ui>

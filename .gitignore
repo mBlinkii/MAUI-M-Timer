@@ -1,0 +1,18 @@
+# --- Vendored/external libraries ---
+# Pulled in automatically by the packager via MauiMPlusTimer/.pkgmeta,
+# so they are not tracked in version control (see Libs/README.md).
+MauiMPlusTimer/Libs/*
+!MauiMPlusTimer/Libs/README.md
+
+# --- Packager output ---
+.release/
+*.zip
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# --- WoW client artifacts (in case the addon is symlinked/copied for testing) ---
+WowLuaSettings.lua

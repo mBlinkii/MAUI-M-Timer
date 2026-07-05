@@ -1,0 +1,88 @@
+## Interface: 120005
+## Title: MAUI M+ Timer
+## Notes: Modular Mythic+ timer for World of Warcraft (Midnight)
+## Author: Blinkii
+## Version: 1.0.0
+## SavedVariables: MauiMPlusTimerDB
+## X-Category: Mythic+
+## X-License: MIT
+## IconTexture: Interface\AddOns\MauiMPlusTimer\Assets\icon_small
+## AddonCompartmentFunc: MauiMPlusTimer_OnCompartmentClick
+
+# --- Embedded libraries (Ace3 + helpers, see Libs/README.md) ---
+embeds.xml
+
+# --- Localization (enUS must load first as the default locale) ---
+Localization\enUS.lua
+Localization\deDE.lua
+
+# --- Core (Init creates the addon object and must load first) ---
+Core\Init.lua
+Core\Utilities.lua
+Core\Logger.lua
+Core\DB.lua
+Core\RunState.lua
+Core\RunController.lua
+Core\Demo.lua
+Core\Profiles.lua
+Core\Config.lua
+Core\Broker.lua
+
+# --- UI layer ---
+UI\Themes.lua
+UI\Media.lua
+UI\Icons.lua
+UI\Widgets.lua
+UI\RunCard.lua
+UI\MainWindow.lua
+UI\StyleOptions.lua
+
+# --- Module base class (must load before any module) ---
+Modules\ModuleTemplate.lua
+
+# --- Modules ---
+Modules\Dungeon\Module.lua
+Modules\Dungeon\UI.lua
+Modules\Dungeon\Options.lua
+
+Modules\Timer\Module.lua
+Modules\Timer\Data.lua
+Modules\Timer\UI.lua
+Modules\Timer\Options.lua
+
+Modules\EnemyForces\Module.lua
+Modules\EnemyForces\Data.lua
+Modules\EnemyForces\UI.lua
+Modules\EnemyForces\Options.lua
+
+Modules\Objectives\Module.lua
+Modules\Objectives\Data.lua
+Modules\Objectives\UI.lua
+Modules\Objectives\Options.lua
+
+Modules\Deaths\Module.lua
+Modules\Deaths\UI.lua
+Modules\Deaths\Options.lua
+
+Modules\Splits\Module.lua
+Modules\Splits\Data.lua
+Modules\Splits\UI.lua
+Modules\Splits\Manager.lua
+Modules\Splits\Options.lua
+
+Modules\Checkpoints\Module.lua
+Modules\Checkpoints\Data.lua
+Modules\Checkpoints\UI.lua
+Modules\Checkpoints\Editor.lua
+Modules\Checkpoints\Options.lua
+
+Modules\Cooldowns\Module.lua
+Modules\Cooldowns\UI.lua
+Modules\Cooldowns\Options.lua
+
+Modules\Sound\Module.lua
+Modules\Sound\Data.lua
+Modules\Sound\Options.lua
+
+Modules\Automation\Module.lua
+Modules\Automation\Options.lua
