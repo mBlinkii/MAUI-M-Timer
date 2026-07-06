@@ -15,11 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read version, interface, and date from the TOC
+      - name: Read version, interface, and date
         id: meta
         run: |
           TOC="MauiMPlusTimer/MauiMPlusTimer.toc"
-          VERSION=$(grep -oP '^## Version:\s*\K.+' "$TOC" | tr -d '\r')
+          # Version comes from the git tag that triggered this run, so the
+          # release/zip/CurseForge version always matches what was tagged,
+          # even if the .toc's own "## Version:" line lags behind.
+          VERSION="${GITHUB_REF_NAME#v}"
           IFACE=$(grep -oP '^## Interface:\s*\K.+' "$TOC" | tr -d '\r ')
           DATE=$(date +%Y-%m-%d)
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -64,14 +67,16 @@ jobs:
 
       - name: Build zip
         run: |
-          cd MauiMPlusTimer
-          rm -f .pkgmeta
-          zip -r "../${{ steps.meta.outputs.zipname }}.zip" . -x ".git*"
+          rm -f MauiMPlusTimer/.pkgmeta
+          # Zip from the repo root, referencing the folder by name, so
+          # "MauiMPlusTimer/" itself is the top-level entry in the archive
+          # (required for WoW/CurseForge - not just its contents).
+          zip -r "${{ steps.meta.outputs.zipname }}.zip" "MauiMPlusTimer" -x "MauiMPlusTimer/.git*"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          name: MAUI M+ Timer v${{ steps.meta.outputs.version }}
+          name: Ver. ${{ steps.meta.outputs.version }}
           files: ${{ steps.meta.outputs.zipname }}.zip
           generate_release_notes: true
 
