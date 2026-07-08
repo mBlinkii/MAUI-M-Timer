@@ -217,6 +217,16 @@ function Editor:ShowShare(container)
     d1:SetText(L["Click Export to generate a shareable string of all your checkpoints, then copy it."])
     scroll:AddChild(d1)
 
+    -- Format toggle: shareable string (default) vs. readable Lua code for
+    -- embedding checkpoints into addon code (not re-importable).
+    local exportAsLua = false
+
+    local plainToggle = AceGUI:Create("CheckBox")
+    plainToggle:SetLabel(L["Export as Lua table"])
+    plainToggle:SetDescription(L["Output the profile as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."])
+    plainToggle:SetFullWidth(true)
+    scroll:AddChild(plainToggle)
+
     local exportBox = AceGUI:Create("MultiLineEditBox")
     exportBox:SetLabel(L["Export string"])
     exportBox:SetFullWidth(true)
@@ -224,11 +234,24 @@ function Editor:ShowShare(container)
     exportBox:DisableButton(true)
     scroll:AddChild(exportBox)
 
+    local function generateExport()
+        return (exportAsLua and Checkpoints.Data.ExportPlain()
+            or Checkpoints.Data.Export()) or ""
+    end
+
+    plainToggle:SetCallback("OnValueChanged", function(_, _, value)
+        exportAsLua = value and true or false
+        -- Regenerate an already visible export in the new format.
+        if exportBox:GetText() ~= "" then
+            exportBox:SetText(generateExport())
+        end
+    end)
+
     local exportBtn = AceGUI:Create("Button")
     exportBtn:SetText(L["Export"])
     exportBtn:SetWidth(180)
     exportBtn:SetCallback("OnClick", function()
-        exportBox:SetText(Checkpoints.Data.Export() or "")
+        exportBox:SetText(generateExport())
     end)
     scroll:AddChild(exportBtn)
 

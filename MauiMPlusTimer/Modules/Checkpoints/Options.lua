@@ -18,8 +18,20 @@ function Checkpoints:GetOptions()
                 type = "execute", name = L["Edit checkpoints"], order = 2,
                 func = function() Checkpoints.Editor:Toggle() end,
             },
+            loadPreset = {
+                type = "execute", name = L["Load default checkpoints"], order = 3,
+                desc = L["Load the author's curated checkpoint targets. Matching dungeons will be overwritten."],
+                confirm = function() return L["Overwrite matching dungeons with the built-in checkpoints?"] end,
+                func = function()
+                    local ok, count = Checkpoints.Data.ImportAuthorPreset()
+                    if ok then
+                        Addon:Info(L["Imported checkpoints for %d dungeon(s)."], count or 0)
+                        if Checkpoints.Editor then Checkpoints.Editor:Refresh() end
+                    end
+                end,
+            },
             settings = {
-                type = "group", inline = true, name = L["Settings"], order = 3,
+                type = "group", inline = true, name = L["Settings"], order = 4,
                 args = {
                     align = Addon:ModuleAlignOption(self, 1),
                 },

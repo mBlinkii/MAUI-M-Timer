@@ -217,6 +217,52 @@ function Utils.CopyIntoTyped(dst, src)
     return dst
 end
 
+-- Serialize a table into readable Lua source (a table constructor). Used by
+-- the plain-text profile export so a profile can be pasted directly into addon
+-- code (e.g. the factory preset in Core/DB.lua). Supports string, number,
+-- boolean and nested table values; other types are skipped. Keys are emitted
+-- in a stable order (numeric ascending, then strings alphabetically).
+function Utils.SerializeTable(tbl, indent)
+    indent = indent or 0
+    local pad = string.rep("    ", indent + 1)
+    local lines = { "{" }
+
+    local numKeys, strKeys = {}, {}
+    for k in pairs(tbl) do
+        if type(k) == "number" then
+            numKeys[#numKeys + 1] = k
+        elseif type(k) == "string" then
+            strKeys[#strKeys + 1] = k
+        end
+    end
+    table.sort(numKeys)
+    table.sort(strKeys)
+
+    local function keyStr(k)
+        if type(k) == "number" then return "[" .. tostring(k) .. "]" end
+        if k:match("^[%a_][%w_]*$") then return k end
+        return string.format("[%q]", k)
+    end
+
+    local function append(k)
+        local v = tbl[k]
+        local t = type(v)
+        if t == "table" then
+            lines[#lines + 1] = pad .. keyStr(k) .. " = " .. Utils.SerializeTable(v, indent + 1) .. ","
+        elseif t == "string" then
+            lines[#lines + 1] = pad .. keyStr(k) .. " = " .. string.format("%q", v) .. ","
+        elseif t == "number" or t == "boolean" then
+            lines[#lines + 1] = pad .. keyStr(k) .. " = " .. tostring(v) .. ","
+        end
+    end
+
+    for _, k in ipairs(numKeys) do append(k) end
+    for _, k in ipairs(strKeys) do append(k) end
+
+    lines[#lines + 1] = string.rep("    ", indent) .. "}"
+    return table.concat(lines, "\n")
+end
+
 -- Convert an {r,g,b,a} color (0..1) into a WoW "AARRGGBB" hex escape body.
 -- The byte helper and white fallback are module-local so no closure/table is
 -- allocated per call (this runs once per colored text, every tick).

@@ -327,6 +327,7 @@ function Addon:BuildColorsOptions()
                         args = {
                             text = areaColor(ns.E.forcesText, "textColor", L["Text"], 1),
                             count = areaColor(ns.E.forcesText, "countColor", L["Remaining count color"], 2, { 0.6, 0.6, 0.6, 1 }),
+                            segment = areaColor(ns.E.forcesSegment, "textColor", L["Segment percentage"], 3),
                         },
                     },
                     bar = {

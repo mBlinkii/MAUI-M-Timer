@@ -90,3 +90,15 @@ jobs:
           display_name: MAUI M+ Timer v${{ steps.meta.outputs.version }}
           game_versions: ${{ steps.meta.outputs.game_versions }}
           release_type: release
+
+      - name: Upload to Wago Addons
+        run: |
+          GAME_VERSION=$(echo "${{ steps.meta.outputs.game_versions }}" | cut -d',' -f1)
+          METADATA=$(printf '{"label":"%s","stability":"stable","supported_retail_patch":"%s"}' \
+            "${{ steps.meta.outputs.version }}" "$GAME_VERSION")
+          curl -sf -X POST \
+            -F "metadata=$METADATA" \
+            -F "file=@${{ steps.meta.outputs.zipname }}.zip" \
+            -H "Authorization: Bearer ${{ secrets.WAGO_API_TOKEN }}" \
+            -H "Accept: application/json" \
+            "https://addons.wago.io/api/projects/QN53AvKB/version"

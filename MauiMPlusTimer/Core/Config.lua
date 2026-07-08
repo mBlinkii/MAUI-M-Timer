@@ -211,15 +211,30 @@ function Addon:BuildShareOptions()
                 type = "description", order = 1,
                 name = L["Click Export to generate a shareable string of your current profile, then copy it."],
             },
+            exportPlain = {
+                type = "toggle", order = 2, width = "full",
+                name = L["Export as Lua table"],
+                desc = L["Output the profile as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."],
+                get = function() return Addon._exportPlain end,
+                set = function(_, v)
+                    Addon._exportPlain = v
+                    -- Regenerate an already visible export in the new format.
+                    if Addon._exportString and Addon._exportString ~= "" then
+                        Addon._exportString = (v and Addon.Profiles:ExportPlain()
+                            or Addon.Profiles:Export()) or ""
+                    end
+                end,
+            },
             exportBtn = {
-                type = "execute", order = 2, name = L["Export"],
+                type = "execute", order = 3, name = L["Export"],
                 func = function()
-                    Addon._exportString = Addon.Profiles:Export() or ""
+                    Addon._exportString = (Addon._exportPlain and Addon.Profiles:ExportPlain()
+                        or Addon.Profiles:Export()) or ""
                     LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
                 end,
             },
             export = {
-                type = "input", multiline = 6, width = "full", order = 3,
+                type = "input", multiline = 6, width = "full", order = 4,
                 name = L["Export string"],
                 hidden = function() return not Addon._exportString or Addon._exportString == "" end,
                 get = function() return Addon._exportString or "" end,

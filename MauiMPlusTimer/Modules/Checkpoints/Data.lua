@@ -130,6 +130,13 @@ function Data.Export()
     return LibDeflate:EncodeForPrint(compressed)
 end
 
+-- Export ALL stored checkpoint data as readable Lua source (a table
+-- constructor keyed by mapID), e.g. for embedding checkpoint presets directly
+-- into addon code. Not importable via Import().
+function Data.ExportPlain()
+    return Addon.Utils.SerializeTable(store())
+end
+
 -- Rebuild a dungeon entry from untrusted import data, keeping only well-formed
 -- values: bySection items need a numeric bossIndex/targetPct, ponr items a
 -- numeric pct (percentages clamped to 0..100). Returns nil when nothing in the
@@ -196,5 +203,90 @@ function Data.Import(str)
         end
     end
     if count == 0 then return false, "no valid checkpoint data" end
+    return true, count
+end
+
+-- Author-curated checkpoint preset, shipped with the addon so any user can
+-- adopt sensible per-dungeon targets with a single click (see
+-- Data.ImportAuthorPreset and the "Load default checkpoints" option in
+-- Options.lua). Kept as plain Lua data, keyed by mapID; edit here to update
+-- the shipped defaults.
+local AUTHOR_PRESET = {
+    [161] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 28.05 },
+            { bossIndex = 2, targetPct = 52.2 },
+            { bossIndex = 3, targetPct = 60.09 },
+            { bossIndex = 4, targetPct = 100 },
+        },
+    },
+    [239] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 20.4 },
+            { bossIndex = 2, targetPct = 60.7 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+        ponr = { { pct = 82.2 } },
+    },
+    [402] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 21.5 },
+            { bossIndex = 2, targetPct = 42.1 },
+            { bossIndex = 3, targetPct = 77.1 },
+            { bossIndex = 4, targetPct = 100 },
+        },
+    },
+    [556] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 57.3 },
+            { bossIndex = 2, targetPct = 78.6 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [557] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 45.1 },
+            { bossIndex = 2, targetPct = 70.5 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [558] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 28.1 },
+            { bossIndex = 2, targetPct = 50.05 },
+            { bossIndex = 3, targetPct = 83 },
+            { bossIndex = 4, targetPct = 100 },
+        },
+    },
+    [559] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 28.5 },
+            { bossIndex = 2, targetPct = 73.3 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [560] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 45.9 },
+            { bossIndex = 2, targetPct = 88.8 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+}
+
+-- Load the author-curated preset (AUTHOR_PRESET above), overwriting any
+-- existing entry for the dungeons it covers; dungeons not covered by the
+-- preset are kept untouched. Entries are run through the same validation as
+-- a normal import. Returns true plus the number of dungeons loaded.
+function Data.ImportAuthorPreset()
+    local s = store()
+    local count = 0
+    for mapID, entry in pairs(AUTHOR_PRESET) do
+        local sanitized = sanitizeEntry(entry)
+        if sanitized then
+            s[mapID] = sanitized
+            count = count + 1
+        end
+    end
     return true, count
 end

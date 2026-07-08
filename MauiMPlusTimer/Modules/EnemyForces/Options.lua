@@ -13,10 +13,46 @@ function Forces:GetOptions()
     textOpts.args.countColor = Addon:ElementColorOption(
         self, ns.E.forcesText, "countColor", L["Remaining count color"], 14, { 0.6, 0.6, 0.6, 1 })
 
-    -- Bar styling plus a nested Checkpoint markers group.
+    -- Bar styling plus checkpoint split controls and a nested Checkpoint markers
+    -- group.
     local barOpts = Addon:ElementBarOptions(self, ns.E.forcesBar, 30)
+    barOpts.args.splitBar = {
+        type = "toggle", name = L["Split bar at checkpoints"], order = 7,
+        desc = L["Split the bar into segments at each checkpoint (the 100% target is ignored)."],
+        get = function() return Forces:GetSettings().splitBar == true end,
+        set = function(_, v) Forces:GetSettings().splitBar = v; Addon.StyleRestyle(Forces) end,
+    }
+    barOpts.args.nlSplit = Addon:OptLine(8)
+    barOpts.args.splitGap = {
+        type = "range", name = L["Segment gap"], order = 9, min = 0, max = 20, step = 1,
+        disabled = function() return Forces:GetSettings().splitBar ~= true end,
+        get = function() return Forces:GetSettings().splitGap or 2 end,
+        set = function(_, v) Forces:GetSettings().splitGap = v; Addon.StyleRestyle(Forces) end,
+    }
+    -- Per-segment "% needed" countdown (split mode only): a toggle plus the
+    -- label's own font/size/offset/color controls (merged flat, orders 11+).
+    local segmentArgs = {
+        segmentCountdown = {
+            type = "toggle", name = L["Segment countdown"], order = 1,
+            desc = L["Show the still-needed percentage on each segment; it counts down and hides when the checkpoint is reached."],
+            disabled = function() return Forces:GetSettings().splitBar ~= true end,
+            get = function() return Forces:GetSettings().segmentCountdown == true end,
+            set = function(_, v) Forces:GetSettings().segmentCountdown = v; Addon.StyleRestyle(Forces) end,
+        },
+        nl = Addon:OptLine(2),
+    }
+    for k, v in pairs(Addon:ElementTextArgs(self, ns.E.forcesSegment, 10, { color = true })) do
+        segmentArgs[k] = v
+    end
+    barOpts.args.segment = {
+        type = "group", inline = true, name = L["Segment percentage"], order = 25,
+        disabled = function() return Forces:GetSettings().splitBar ~= true end,
+        args = segmentArgs,
+    }
     barOpts.args.markers = {
         type = "group", inline = true, name = L["Checkpoint markers"], order = 30,
+        -- In split mode the segment gaps already mark every checkpoint.
+        disabled = function() return Forces:GetSettings().splitBar == true end,
         args = {
             show = {
                 type = "toggle", name = L["Show checkpoint markers"], order = 1,

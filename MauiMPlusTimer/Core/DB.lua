@@ -296,6 +296,13 @@ local preset = {
                 xOffset = 0,
                 yOffset = 0,
             },
+            forcesSegment = {
+                font = "Fonts\\FRIZQT__.TTF",
+                fontSize = 11,
+                textColor = { 1, 1, 1, 1 },
+                xOffset = 0,
+                yOffset = 0,
+            },
             hudTitle = {},
             objectiveText = {
                 doneColor = { 0.2, 1, 0.6, 1 },

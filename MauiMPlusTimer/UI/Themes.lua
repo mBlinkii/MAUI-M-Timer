@@ -60,8 +60,9 @@ ns.E = {
     dungeonName    = "dungeonName",
     dungeonAffixes = "dungeonAffixes",
     -- Enemy Forces
-    forcesText = "forcesText",
-    forcesBar  = "forcesBar",
+    forcesText    = "forcesText",
+    forcesBar     = "forcesBar",
+    forcesSegment = "forcesSegment",
     -- Single-line text modules
     objectiveText   = "objectiveText",
     deathsText      = "deathsText",

@@ -23,6 +23,13 @@ function Profiles:Export()
     return LibDeflate:EncodeForPrint(compressed)
 end
 
+-- Export the current profile as readable Lua source (a table constructor),
+-- e.g. for embedding a curated preset directly into addon code (Core/DB.lua).
+-- Note: this format is for developers and cannot be re-imported via Import().
+function Profiles:ExportPlain()
+    return Addon.Utils.SerializeTable(Addon.db.profile)
+end
+
 -- Import a profile string onto the current profile.
 -- Returns true on success, or false plus an error message.
 function Profiles:Import(str)
