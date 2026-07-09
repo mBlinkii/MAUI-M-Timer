@@ -64,9 +64,14 @@ jobs:
           cat RELEASE_NOTES.md
 
           # Expose the notes as a (multi-line) step output for action inputs.
+          # The extra "echo" before each delimiter guarantees the delimiter
+          # starts on its own line even when the file lacks a trailing newline
+          # (python -m markdown emits none) - otherwise GitHub fails with
+          # "Matching delimiter not found".
           {
             echo "body<<NOTES_EOF"
             cat RELEASE_NOTES.md
+            echo ""
             echo "NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -79,6 +84,7 @@ jobs:
           {
             echo "body_html<<NOTES_EOF"
             cat RELEASE_NOTES.html
+            echo ""
             echo "NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
