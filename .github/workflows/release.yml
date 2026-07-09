@@ -70,6 +70,18 @@ jobs:
             echo "NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
+          # CurseForge stores changelogs natively as HTML; markdown sent through
+          # its API renders lossy (newlines collapse, "#"/backticks get escaped),
+          # so the CurseForge upload gets a proper HTML conversion instead.
+          pip install --quiet markdown
+          python3 -m markdown RELEASE_NOTES.md > RELEASE_NOTES.html
+
+          {
+            echo "body_html<<NOTES_EOF"
+            cat RELEASE_NOTES.html
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Install Subversion
         run: sudo apt-get update -qq && sudo apt-get install -y -qq subversion
 
@@ -125,8 +137,8 @@ jobs:
           display_name: MAUI M+ Timer v${{ steps.meta.outputs.version }}
           game_versions: ${{ steps.meta.outputs.game_versions }}
           release_type: release
-          changelog: ${{ steps.notes.outputs.body }}
-          changelog_type: markdown
+          changelog: ${{ steps.notes.outputs.body_html }}
+          changelog_type: html
 
       - name: Upload to Wago Addons
         run: |

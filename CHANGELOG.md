@@ -9,6 +9,7 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 ### Fixes
 
 - Release workflow: the Wago upload sent the metadata JSON inline via `curl -F`, which corrupted it (commas/newlines are `-F` syntax); it is now passed from a file, fixing the "metadata must be a valid JSON string" error.
+- Release workflow: the CurseForge changelog is now uploaded as HTML (converted from the markdown notes) — markdown sent through the CurseForge API rendered unreadable (collapsed newlines, escaped characters).
 
 ## [1.1.16] - 2026-07-09
 
