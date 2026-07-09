@@ -37,6 +37,39 @@ jobs:
           done
           echo "game_versions=$VERSIONS" >> "$GITHUB_OUTPUT"
 
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          # Copy this version's section body from CHANGELOG.md: everything
+          # between its "## [x.y.z]" heading and the next "## [" heading.
+          # Matching only on "## [x.y.z]" keeps suffixes like "- Unreleased"
+          # or the release date working.
+          awk -v ver="$VERSION" '
+            /^## \[/ { insec = (index($0, "## [" ver "]") == 1); next }
+            insec { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+
+          # Trim leading blank lines.
+          sed -i '/./,$!d' RELEASE_NOTES.md
+
+          # Every release must ship its changelog on GitHub/CurseForge/Wago,
+          # so a missing section is a hard error, not a silent fallback.
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "::error::No section for version ${VERSION} found in CHANGELOG.md - add it before tagging." >&2
+            exit 1
+          fi
+
+          echo "Release notes for v${VERSION}:"
+          cat RELEASE_NOTES.md
+
+          # Expose the notes as a (multi-line) step output for action inputs.
+          {
+            echo "body<<NOTES_EOF"
+            cat RELEASE_NOTES.md
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Install Subversion
         run: sudo apt-get update -qq && sudo apt-get install -y -qq subversion
 
@@ -78,7 +111,9 @@ jobs:
         with:
           name: Ver. ${{ steps.meta.outputs.version }}
           files: ${{ steps.meta.outputs.zipname }}.zip
-          generate_release_notes: true
+          # Release notes come from CHANGELOG.md (see the notes step above)
+          # instead of auto-generated commit lists.
+          body_path: RELEASE_NOTES.md
 
       - name: Upload to CurseForge
         uses: itsmeow/curseforge-upload@v3
@@ -90,15 +125,36 @@ jobs:
           display_name: MAUI M+ Timer v${{ steps.meta.outputs.version }}
           game_versions: ${{ steps.meta.outputs.game_versions }}
           release_type: release
+          changelog: ${{ steps.notes.outputs.body }}
+          changelog_type: markdown
 
       - name: Upload to Wago Addons
         run: |
           GAME_VERSION=$(echo "${{ steps.meta.outputs.game_versions }}" | cut -d',' -f1)
-          METADATA=$(printf '{"label":"%s","stability":"stable","supported_retail_patch":"%s"}' \
-            "${{ steps.meta.outputs.version }}" "$GAME_VERSION")
-          curl -sf -X POST \
+          # Build the metadata JSON with jq so the multi-line markdown
+          # changelog is escaped correctly.
+          METADATA=$(jq -n \
+            --arg label "${{ steps.meta.outputs.version }}" \
+            --arg patch "$GAME_VERSION" \
+            --rawfile changelog RELEASE_NOTES.md \
+            '{label: $label, stability: "stable", supported_retail_patch: $patch, changelog: $changelog}')
+
+          # "|| true" keeps the step alive under "bash -e" when curl fails at
+          # the network level (exit != 0, HTTP_CODE "000"), so status and body
+          # are still printed and the check below produces a clear failure.
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST \
             -F "metadata=$METADATA" \
             -F "file=@${{ steps.meta.outputs.zipname }}.zip" \
             -H "Authorization: Bearer ${{ secrets.WAGO_API_TOKEN }}" \
             -H "Accept: application/json" \
-            "https://addons.wago.io/api/projects/QN53AvKB/version"
+            "https://addons.wago.io/api/projects/QN53AvKB/version") || true
+
+          echo "HTTP status: ${HTTP_CODE:-000}"
+          echo "Response body:"
+          cat response.json 2>/dev/null || echo "(no response body)"
+          echo
+
+          if [ "${HTTP_CODE:-0}" -lt 200 ] || [ "${HTTP_CODE:-0}" -ge 300 ]; then
+            echo "Wago upload failed." >&2
+            exit 1
+          fi

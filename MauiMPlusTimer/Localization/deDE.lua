@@ -113,6 +113,8 @@ L["Color"] = "Farbe"
 L["Export as Lua table"] = "Als Lua-Tabelle exportieren"
 L["Output the profile as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."] =
     "Gibt das Profil als lesbaren Lua-Code aus (zur Verwendung in einem Addon) statt als Teilen-String. Dieses Format kann nicht re-importiert werden."
+L["Output the checkpoints as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."] =
+    "Gibt die Checkpoints als lesbaren Lua-Code aus (zur Verwendung in einem Addon) statt als Teilen-String. Dieses Format kann nicht re-importiert werden."
 L["Minimap button"] = "Minimap-Button"
 L["Show the minimap button."] = "Minimap-Button anzeigen."
 L["Left-click"] = "Linksklick"

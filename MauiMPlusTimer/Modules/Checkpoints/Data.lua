@@ -22,6 +22,30 @@ local function store()
     return Addon.db.global.checkpoints
 end
 
+-- Change tracking / caching ---------------------------------------------------
+
+-- Generation counter, bumped on every mutation of the checkpoint store. Cheap
+-- consumers (e.g. the Enemy Forces split bar) compare it instead of the data
+-- itself to detect changes without re-reading or re-serializing anything.
+local generation = 0
+
+-- Cache of GetTargetPercents results keyed by mapID; invalidated wholesale on
+-- any mutation. Cached tables are returned by reference and MUST be treated as
+-- read-only by callers.
+local percentsCache = {}
+
+-- Invalidate all derived data after a store mutation.
+local function invalidate()
+    generation = generation + 1
+    wipe(percentsCache)
+end
+
+-- Monotonically increasing counter identifying the current state of the
+-- checkpoint store; changes whenever any checkpoint data changes.
+function Data.GetGeneration()
+    return generation
+end
+
 -- Return the entry for a dungeon (or nil).
 function Data.Get(mapID)
     return store()[mapID]
@@ -68,11 +92,19 @@ function Data.GetNextPoNR(mapID, currentPct)
     return nil
 end
 
+-- Empty result shared by all dungeons without checkpoint data (read-only).
+local EMPTY_PERCENTS = {}
+
 -- Distinct target percentages (0..100) across the section and time targets,
 -- sorted ascending. Used to draw checkpoint markers on the Enemy Forces bar.
+-- Results are cached per mapID until the next mutation; the returned table is
+-- shared and must not be modified by callers.
 function Data.GetTargetPercents(mapID)
+    local cached = percentsCache[mapID]
+    if cached then return cached end
+
     local e = store()[mapID]
-    if not e then return {} end
+    if not e then return EMPTY_PERCENTS end
 
     local seen, out = {}, {}
     local function collect(list)
@@ -91,6 +123,7 @@ function Data.GetTargetPercents(mapID)
     collect(e.bySection)
     collect(e.ponr)
     table.sort(out)
+    percentsCache[mapID] = out
     return out
 end
 
@@ -99,21 +132,62 @@ end
 function Data.AddSection(mapID, bossIndex, targetPct)
     local e = Data.GetOrCreate(mapID)
     table.insert(e.bySection, { bossIndex = bossIndex or 1, targetPct = targetPct or 0 })
+    invalidate()
 end
 
 function Data.AddPoNR(mapID, pct)
     local e = Data.GetOrCreate(mapID)
     table.insert(e.ponr, { pct = pct or 0 })
+    invalidate()
 end
 
 function Data.RemoveSection(mapID, index)
     local e = store()[mapID]
-    if e and e.bySection then table.remove(e.bySection, index) end
+    if e and e.bySection then
+        table.remove(e.bySection, index)
+        invalidate()
+    end
 end
 
 function Data.RemovePoNR(mapID, index)
     local e = store()[mapID]
-    if e and e.ponr then table.remove(e.ponr, index) end
+    if e and e.ponr then
+        table.remove(e.ponr, index)
+        invalidate()
+    end
+end
+
+-- Set the boss index of the bySection row at `index`. Non-numeric input is
+-- ignored; the value is floored and kept >= 1.
+function Data.SetSectionBossIndex(mapID, index, value)
+    local e = store()[mapID]
+    local row = e and e.bySection and e.bySection[index]
+    local v = tonumber(value)
+    if not (row and v) then return end
+    row.bossIndex = math.max(1, math.floor(v))
+    invalidate()
+end
+
+-- Set the target percentage of the bySection row at `index`. Non-numeric input
+-- is ignored; the value is clamped to 0..100.
+function Data.SetSectionTargetPct(mapID, index, value)
+    local e = store()[mapID]
+    local row = e and e.bySection and e.bySection[index]
+    local v = tonumber(value)
+    if not (row and v) then return end
+    row.targetPct = Addon.Utils.Clamp(v, 0, 100)
+    invalidate()
+end
+
+-- Set the threshold of the ponr row at `index`. Non-numeric input is ignored;
+-- the value is clamped to 0..100.
+function Data.SetPoNRPct(mapID, index, value)
+    local e = store()[mapID]
+    local row = e and e.ponr and e.ponr[index]
+    local v = tonumber(value)
+    if not (row and v) then return end
+    row.pct = Addon.Utils.Clamp(v, 0, 100)
+    invalidate()
 end
 
 -- Share (export / import) ----------------------------------------------------
@@ -203,6 +277,7 @@ function Data.Import(str)
         end
     end
     if count == 0 then return false, "no valid checkpoint data" end
+    invalidate()
     return true, count
 end
 
@@ -288,5 +363,6 @@ function Data.ImportAuthorPreset()
             count = count + 1
         end
     end
+    invalidate()
     return true, count
 end

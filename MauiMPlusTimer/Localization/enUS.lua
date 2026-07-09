@@ -102,6 +102,7 @@ L["Height"] = true
 L["Color"] = true
 L["Export as Lua table"] = true
 L["Output the profile as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."] = true
+L["Output the checkpoints as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."] = true
 L["Minimap button"] = true
 L["Show the minimap button."] = true
 L["Left-click"] = true

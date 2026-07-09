@@ -217,13 +217,22 @@ function Utils.CopyIntoTyped(dst, src)
     return dst
 end
 
+-- Deepest table nesting SerializeTable will follow. Profile/checkpoint tables
+-- are only a few levels deep; the guard protects against accidental cycles or
+-- runaway structures (which would otherwise overflow the stack).
+local SERIALIZE_MAX_DEPTH = 20
+
 -- Serialize a table into readable Lua source (a table constructor). Used by
 -- the plain-text profile export so a profile can be pasted directly into addon
 -- code (e.g. the factory preset in Core/DB.lua). Supports string, number,
 -- boolean and nested table values; other types are skipped. Keys are emitted
--- in a stable order (numeric ascending, then strings alphabetically).
+-- in a stable order (numeric ascending, then strings alphabetically). Nesting
+-- deeper than SERIALIZE_MAX_DEPTH is cut off with a marker comment.
 function Utils.SerializeTable(tbl, indent)
     indent = indent or 0
+    if indent >= SERIALIZE_MAX_DEPTH then
+        return "{} --[[ depth limit reached ]]"
+    end
     local pad = string.rep("    ", indent + 1)
     local lines = { "{" }
 

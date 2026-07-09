@@ -140,16 +140,15 @@ function Editor:ShowDungeon(container, mapID)
     scroll:AddChild(h1)
 
     for i, s in ipairs(bySection) do
-        -- Inputs are validated: boss index is a whole number >= 1, the target
-        -- is clamped to 0..100 %. Non-numeric input keeps the previous value.
+        -- Writes go through the Data setters (validation + change tracking):
+        -- boss index is a whole number >= 1, the target is clamped to 0..100 %.
+        -- Non-numeric input keeps the previous value.
         addRow(scroll, L["Boss"] .. " #", tostring(s.bossIndex or 1), tostring(s.targetPct or 0),
             function(text)
-                local v = tonumber(text)
-                if v then s.bossIndex = math.max(1, math.floor(v)) end
+                Checkpoints.Data.SetSectionBossIndex(mapID, i, text)
             end,
             function(text)
-                local v = tonumber(text)
-                if v then s.targetPct = Utils.Clamp(v, 0, 100) end
+                Checkpoints.Data.SetSectionTargetPct(mapID, i, text)
             end,
             function()
                 Checkpoints.Data.RemoveSection(mapID, i)
@@ -173,11 +172,11 @@ function Editor:ShowDungeon(container, mapID)
     scroll:AddChild(h2)
 
     for i, p in ipairs(ponr) do
-        -- The threshold is clamped to 0..100 %; non-numeric input is ignored.
+        -- Writes go through the Data setter (validation + change tracking): the
+        -- threshold is clamped to 0..100 %; non-numeric input is ignored.
         addPonrRow(scroll, tostring(p.pct or 0),
             function(text)
-                local v = tonumber(text)
-                if v then p.pct = Utils.Clamp(v, 0, 100) end
+                Checkpoints.Data.SetPoNRPct(mapID, i, text)
             end,
             function()
                 Checkpoints.Data.RemovePoNR(mapID, i)
@@ -223,7 +222,7 @@ function Editor:ShowShare(container)
 
     local plainToggle = AceGUI:Create("CheckBox")
     plainToggle:SetLabel(L["Export as Lua table"])
-    plainToggle:SetDescription(L["Output the profile as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."])
+    plainToggle:SetDescription(L["Output the checkpoints as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."])
     plainToggle:SetFullWidth(true)
     scroll:AddChild(plainToggle)
 

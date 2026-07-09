@@ -11,6 +11,18 @@ Forces.UI = UI
 
 local DEFAULT_SEGMENT_GAP = 2 -- pixels between split segments (fallback)
 
+-- Fixed sample checkpoints shown in demo mode (read-only).
+local DEMO_PERCENTS = { 30, 55, 80 }
+
+-- Shared empty result for "no checkpoints" (read-only).
+local NO_PERCENTS = {}
+
+-- Hide a pooled segment bar together with its countdown label (if any).
+local function hideSegment(seg)
+    seg:Hide()
+    if seg.cdLabel then seg.cdLabel:Hide() end
+end
+
 -- Stacking order: "top" keeps the bar above the objectives (default), "bottom"
 -- moves it just below them (objectives are order 30, deaths order 40).
 local function blockOrder()
@@ -57,10 +69,7 @@ function UI:LayoutBar()
         self:LayoutSegments(s, h)
     else
         if self.segBars then
-            for _, b in ipairs(self.segBars) do
-                b:Hide()
-                if b.cdLabel then b.cdLabel:Hide() end
-            end
+            for _, b in ipairs(self.segBars) do hideSegment(b) end
         end
         self.bar:Show()
     end
@@ -80,16 +89,17 @@ end
 
 -- Checkpoint target percentages (0..100, ascending) for the current dungeon, or
 -- a fixed sample set in demo mode so the split/markers can be styled outside a
--- key. Shared by the markers and the split segments.
+-- key. Shared by the markers and the split segments. The returned table is
+-- shared/cached and must not be modified.
 function UI:CheckpointPercents()
     local run = Addon.RunState:Get()
     local Checkpoints = Addon:GetModule("Checkpoints", true)
     if run and run.mapID and Checkpoints and Checkpoints.Data then
         return Checkpoints.Data.GetTargetPercents(run.mapID)
     elseif Addon.Demo:IsActive() then
-        return { 30, 55, 80 }
+        return DEMO_PERCENTS
     end
-    return {}
+    return NO_PERCENTS
 end
 
 -- Split boundaries as fractions (0..1). Each checkpoint below 100% becomes a cut;
@@ -112,13 +122,18 @@ function UI:SegmentDefs()
     return defs
 end
 
--- A cheap signature of the split geometry inputs (bar width + checkpoint set) so
--- Update only rebuilds the segment frames when they actually change, not on every
--- criteria tick.
+-- A cheap signature of the split geometry inputs (bar width, dungeon, checkpoint
+-- store generation) so Update only rebuilds the segment frames when they actually
+-- change, not on every criteria tick. The generation counter stands in for the
+-- checkpoint set itself, avoiding any per-tick table/string churn.
 function UI:SplitSignature()
     local w = (self.bar and self.bar:GetWidth()) or 0
-    return string.format("%d|%s", math.floor(w + 0.5),
-        table.concat(self:CheckpointPercents(), ","))
+    local run = Addon.RunState:Get()
+    local mapID = (run and run.mapID) or 0
+    local Checkpoints = Addon:GetModule("Checkpoints", true)
+    local gen = (Checkpoints and Checkpoints.Data
+        and Checkpoints.Data.GetGeneration()) or 0
+    return string.format("%d|%d|%d", math.floor(w + 0.5), mapID, gen)
 end
 
 -- Create segment bars on demand up to `count`, pooling and hiding any extras
@@ -131,8 +146,7 @@ function UI:EnsureSegments(count)
         end
     end
     for i = count + 1, #self.segBars do
-        self.segBars[i]:Hide()
-        if self.segBars[i].cdLabel then self.segBars[i].cdLabel:Hide() end
+        hideSegment(self.segBars[i])
     end
 end
 
@@ -173,8 +187,7 @@ function UI:LayoutSegments(style, h)
             self:LayoutSegmentLabel(seg, def, i)
             x = x + w + gap
         else
-            seg:Hide()
-            if seg.cdLabel then seg.cdLabel:Hide() end
+            hideSegment(seg)
         end
     end
 end
