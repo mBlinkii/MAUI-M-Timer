@@ -57,4 +57,9 @@
     <!-- Automation (tracker hiding, keystone auto-slot) -->
     <Script file="Automation\Module.lua"/>
     <Script file="Automation\Options.lua"/>
+
+    <!-- Changelog (in-game version history + one-time update popup) -->
+    <Script file="Changelog\Module.lua"/>
+    <Script file="Changelog\Data.lua"/>
+    <Script file="Changelog\Options.lua"/>
 </Ui>

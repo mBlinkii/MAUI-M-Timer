@@ -38,6 +38,7 @@ local MENU_NODES = {
     colors     = { order = 4,   group = "core",     icon = MENU_ICON_DIR .. "colors" },
     modules    = { order = 10,  group = "modules",  icon = ICON_MODULES },
     profiles   = { order = 90,  group = "profiles", icon = ICON_PROFILES },
+    changelog  = { order = 95,  group = "about",    icon = MENU_ICON_DIR .. "about" },
     about      = { order = 100, group = "about",    icon = MENU_ICON_DIR .. "about" },
 }
 

@@ -96,6 +96,8 @@ local defaults = {
         version     = 1,
         splits      = {},
         checkpoints = {},
+        -- Last addon version whose changelog was auto-shown (Modules/Changelog).
+        lastChangelogVersion = "",
     },
 }
 

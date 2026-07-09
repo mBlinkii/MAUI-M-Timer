@@ -4,7 +4,11 @@ All notable changes to **MAUI M+ Timer** are documented in this file.
 
 Changes are grouped per version into **New** (features), **Updates** (improvements to existing behavior), and **Fixes** (bug fixes). Changes land under the topmost *Unreleased* version until it is released.
 
-## [1.1.16] - Unreleased
+## [1.1.16] - 2026-07-09
+
+### New
+
+- In-game changelog with the full version history (options tree and `/mauimpt changelog`); it opens once automatically after every addon update. The auto-show can be disabled on the changelog page.
 
 ### Updates
 
@@ -12,6 +16,8 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 - Checkpoints: editor inputs (boss index, target %, PoNR %) now write through validating data-API setters instead of directly into the stored tables.
 - Release workflow: the Wago upload step logs the HTTP status and response body, and fails cleanly (with output) on network-level errors.
 - Release workflow: the released version's changelog section is now extracted from CHANGELOG.md and published as the release notes on GitHub, CurseForge, and Wago; releases fail if the section is missing.
+- Dungeon: the dungeon icon is now cropped so Blizzard's baked-in icon border is no longer visible.
+- About: the command list now includes `/mauimpt changelog`.
 
 ### Fixes
 

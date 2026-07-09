@@ -46,6 +46,9 @@ function UI:Build()
     self.nameText = Addon.Widgets:CreateText(block, ns.E.dungeonName)
     self.affixText = Addon.Widgets:CreateText(block, ns.E.dungeonAffixes)
     self.icon = block:CreateTexture(nil, "ARTWORK")
+    -- Trim the built-in border baked into Blizzard icon textures (standard 8%
+    -- crop on every side). Set once here; it survives SetTexture swaps.
+    self.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     self.icon:Hide()
 
     self:LayoutTexts()
