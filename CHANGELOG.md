@@ -4,6 +4,12 @@ All notable changes to **MAUI M+ Timer** are documented in this file.
 
 Changes are grouped per version into **New** (features), **Updates** (improvements to existing behavior), and **Fixes** (bug fixes). Changes land under the topmost *Unreleased* version until it is released.
 
+## [Unreleased]
+
+### Fixes
+
+- Release workflow: the Wago upload sent the metadata JSON inline via `curl -F`, which corrupted it (commas/newlines are `-F` syntax); it is now passed from a file, fixing the "metadata must be a valid JSON string" error.
+
 ## [1.1.16] - 2026-07-09
 
 ### New

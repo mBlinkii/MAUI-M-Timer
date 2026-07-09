@@ -131,19 +131,24 @@ jobs:
       - name: Upload to Wago Addons
         run: |
           GAME_VERSION=$(echo "${{ steps.meta.outputs.game_versions }}" | cut -d',' -f1)
-          # Build the metadata JSON with jq so the multi-line markdown
-          # changelog is escaped correctly.
-          METADATA=$(jq -n \
+          # Build the metadata JSON with jq (correct escaping of the multi-line
+          # markdown changelog) and write it to a file. It is passed to curl as
+          # '-F "metadata=<file"', which sends the raw file content as the field
+          # value - passing the JSON inline would let curl interpret commas,
+          # semicolons and newlines inside it as -F syntax and corrupt the field
+          # (Wago then rejects it with "metadata must be a valid JSON string").
+          jq -n \
             --arg label "${{ steps.meta.outputs.version }}" \
             --arg patch "$GAME_VERSION" \
             --rawfile changelog RELEASE_NOTES.md \
-            '{label: $label, stability: "stable", supported_retail_patch: $patch, changelog: $changelog}')
+            '{label: $label, stability: "stable", supported_retail_patch: $patch, changelog: $changelog}' \
+            > wago_metadata.json
 
           # "|| true" keeps the step alive under "bash -e" when curl fails at
           # the network level (exit != 0, HTTP_CODE "000"), so status and body
           # are still printed and the check below produces a clear failure.
           HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST \
-            -F "metadata=$METADATA" \
+            -F "metadata=<wago_metadata.json" \
             -F "file=@${{ steps.meta.outputs.zipname }}.zip" \
             -H "Authorization: Bearer ${{ secrets.WAGO_API_TOKEN }}" \
             -H "Accept: application/json" \
