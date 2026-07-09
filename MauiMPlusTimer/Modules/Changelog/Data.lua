@@ -23,7 +23,6 @@ Data.entries = {
         updates = {
             "Enemy Forces: checkpoint target percentages are now cached per dungeon - the split bar no longer allocates memory on every progress tick.",
             "Checkpoints: editor inputs (boss index, target %, PoNR %) now go through validating data-API setters.",
-            "Release notes are now published automatically on GitHub, CurseForge and Wago; upload errors are reported clearly.",
             "Dungeon: the dungeon icon is now cropped so Blizzard's baked-in icon border is no longer visible.",
             "About: the command list now includes /mauimpt changelog.",
         },
@@ -46,13 +45,6 @@ Data.entries = {
         },
         fixes = {
             "The percentage text on the Enemy Forces bar could be covered by bar or border textures; it now sits on a dedicated overlay.",
-        },
-    },
-    {
-        version = "1.1.9",
-        date = "2026-07-06",
-        updates = {
-            "Reworked release pipeline with library bundling and uploads to CurseForge, GitHub and Wago.",
         },
     },
     {
