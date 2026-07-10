@@ -87,11 +87,11 @@ L["Import"] = "Importieren"
 L["Export string"] = "Export-Text"
 L["Click Export to generate a shareable string of your current profile, then copy it."] =
     "Auf Exportieren klicken, um einen teilbaren Text deines aktuellen Profils zu erzeugen, dann kopieren."
-L["Paste a string and accept to overwrite the current profile."] =
-    "Text einfügen und bestätigen, um das aktuelle Profil zu überschreiben."
-L["Overwrite the current profile with the imported settings?"] =
-    "Aktuelles Profil mit den importierten Einstellungen überschreiben?"
-L["Profile imported."] = "Profil importiert."
+L["Paste a string and accept to import the profile. It is created under its exported name; your current profile is kept."] =
+    "Text einfügen und bestätigen, um das Profil zu importieren. Es wird unter seinem exportierten Namen angelegt; dein aktuelles Profil bleibt erhalten."
+L["Profile '%s' already exists. Overwrite it?"] =
+    "Profil '%s' existiert bereits. Überschreiben?"
+L["Imported profile '%s'."] = "Profil '%s' importiert."
 L["Import failed: %s"] = "Import fehlgeschlagen: %s"
 L["Debug mode"] = "Debug-Modus"
 L["Show debug messages in chat."] = "Debug-Nachrichten im Chat anzeigen."

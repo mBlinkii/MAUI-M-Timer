@@ -265,20 +265,30 @@ function Addon:BuildShareOptions()
             },
             importDesc = {
                 type = "description", order = 10,
-                name = L["Paste a string and accept to overwrite the current profile."],
+                name = L["Paste a string and accept to import the profile. It is created under its exported name; your current profile is kept."],
             },
             import = {
                 type = "input", multiline = 6, width = "full", order = 11,
                 name = L["Import"],
-                confirm = function() return L["Overwrite the current profile with the imported settings?"] end,
+                -- Confirmation is only needed when the imported name collides
+                -- with an existing profile. Invalid strings return false here
+                -- (no popup) and fail fast with an error in `set` instead.
+                confirm = function(_, value)
+                    local payload = Addon.Profiles:DecodeImport(value)
+                    if payload and Addon.Profiles:Exists(payload.name) then
+                        return string.format(
+                            L["Profile '%s' already exists. Overwrite it?"], payload.name)
+                    end
+                    return false
+                end,
                 get = function() return "" end,
                 set = function(_, value)
-                    local ok, err = Addon.Profiles:Import(value)
+                    local ok, res = Addon.Profiles:Import(value)
                     if ok then
-                        Addon:Info(L["Profile imported."])
+                        Addon:Info(L["Imported profile '%s'."], tostring(res))
                         if Addon.MainWindow then Addon.MainWindow:Refresh() end
                     else
-                        Addon:Error(L["Import failed: %s"], tostring(err))
+                        Addon:Error(L["Import failed: %s"], tostring(res))
                     end
                 end,
             },

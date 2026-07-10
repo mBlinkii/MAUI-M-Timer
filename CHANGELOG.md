@@ -19,6 +19,7 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 ### Updates
 
 - Import/export strings (profiles and checkpoints) are now tagged and validated: the import only accepts genuine MAUI export strings of the matching type and rejects foreign, mismatched, or corrupted strings. Note: strings exported with earlier versions are no longer accepted — re-export to share.
+- Importing a profile no longer overwrites the current one: the profile is created under its exported name and activated. You are only asked for confirmation when a profile with that name already exists; invalid strings are rejected immediately without a confirmation popup.
 - The options window opens noticeably larger by default (900x650).
 - The minimap button and the addon compartment entry now toggle the options window — a second click closes it.
 

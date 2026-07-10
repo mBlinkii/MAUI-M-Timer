@@ -124,18 +124,72 @@ function MainWindow:ApplyWidth()
 end
 
 -- Register a module's display block so the HUD can stack the blocks vertically.
+-- `order` is only the fallback for keys that are not user-orderable; the
+-- orderable module blocks get their effective order from the configured list
+-- (see ApplyBlockOrder below) on every Layout.
 function MainWindow:AddBlock(key, frame, order)
     self.blocks = self.blocks or {}
     self.blocks[key] = { frame = frame, order = order or 100 }
     self:Layout()
 end
 
--- Change a registered block's stacking order and restack (e.g. moving the Enemy
--- Forces bar above or below the objectives).
-function MainWindow:SetBlockOrder(key, order)
-    if self.blocks and self.blocks[key] then
-        self.blocks[key].order = order
-        self:Layout()
+-- Block stacking order ---------------------------------------------------------
+-- The vertical order of the module blocks is user-configurable: profile.ui
+-- .blockOrder lists the block keys top-to-bottom (options: General -> Element
+-- order). Keys missing from a saved list - e.g. modules added by a later
+-- update - are appended in default order, so old profiles keep working.
+
+-- Default top-to-bottom order of all user-orderable blocks.
+local DEFAULT_BLOCK_ORDER = {
+    "dungeon", "timer", "forces", "objectives",
+    "deaths", "splits", "checkpoints", "cooldowns",
+}
+
+-- Set of the orderable keys, for filtering unknown entries out of saved lists.
+local ORDERABLE = {}
+for _, key in ipairs(DEFAULT_BLOCK_ORDER) do ORDERABLE[key] = true end
+
+-- The effective top-to-bottom key list: the saved list cleaned of unknown or
+-- duplicate keys, with missing known keys appended in default order. Returns
+-- a fresh table the caller may modify.
+function MainWindow:GetBlockOrderList()
+    local list, seen = {}, {}
+    local saved = Addon.db.profile.ui.blockOrder
+    if type(saved) == "table" then
+        for _, key in ipairs(saved) do
+            if ORDERABLE[key] and not seen[key] then
+                list[#list + 1] = key
+                seen[key] = true
+            end
+        end
+    end
+    for _, key in ipairs(DEFAULT_BLOCK_ORDER) do
+        if not seen[key] then
+            list[#list + 1] = key
+            seen[key] = true
+        end
+    end
+    return list
+end
+
+-- Move the block at `index` of the effective list one step up (-1) or down
+-- (+1), persist the new list and restack.
+function MainWindow:MoveBlock(index, delta)
+    local list = self:GetBlockOrderList()
+    local other = index + delta
+    if not (list[index] and list[other]) then return end
+    list[index], list[other] = list[other], list[index]
+    Addon.db.profile.ui.blockOrder = list
+    self:Layout()
+end
+
+-- Apply the configured order to the registered blocks. Positions are spaced
+-- by 10 so the separators' x.1/x.2 offsets never collide with them.
+function MainWindow:ApplyBlockOrder()
+    if not self.blocks then return end
+    for index, key in ipairs(self:GetBlockOrderList()) do
+        local b = self.blocks[key]
+        if b then b.order = index * 10 end
     end
 end
 
@@ -208,6 +262,8 @@ function MainWindow:Layout()
     if not self.blocks then return end
     local hud = self:Get()
 
+    -- Effective block order first: the separators anchor to it right after.
+    self:ApplyBlockOrder()
     self:UpdateSeparators()
 
     local ordered = orderedScratch
