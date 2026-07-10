@@ -23,6 +23,7 @@ Data.entries = {
             "The setup wizard ships with the 'MaUI' preset profile (the author's personal look, with preview screenshot) alongside the factory default.",
         },
         updates = {
+            "Import/export strings (profiles and checkpoints) are now tagged and validated: the import only accepts genuine MAUI export strings of the matching type. Strings exported with earlier versions are no longer accepted - re-export to share.",
             "The options window opens noticeably larger by default.",
             "The minimap button and the addon compartment entry now toggle the options window - a second click closes it.",
         },

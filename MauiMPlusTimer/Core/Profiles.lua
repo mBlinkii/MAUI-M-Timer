@@ -8,19 +8,12 @@ local Addon = ns.Addon
 local Profiles = {}
 Addon.Profiles = Profiles
 
--- Optional libs are loaded silently; import/export is unavailable without them.
-local LibSerialize = LibStub("LibSerialize", true)
-local LibDeflate   = LibStub("LibDeflate", true)
-
--- Export the current profile as a printable, shareable string.
+-- Export the current profile as a printable, shareable string. The string is
+-- tagged and validated by the shared codec (Utils.EncodeShare/DecodeShare),
+-- so only genuine MAUI profile strings can be re-imported.
 -- Returns the string, or nil plus an error message.
 function Profiles:Export()
-    if not (LibSerialize and LibDeflate) then
-        return nil, "LibSerialize/LibDeflate not available"
-    end
-    local serialized = LibSerialize:Serialize(Addon.db.profile)
-    local compressed = LibDeflate:CompressDeflate(serialized)
-    return LibDeflate:EncodeForPrint(compressed)
+    return Addon.Utils.EncodeShare("profile", Addon.db.profile)
 end
 
 -- Export the current profile as readable Lua source (a table constructor),
@@ -44,32 +37,19 @@ function Profiles:ApplyTable(tbl)
     return true
 end
 
--- Import a profile string onto the current profile.
+-- Import a profile string onto the current profile. Only tagged, validated
+-- MAUI profile strings are accepted (see Utils.DecodeShare); anything else is
+-- rejected with an error.
 -- Returns true on success, or false plus an error message.
 function Profiles:Import(str)
-    if not (LibSerialize and LibDeflate) then
-        return false, "LibSerialize/LibDeflate not available"
-    end
-    if type(str) ~= "string" or str == "" then
-        return false, "empty import string"
-    end
-
-    local decoded = LibDeflate:DecodeForPrint(str)
-    if not decoded then return false, "invalid string" end
-
-    local decompressed = LibDeflate:DecompressDeflate(decoded)
-    if not decompressed then return false, "decompression failed" end
-
-    local ok, data = LibSerialize:Deserialize(decompressed)
-    if not ok or type(data) ~= "table" then
-        return false, "deserialization failed"
-    end
+    local payload, err = Addon.Utils.DecodeShare("profile", str)
+    if not payload then return false, err end
 
     -- Merge decoded values onto the live profile (defaults backfill anything
     -- missing; unknown keys simply have no effect on behaviour). The typed merge
     -- skips values whose type conflicts with the existing profile structure, so
     -- a corrupt/hand-edited string cannot corrupt the live profile.
-    Addon.Utils.CopyIntoTyped(Addon.db.profile, data)
+    Addon.Utils.CopyIntoTyped(Addon.db.profile, payload)
     Addon:SendMessage("MMT_PROFILE_CHANGED")
     return true
 end

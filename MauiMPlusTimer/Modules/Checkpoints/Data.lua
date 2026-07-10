@@ -12,11 +12,6 @@ local Checkpoints = Addon:GetModule("Checkpoints")
 local Data = {}
 Checkpoints.Data = Data
 
--- Optional libs for the shareable export/import string (silent fetch); without
--- them export/import is simply unavailable.
-local LibSerialize = LibStub("LibSerialize", true)
-local LibDeflate   = LibStub("LibDeflate", true)
-
 local function store()
     Addon.db.global.checkpoints = Addon.db.global.checkpoints or {}
     return Addon.db.global.checkpoints
@@ -193,15 +188,11 @@ end
 -- Share (export / import) ----------------------------------------------------
 
 -- Export ALL stored checkpoint data as a printable, shareable string, or nil
--- plus an error message.
+-- plus an error message. The string is tagged and validated by the shared
+-- codec (Utils.EncodeShare/DecodeShare), so only genuine MAUI checkpoint
+-- strings can be re-imported.
 function Data.Export()
-    if not (LibSerialize and LibDeflate) then
-        return nil, "LibSerialize/LibDeflate not available"
-    end
-    local payload = { version = 1, checkpoints = store() }
-    local serialized = LibSerialize:Serialize(payload)
-    local compressed = LibDeflate:CompressDeflate(serialized)
-    return LibDeflate:EncodeForPrint(compressed)
+    return Addon.Utils.EncodeShare("checkpoints", store())
 end
 
 -- Export ALL stored checkpoint data as readable Lua source (a table
@@ -240,32 +231,15 @@ local function sanitizeEntry(entry)
     return out
 end
 
--- Import a checkpoint string. Per dungeon: an incoming entry overwrites the
--- existing one for that dungeon; dungeons not present in the string are kept.
--- Incoming entries are sanitized (see sanitizeEntry); invalid ones are skipped.
+-- Import a checkpoint string. Only tagged, validated MAUI checkpoint strings
+-- are accepted (see Utils.DecodeShare). Per dungeon: an incoming entry
+-- overwrites the existing one for that dungeon; dungeons not present in the
+-- string are kept. Incoming entries are sanitized (see sanitizeEntry);
+-- invalid ones are skipped.
 -- Returns true plus the number of imported dungeons, or false plus an error.
 function Data.Import(str)
-    if not (LibSerialize and LibDeflate) then
-        return false, "LibSerialize/LibDeflate not available"
-    end
-    if type(str) ~= "string" or str == "" then
-        return false, "empty import string"
-    end
-
-    local decoded = LibDeflate:DecodeForPrint(str)
-    if not decoded then return false, "invalid string" end
-
-    local decompressed = LibDeflate:DecompressDeflate(decoded)
-    if not decompressed then return false, "decompression failed" end
-
-    local ok, data = LibSerialize:Deserialize(decompressed)
-    if not ok or type(data) ~= "table" then
-        return false, "deserialization failed"
-    end
-
-    -- Accept both the wrapped payload and a raw checkpoints table.
-    local incoming = (type(data.checkpoints) == "table" and data.checkpoints) or data
-    if type(incoming) ~= "table" then return false, "no checkpoint data" end
+    local incoming, err = Addon.Utils.DecodeShare("checkpoints", str)
+    if not incoming then return false, err end
 
     local s = store()
     local count = 0

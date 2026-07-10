@@ -217,6 +217,91 @@ function Utils.CopyIntoTyped(dst, src)
     return dst
 end
 
+-- Secure share-string codec ---------------------------------------------------
+
+-- Every MAUI export string carries a readable prefix ("!MAUI:<kind>:<v>!") AND
+-- an addon marker inside the serialized envelope. Import accepts only strings
+-- that carry both with the expected kind, so foreign strings (e.g. exports of
+-- other addons built on the same libraries), mismatched types (a checkpoint
+-- string pasted into the profile import) and corrupted data are all rejected.
+local SHARE_MARKER  = "MauiMPlusTimer"
+local SHARE_VERSION = 1
+
+-- Optional libs (silent fetch); without them share strings are unavailable.
+local function shareLibs()
+    return LibStub("LibSerialize", true), LibStub("LibDeflate", true)
+end
+
+-- Encode a payload table into a tagged, shareable string.
+-- @param kind    string  payload type tag, e.g. "profile" or "checkpoints".
+-- @param payload table   the data to share.
+-- @return the string, or nil plus an error message.
+function Utils.EncodeShare(kind, payload)
+    local LibSerialize, LibDeflate = shareLibs()
+    if not (LibSerialize and LibDeflate) then
+        return nil, "LibSerialize/LibDeflate not available"
+    end
+    local envelope = {
+        addon   = SHARE_MARKER,
+        kind    = kind,
+        version = SHARE_VERSION,
+        payload = payload,
+    }
+    local compressed = LibDeflate:CompressDeflate(LibSerialize:Serialize(envelope))
+    return string.format("!MAUI:%s:%d!%s", kind, SHARE_VERSION,
+        LibDeflate:EncodeForPrint(compressed))
+end
+
+-- Decode a tagged share string, accepting only genuine MAUI strings of the
+-- expected kind (see the format notes above).
+-- @param kind string  the expected payload type tag.
+-- @param str  string  the pasted share string.
+-- @return the payload table, or nil plus an error message.
+function Utils.DecodeShare(kind, str)
+    local LibSerialize, LibDeflate = shareLibs()
+    if not (LibSerialize and LibDeflate) then
+        return nil, "LibSerialize/LibDeflate not available"
+    end
+    if type(str) ~= "string" or str == "" then
+        return nil, "empty import string"
+    end
+
+    -- Tolerate whitespace/linebreaks picked up while copying; neither the
+    -- prefix nor the printable encoding contain legitimate whitespace.
+    str = str:gsub("%s+", "")
+
+    local strKind, strVersion, body = str:match("^!MAUI:(%w+):(%d+)!(.+)$")
+    if not strKind then
+        return nil, "not a MAUI export string"
+    end
+    if strKind ~= kind then
+        return nil, string.format("wrong export type (expected %s, got %s)", kind, strKind)
+    end
+    if tonumber(strVersion) ~= SHARE_VERSION then
+        return nil, "unsupported export version"
+    end
+
+    local decoded = LibDeflate:DecodeForPrint(body)
+    if not decoded then return nil, "invalid string" end
+
+    local decompressed = LibDeflate:DecompressDeflate(decoded)
+    if not decompressed then return nil, "decompression failed" end
+
+    local ok, envelope = LibSerialize:Deserialize(decompressed)
+    if not ok or type(envelope) ~= "table" then
+        return nil, "deserialization failed"
+    end
+
+    -- Defense in depth: the prefix alone could be pasted onto foreign data,
+    -- so the envelope must independently prove it is ours and of this kind.
+    if envelope.addon ~= SHARE_MARKER or envelope.kind ~= kind
+        or type(envelope.payload) ~= "table" then
+        return nil, "not a valid MAUI export"
+    end
+
+    return envelope.payload
+end
+
 -- Deepest table nesting SerializeTable will follow. Profile/checkpoint tables
 -- are only a few levels deep; the guard protects against accidental cycles or
 -- runaway structures (which would otherwise overflow the stack).
