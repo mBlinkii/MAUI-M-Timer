@@ -40,7 +40,9 @@ World of Warcraft **Retail**, Midnight (12.0.x).
 
 ## Usage
 
-Type `/mauimpt` to open the options window, or use the minimap button. Subcommands jump straight to a page or panel: `/mauimpt demo`, `/mauimpt splits`, `/mauimpt checkpoints`, `/mauimpt changelog`, `/mauimpt profiles`.
+Type `/mauimpt` to open the options window, or use the minimap button. Subcommands jump straight to a page or panel: `/mauimpt demo`, `/mauimpt splits`, `/mauimpt checkpoints`, `/mauimpt changelog`, `/mauimpt setup`, `/mauimpt profiles`.
+
+On a fresh installation a short setup wizard opens automatically and helps you pick a starting profile and load recommended checkpoint targets.
 
 ## Support & Source
 

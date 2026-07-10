@@ -15,6 +15,22 @@ Changelog.Data = Data
 --   new/updates/fixes  arrays of plain lines; sections may be omitted
 Data.entries = {
     {
+        version = "Unreleased",
+        date = "",
+        new = {
+            "The options window remembers its size and position when you move or resize it; a small reset button at the bottom-left edge of the window restores the default size.",
+            "First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. Re-run it anytime via /mauimpt setup.",
+            "The setup wizard ships with the 'MaUI' preset profile (the author's personal look, with preview screenshot) alongside the factory default.",
+        },
+        updates = {
+            "The options window opens noticeably larger by default.",
+            "The minimap button and the addon compartment entry now toggle the options window - a second click closes it.",
+        },
+        fixes = {
+            "The profile Import/Export section no longer leaks into the profile pages of other addons (e.g. ElvUI).",
+        },
+    },
+    {
         version = "1.1.16",
         date = "2026-07-09",
         new = {

@@ -98,6 +98,14 @@ local defaults = {
         checkpoints = {},
         -- Last addon version whose changelog was auto-shown (Modules/Changelog).
         lastChangelogVersion = "",
+        -- Persisted geometry (width/height/top/left) of the standalone options
+        -- window; written by the AceGUI Frame status table (Core/Config.lua).
+        optionsWindow = {},
+        -- First-start setup wizard (Modules/Setup): `setupPending` is armed on
+        -- a fresh installation and cleared once the wizard was handled;
+        -- `setupDone` records that it ran (finished, skipped or closed).
+        setupPending = false,
+        setupDone    = false,
     },
 }
 
@@ -414,8 +422,17 @@ Addon.Utils.CopyInto(defaults.profile, preset)
 -- Create the database and wire up profile-change callbacks.
 function Addon:SetupDB()
     local AceDB = LibStub("AceDB-3.0")
+    -- Detect a fresh install BEFORE AceDB touches the SavedVariables: only a
+    -- brand-new installation (no stored data at all) arms the one-time setup
+    -- wizard, so existing users updating the addon are never bothered.
+    local freshInstall = (_G.MauiMPlusTimerDB == nil)
+
     -- Third arg `true` -> use a single shared "Default" profile to start with.
     self.db = AceDB:New("MauiMPlusTimerDB", defaults, true)
+
+    if freshInstall then
+        self.db.global.setupPending = true
+    end
 
     self:MigrateDB()
 

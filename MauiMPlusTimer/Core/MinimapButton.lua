@@ -14,12 +14,8 @@ local BUTTON_SIZE = 26
 local EDGE_OFFSET = 5   -- how far the button sits outside the minimap edge
 local DEFAULT_ANGLE = 207 -- degrees; matches the previous LibDBIcon default
 
---- Open the central options GUI.
-function Addon:OpenOptions()
-    if self.AceConfigDialog then
-        self.AceConfigDialog:Open(ADDON_NAME)
-    end
-end
+-- Addon:OpenOptions lives in Core/Config.lua (applies the persisted window
+-- geometry and the size-reset control on every open).
 
 -- Saved minimap settings table, created on demand.
 local function settings()
@@ -80,7 +76,8 @@ local function createButton()
         if mouseButton == "RightButton" then
             Addon.Demo:Toggle()
         else
-            Addon:OpenOptions()
+            -- Toggle so a second click closes an already open options window.
+            Addon:ToggleOptions()
         end
     end)
 
@@ -131,6 +128,7 @@ function Addon:SetMinimapShown(show)
 end
 
 -- AddOn Compartment entry click (referenced by ## AddonCompartmentFunc).
+-- Toggles so a second click closes an already open options window.
 function _G.MauiMPlusTimer_OnCompartmentClick(_, _)
-    Addon:OpenOptions()
+    Addon:ToggleOptions()
 end

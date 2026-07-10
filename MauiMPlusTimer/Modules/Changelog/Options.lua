@@ -36,12 +36,21 @@ local function sectionText(lines)
     return table.concat(out, "\n\n") .. "\n"
 end
 
--- Dropdown labels, e.g. "v1.1.15 (2026-07-08)". Numeric keys keep the
--- newest-first order of Data.entries in the dropdown.
+-- Dropdown labels, e.g. "v1.1.15 (2026-07-08)" or plain "Unreleased" for the
+-- pending entry. Numeric keys keep the newest-first order of Data.entries.
+local function versionLabel(entry)
+    local label = entry.version
+    if label ~= "Unreleased" then label = "v" .. label end
+    if entry.date and entry.date ~= "" then
+        label = label .. " (" .. entry.date .. ")"
+    end
+    return label
+end
+
 local function versionValues()
     local values = {}
     for i, entry in ipairs(Changelog.Data.entries) do
-        values[i] = string.format("v%s (%s)", entry.version, entry.date or "")
+        values[i] = versionLabel(entry)
     end
     return values
 end

@@ -30,10 +30,13 @@ function Changelog:OnDisable()
     self:UnregisterAllEvents()
 end
 
--- Whether the changelog should be auto-shown: the option is on (default) and
--- this addon version has not been shown yet on this account.
+-- Whether the changelog should be auto-shown: the option is on (default),
+-- this addon version has not been shown yet on this account, and no
+-- first-start setup is pending (the setup wizard takes precedence and marks
+-- the current version as seen when it completes).
 function Changelog:ShouldAutoShow()
     return self:GetSettings().autoShow ~= false
+        and Addon.db.global.setupPending ~= true
         and Addon.db.global.lastChangelogVersion ~= Addon.version
 end
 
@@ -59,6 +62,6 @@ end
 -- version account-wide so the auto-show fires only once per update.
 function Changelog:Show()
     Addon.db.global.lastChangelogVersion = Addon.version
-    Addon.AceConfigDialog:Open(ADDON_NAME)
+    Addon:OpenOptions()
     Addon.AceConfigDialog:SelectGroup(ADDON_NAME, "changelog")
 end

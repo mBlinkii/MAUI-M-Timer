@@ -62,4 +62,9 @@
     <Script file="Changelog\Module.lua"/>
     <Script file="Changelog\Data.lua"/>
     <Script file="Changelog\Options.lua"/>
+
+    <!-- Setup (first-start wizard: profile choice + default checkpoints) -->
+    <Script file="Setup\Module.lua"/>
+    <Script file="Setup\Data.lua"/>
+    <Script file="Setup\UI.lua"/>
 </Ui>

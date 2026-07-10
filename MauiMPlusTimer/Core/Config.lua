@@ -17,6 +17,12 @@ local ICON_PROFILES = MENU_ICON_DIR .. "profiles"
 -- 512x512 master scaled down where it is displayed.
 local LOGO_TEXTURE = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_big"
 
+-- Default (and reset) size of the standalone options window. Once the user
+-- moves or resizes the window, their geometry is persisted account-wide in
+-- db.global.optionsWindow and wins over these values (see Addon:OpenOptions).
+local OPTIONS_DEFAULT_WIDTH  = 900
+local OPTIONS_DEFAULT_HEIGHT = 650
+
 -- Functional colour scheme for the top-level menu entries. Grouping the entries
 -- by purpose (core appearance, modules, profiles, about) gives the tree a quick
 -- visual hierarchy. Colours are WoW |c colour codes (AARRGGBB).
@@ -184,12 +190,28 @@ function Addon:BuildOptions()
     end
 
     -- Standard profile management page (switch/copy/reset/delete).
-    options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-    options.args.profiles.order = -1
-    options.args.profiles.icon = ICON_PROFILES
+    -- IMPORTANT: the table returned by AceDBOptions shares its `args` across
+    -- EVERY addon that uses the library (tbl.args = optionsTable in the lib),
+    -- so it must never be modified - adding entries there would inject them
+    -- into other addons' profile pages (e.g. ElvUI). Build an own group that
+    -- only references the shared entries and add the share page to that.
+    local dbOptions = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+    local profiles = {
+        type = "group",
+        name = dbOptions.name,
+        desc = dbOptions.desc,
+        handler = dbOptions.handler, -- inherited by the referenced entries
+        order = -1,
+        icon = ICON_PROFILES,
+        args = {},
+    }
+    for key, option in pairs(dbOptions.args) do
+        profiles.args[key] = option -- read-only reference, never modified
+    end
     -- Nest profile sharing (import/export) as its own page under the profile
     -- node, the same way modules are nested under the Modules node.
-    options.args.profiles.args.share = self:BuildShareOptions()
+    profiles.args.share = self:BuildShareOptions()
+    options.args.profiles = profiles
 
     -- Apply the consistent order/icon/colour scheme to the top-level entries.
     ApplyMenuStyle(options.args)
@@ -343,9 +365,99 @@ function Addon:SetupConfig()
     end
 
     AceConfig:RegisterOptionsTable(ADDON_NAME, function() return Addon:BuildOptions() end)
+    self.AceConfigDialog:SetDefaultSize(ADDON_NAME, OPTIONS_DEFAULT_WIDTH, OPTIONS_DEFAULT_HEIGHT)
     self.optionsFrame = self.AceConfigDialog:AddToBlizOptions(ADDON_NAME, "MAUI M+ Timer")
 
     self:RegisterChatCommand("mauimpt", "HandleSlash")
+end
+
+-- Open the standalone options window. Every code path that opens the GUI
+-- (slash command, minimap button, addon compartment, changelog auto-show)
+-- goes through here so the persisted geometry and the reset control are
+-- always applied.
+function Addon:OpenOptions()
+    if not self.AceConfigDialog then return end
+    self.AceConfigDialog:Open(ADDON_NAME)
+
+    local widget = self.AceConfigDialog.OpenFrames[ADDON_NAME]
+    if not widget then return end
+
+    -- The AceGUI Frame writes its geometry (width/height/top/left) into its
+    -- status table whenever the user finishes moving or resizing. Pointing it
+    -- at a SavedVariables table persists the window geometry across sessions;
+    -- while the table is empty (first use / after a reset) the default size
+    -- from SetDefaultSize stays in effect.
+    if widget.SetStatusTable then
+        widget:SetStatusTable(self.db.global.optionsWindow)
+    end
+
+    self:EnsureOptionsResetButton(widget)
+end
+
+-- Toggle the standalone options window: close it when it is open, otherwise
+-- open it. Used by the minimap button and the addon compartment entry, so a
+-- second click on either dismisses the window again.
+function Addon:ToggleOptions()
+    if not self.AceConfigDialog then return end
+    if self.AceConfigDialog.OpenFrames[ADDON_NAME] then
+        self.AceConfigDialog:Close(ADDON_NAME)
+    else
+        self:OpenOptions()
+    end
+end
+
+-- Reset the options window to its default size, re-center it and clear the
+-- persisted geometry (so the default also applies to future sessions).
+function Addon:ResetOptionsWindowSize()
+    wipe(self.db.global.optionsWindow)
+    local widget = self.AceConfigDialog and self.AceConfigDialog.OpenFrames[ADDON_NAME]
+    if not widget then return end
+    widget:SetWidth(OPTIONS_DEFAULT_WIDTH)
+    widget:SetHeight(OPTIONS_DEFAULT_HEIGHT)
+    widget.frame:ClearAllPoints()
+    widget.frame:SetPoint("CENTER")
+end
+
+-- Attach the small "reset window size" control to the bottom-left edge of the
+-- options window (on the status bar, left of the resize handles). One shared
+-- button is reparented on every open; its OnShow guard hides it when AceGUI
+-- recycles the host frame for a different dialog (possibly another addon's).
+function Addon:EnsureOptionsResetButton(widget)
+    local L = ns.L
+    local btn = self._optionsResetButton
+    if not btn then
+        btn = CreateFrame("Button", nil, widget.frame)
+        btn:SetSize(16, 16)
+        btn:SetNormalTexture("Interface\\Buttons\\UI-RefreshButton")
+        btn:SetHighlightTexture("Interface\\Buttons\\UI-RefreshButton", "ADD")
+        btn:SetScript("OnClick", function()
+            Addon:ResetOptionsWindowSize()
+        end)
+        btn:SetScript("OnEnter", function(s)
+            GameTooltip:SetOwner(s, "ANCHOR_TOP")
+            GameTooltip:SetText(L["Reset window size"])
+            GameTooltip:Show()
+        end)
+        btn:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        -- Hide the button whenever its host frame is shown for anything that
+        -- is not our own options window (AceGUI widget recycling).
+        btn:SetScript("OnShow", function(s)
+            local open = Addon.AceConfigDialog
+                and Addon.AceConfigDialog.OpenFrames[ADDON_NAME]
+            if not (open and open.frame == s:GetParent()) then s:Hide() end
+        end)
+        self._optionsResetButton = btn
+    end
+
+    btn:SetParent(widget.frame)
+    btn:ClearAllPoints()
+    -- Vertically centered on the AceGUI Frame's status bar (which starts
+    -- ~15px above the frame's bottom edge and is ~24px tall).
+    btn:SetPoint("BOTTOMLEFT", widget.frame, "BOTTOMLEFT", 20, 19)
+    btn:SetFrameLevel(widget.frame:GetFrameLevel() + 10)
+    btn:Show()
 end
 
 -- Allow modules (and core appearance pages) to attach their own options group
@@ -458,8 +570,13 @@ function Addon:HandleSlash(input)
         if m and m.Editor then m.Editor:Toggle() end
         return
     end
+    if input == "setup" then
+        local m = Addon:GetModule("Setup", true)
+        if m and m.UI then m.UI:Show() end
+        return
+    end
 
-    dialog:Open(ADDON_NAME)
+    self:OpenOptions()
 
     -- Deeplink to a sub page when one exists (e.g. /mauimpt profiles or, for a
     -- module page now nested under the Modules node, /mauimpt timer).

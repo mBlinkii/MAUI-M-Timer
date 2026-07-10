@@ -30,6 +30,20 @@ function Profiles:ExportPlain()
     return Addon.Utils.SerializeTable(Addon.db.profile)
 end
 
+-- Apply an embedded profile preset (a plain Lua profile table, e.g. from the
+-- setup wizard). The profile is reset to the factory defaults first so the
+-- preset starts from a clean base, then the preset is merged with the same
+-- typed merge used by Import (type conflicts are skipped, defaults backfill
+-- anything the preset omits). Pass nil to just restore the factory defaults.
+function Profiles:ApplyTable(tbl)
+    Addon.db:ResetProfile() -- fires OnProfileReset -> Addon:OnProfileChanged
+    if type(tbl) == "table" then
+        Addon.Utils.CopyIntoTyped(Addon.db.profile, tbl)
+        Addon:OnProfileChanged()
+    end
+    return true
+end
+
 -- Import a profile string onto the current profile.
 -- Returns true on success, or false plus an error message.
 function Profiles:Import(str)
