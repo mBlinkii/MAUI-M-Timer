@@ -22,6 +22,7 @@ function Objectives:OnEnable()
     self:RegisterMessage("MMT_RUN_ENDED", "OnRunEnd")
     self:RegisterMessage("MMT_PROFILE_CHANGED", "LoadSettings")
     self:RegisterMessage("MMT_MODULE_TOGGLED", "OnModuleToggled")
+    self:RegisterMessage("MMT_FORCES_UPDATED", "OnForcesUpdated")
 
     self.UI:Build()
     if Addon.Demo:IsActive() then
@@ -157,13 +158,81 @@ function Objectives:TimesVisible()
     return splits and splits:IsEnabled()
 end
 
+-- Re-render when the forces snapshot changes so the optional forces row stays
+-- in sync - including the completion tick, which the forces module may
+-- process after our own criteria handler already ran (works while frozen,
+-- since it renders from the stored boss list without reading criteria).
+function Objectives:OnForcesUpdated()
+    if self:GetSettings().showForcesRow ~= true or self.state.demo then return end
+    local run = Addon.RunState:Get()
+    if run and run.bosses then
+        self.UI:Update(self:ForDisplay(run.bosses))
+    end
+end
+
+-- Optional synthetic "Enemy Forces" row, always appended LAST: shows the live
+-- forces percentage while in progress and the forces completion time once
+-- done. It reads the run's forces snapshot (RunState) - the same scenario
+-- events that drive this module also update that snapshot, so the row stays
+-- live without extra wiring. In demo mode it mirrors the demo forces value.
+function Objectives:ForcesRow()
+    if self:GetSettings().showForcesRow ~= true then return nil end
+    local L = ns.L
+    if self.state.demo then
+        return {
+            name = L["Enemy Forces"], done = false, progress = "65.0%",
+            best = self:TimesVisible() and 720 or nil,
+        }
+    end
+    local run = Addon.RunState:Get()
+    local f = run and run.forces
+    if not (f and f.total and f.total > 0) then return nil end
+    local percent = (f.current or 0) / f.total
+    local done = percent >= 1
+
+    local row = {
+        name = L["Enemy Forces"],
+        done = done,
+        progress = (not done) and string.format("%.1f%%", percent * 100) or nil,
+    }
+    -- Split-time fields (completion time, best, +/- delta) follow the same
+    -- visibility rule as the boss rows: they belong to the Splits module.
+    if self:TimesVisible() then
+        local best = Addon:GetBestRun(run.mapID, run.keyLevel)
+        row.best = best and best.forcesTime or nil
+        if done then
+            row.time = run.forcesTime
+            if row.time and row.best then
+                row.delta = row.time - row.best
+            end
+        end
+    end
+    return row
+end
+
 -- Boss list for display: as-is when split times are visible, otherwise a shallow
 -- copy with the time/delta/best fields dropped (run.bosses stays untouched).
+-- The optional Enemy Forces row is appended last; the list is copied first when
+-- it would otherwise alias run.bosses, which must never be mutated.
 function Objectives:ForDisplay(bosses)
-    if self:TimesVisible() then return bosses end
-    local out = {}
-    for i, b in ipairs(bosses or {}) do
-        out[i] = { name = b.name, done = b.done, encounterID = b.encounterID }
+    local out
+    if self:TimesVisible() then
+        out = bosses
+    else
+        out = {}
+        for i, b in ipairs(bosses or {}) do
+            out[i] = { name = b.name, done = b.done, encounterID = b.encounterID }
+        end
+    end
+
+    local forcesRow = self:ForcesRow()
+    if forcesRow then
+        if out == bosses then
+            local copy = {}
+            for i, b in ipairs(bosses or {}) do copy[i] = b end
+            out = copy
+        end
+        out[#out + 1] = forcesRow
     end
     return out
 end

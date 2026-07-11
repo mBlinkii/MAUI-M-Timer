@@ -56,7 +56,6 @@ Type `/mauimpt` to open the options window (or use the minimap button / addon co
 | `/mauimpt splits` | open the times manager |
 | `/mauimpt checkpoints` | open the checkpoint editor |
 | `/mauimpt changelog` | open the changelog |
-| `/mauimpt setup` | run the setup wizard |
 | `/mauimpt profiles` | open the profiles page |
 
 ## Architecture

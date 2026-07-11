@@ -63,8 +63,12 @@
     <Script file="Changelog\Data.lua"/>
     <Script file="Changelog\Options.lua"/>
 
-    <!-- Setup (first-start wizard: profile choice + default checkpoints) -->
+    <!-- Setup (first-start wizard: profile choice + default checkpoints).
+         PARKED: not loaded yet, planned for a later release. Re-enable by
+         uncommenting these lines (see also the setupPending arming in
+         Core/DB.lua and the /mauimpt setup deeplink in Core/Config.lua).
     <Script file="Setup\Module.lua"/>
     <Script file="Setup\Data.lua"/>
     <Script file="Setup\UI.lua"/>
+    -->
 </Ui>

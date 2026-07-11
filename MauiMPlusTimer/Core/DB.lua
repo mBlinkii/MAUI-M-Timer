@@ -433,9 +433,13 @@ function Addon:SetupDB()
     -- Third arg `true` -> use a single shared "Default" profile to start with.
     self.db = AceDB:New("MauiMPlusTimerDB", defaults, true)
 
-    if freshInstall then
-        self.db.global.setupPending = true
-    end
+    -- PARKED with the Setup module (planned for a later release): while the
+    -- module is not loaded, nothing would ever clear the pending flag, which
+    -- would suppress the changelog popup for fresh installs forever.
+    -- if freshInstall then
+    --     self.db.global.setupPending = true
+    -- end
+    local _ = freshInstall -- silence the unused-local warning until then
 
     self:MigrateDB()
     self:MigrateProfile()

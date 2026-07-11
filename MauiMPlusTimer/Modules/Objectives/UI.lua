@@ -123,17 +123,24 @@ function UI:Update(bosses)
         -- is not pushed around when it is shown.
         local bestStr = (showBest and boss.best) and Addon.Widgets:FormatBest(boss.best) or nil
 
+        -- Live progress of synthetic rows (Enemy Forces) sits directly beside
+        -- the name, in the split-time color.
+        local progressStr = boss.progress and ("|c" .. timeHex .. boss.progress .. "|r") or nil
+
         -- Compose the name line so right alignment is the mirror of left: in
-        -- LEFT/CENTER the icon is on the left and the best time on the right; in
-        -- RIGHT the order flips (best time on the left, icon on the right).
+        -- LEFT/CENTER the icon is on the left and progress/best time follow the
+        -- name; in RIGHT the order flips (best/progress before the name, icon
+        -- after it).
         local nameStr
         if mode == "RIGHT" then
             nameStr = (bestStr and (bestStr .. " ") or "")
+                .. (progressStr and (progressStr .. " ") or "")
                 .. coloredName
                 .. (iconGlyph ~= "" and (" " .. iconGlyph) or "")
         else
             nameStr = (iconGlyph ~= "" and (iconGlyph .. " ") or "")
                 .. coloredName
+                .. (progressStr and (" " .. progressStr) or "")
                 .. (bestStr and (" " .. bestStr) or "")
         end
 

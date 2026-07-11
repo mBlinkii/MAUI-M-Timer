@@ -12,6 +12,12 @@ function Forces:GetOptions()
     -- the text's own position (in/above/below the bar), independent of the
     -- segment countdown position.
     local textOpts = Addon:ElementTextOptions(self, ns.E.forcesText, 20, { color = true })
+    textOpts.args.showText = {
+        type = "toggle", name = L["Show percentage text"], order = 13, width = "full",
+        desc = L["Show the forces percentage (and remaining count) text on the bar."],
+        get = function() return Forces:GetSettings().showText ~= false end,
+        set = function(_, v) Forces:GetSettings().showText = v; Addon.StyleRestyle(Forces) end,
+    }
     textOpts.args.countColor = Addon:ElementColorOption(
         self, ns.E.forcesText, "countColor", L["Remaining count color"], 14, { 0.6, 0.6, 0.6, 1 })
     textOpts.args.textPos = {
@@ -64,8 +70,8 @@ function Forces:GetOptions()
             get = function() return Forces:GetSettings().segmentCountdownAll == true end,
             set = function(_, v) Forces:GetSettings().segmentCountdownAll = v; Addon.StyleRestyle(Forces) end,
         },
-        -- Exactly the timer bar's position modes, relative to the checkpoint
-        -- boundary (marker line / segment gap).
+        -- The timer bar's position modes plus an in-bar centered one, relative
+        -- to the checkpoint boundary (marker line / segment gap).
         position = {
             type = "select", name = L["Position"], order = 1.5,
             disabled = function()
@@ -78,13 +84,11 @@ function Forces:GetOptions()
                 right    = L["Right of divider"],
                 barLeft  = L["In bar, left of divider"],
                 barRight = L["In bar, right of divider"],
+                center   = L["In bar, centered"],
             },
-            sorting = { "above", "below", "left", "right", "barLeft", "barRight" },
+            sorting = { "above", "below", "left", "right", "barLeft", "barRight", "center" },
             get = function()
-                local v = Addon:GetElementSetting(ns.E.forcesSegment).countdownPos
-                -- "center" existed only in a pre-release iteration.
-                if v == nil or v == "center" then v = "above" end
-                return v
+                return Addon:GetElementSetting(ns.E.forcesSegment).countdownPos or "above"
             end,
             set = function(_, v)
                 Addon:GetElementSetting(ns.E.forcesSegment).countdownPos = v

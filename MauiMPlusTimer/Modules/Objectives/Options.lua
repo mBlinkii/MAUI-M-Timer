@@ -35,6 +35,15 @@ function Objectives:GetOptions()
                         get = function() return Objectives:GetSettings().rowSpacing or 0 end,
                         set = function(_, v) Objectives:GetSettings().rowSpacing = v; Addon.StyleRestyle(Objectives) end,
                     },
+                    showForcesRow = {
+                        type = "toggle", name = L["Show Enemy Forces row"], order = 2.5, width = "full",
+                        desc = L["Add an Enemy Forces entry at the end of the list: live percentage while in progress, completion time once done."],
+                        get = function() return Objectives:GetSettings().showForcesRow == true end,
+                        set = function(_, v)
+                            Objectives:GetSettings().showForcesRow = v
+                            Addon.MainWindow:Refresh()
+                        end,
+                    },
                     nlShorten = Addon:OptLine(3),
                     -- Optional boss-name shortening (display only). The max-length
                     -- slider applies to the truncate mode.

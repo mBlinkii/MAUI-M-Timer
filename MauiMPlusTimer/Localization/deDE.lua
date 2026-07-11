@@ -24,7 +24,7 @@ L["Author"] = "Autor"
 L["Commands"] = "Befehle"
 L["License"] = "Lizenz"
 L["Category"] = "Kategorie"
-L["Command list"] = "/mauimpt \226\128\148 Optionen \195\182ffnen\n/mauimpt demo \226\128\148 Demo-Modus umschalten\n/mauimpt splits \226\128\148 Zeitenverwaltung \195\182ffnen\n/mauimpt checkpoints \226\128\148 Checkpoint-Editor \195\182ffnen\n/mauimpt changelog \226\128\148 Changelog \195\182ffnen\n/mauimpt setup \226\128\148 Setup-Assistent starten\n/mauimpt profiles \226\128\148 Profile \195\182ffnen"
+L["Command list"] = "/mauimpt \226\128\148 Optionen \195\182ffnen\n/mauimpt demo \226\128\148 Demo-Modus umschalten\n/mauimpt splits \226\128\148 Zeitenverwaltung \195\182ffnen\n/mauimpt checkpoints \226\128\148 Checkpoint-Editor \195\182ffnen\n/mauimpt changelog \226\128\148 Changelog \195\182ffnen\n/mauimpt profiles \226\128\148 Profile \195\182ffnen"
 L["No bracket"] = "Kein"
 L["Credits"] = "Danksagungen"
 L["Icon credit"] = "Symbole: Google Material Symbols (Apache-Lizenz 2.0)"
@@ -224,6 +224,12 @@ L["Segment percentage"] = "Segment-Prozent"
 L["Show the still-needed percentage on each segment (split bar) or at each checkpoint marker; it counts down and hides when the checkpoint is reached."] =
     "Zeigt die noch benötigten Prozent auf jedem Segment (geteilter Balken) bzw. an jedem Checkpoint-Marker; sie zählen runter und werden beim Erreichen des Checkpoints ausgeblendet."
 L["All checkpoint countdowns"] = "Alle Checkpoint-Countdowns"
+L["Show Enemy Forces row"] = "Streitkräfte-Eintrag anzeigen"
+L["Show percentage text"] = "Prozent-Text anzeigen"
+L["Show the forces percentage (and remaining count) text on the bar."] =
+    "Zeigt den Streitkräfte-Text (Prozent und verbleibende Anzahl) am Balken an."
+L["Add an Enemy Forces entry at the end of the list: live percentage while in progress, completion time once done."] =
+    "Fügt am Ende der Liste einen Streitkräfte-Eintrag hinzu: laufende Prozentanzeige, nach Abschluss die Abschlusszeit."
 L["Show a countdown to every checkpoint at once, not just the next."] =
     "Zeigt den Countdown zu jedem Checkpoint gleichzeitig an, nicht nur zum nächsten."
 L["Bar-text spacing"] = "Abstand Balken–Text"

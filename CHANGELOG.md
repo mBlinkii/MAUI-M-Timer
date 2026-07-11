@@ -9,8 +9,7 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 ### New
 
 - The options window remembers its size and position when you move or resize it; a small reset button at the bottom-left edge of the window restores the default size.
-- First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. It can be re-run anytime via `/mauimpt setup`.
-- The setup wizard ships with the "MaUI" preset profile (the author's personal look, with preview screenshot) alongside the factory default.
+- Objectives: optional "Enemy Forces" entry at the end of the boss list — the live percentage sits directly beside the label, and like the boss rows it shows the best time plus completion time with +/- delta (following the split-times visibility).
 - Free HUD layout: under General -> Element order, every row has dropdowns to place any module — and a row can hold TWO modules side by side (left/right), e.g. Deaths next to Splits. Wide elements (Timer, Enemy Forces, Objectives, separator lines) always occupy a full row. Enabled separator lines appear in the list as well and are placed like any other element. Changes apply live, are stored per profile, and a reset button restores the default layout.
 - The Enemy Forces "Bar position" option and the separator "After element" anchor were replaced by the free layout; saved settings are migrated automatically.
 
@@ -21,8 +20,8 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 ### Updates
 
 - Splits and Checkpoints can replace their text labels ("Run vs best", "Boss", "PoNR") with compact icons — per-module toggle in the options. The icons scale with the font size and each icon has its own configurable color.
-- Enemy Forces: the checkpoint countdown now behaves exactly like the timer bar's countdown — the labels anchor at the checkpoint boundaries (markers on the single bar, gap centers on the split bar) with the same position modes (above/below, left/right of the line, or inside the bar), and by default only the next checkpoint counts down; a new option shows all at once. Works with and without the split bar. 0% and 100% targets are ignored — the bar's own ends carry no divider, marker, or countdown.
-- Enemy Forces: the main percentage text got its own position setting (above/below the bar, or inside — centered/left/right); the module's alignment option was removed in its favor.
+- Enemy Forces: the checkpoint countdown now behaves exactly like the timer bar's countdown — the labels anchor at the checkpoint boundaries (markers on the single bar, gap centers on the split bar) with the same position modes (above/below, left/right of the line, or inside the bar — including centered in the section), and by default only the next checkpoint counts down; a new option shows all at once. Works with and without the split bar. 0% and 100% targets draw no divider or marker at the bar's ends, but the final section still counts down to 100% (label only, like the timer's limit countdown).
+- Enemy Forces: the main percentage text got its own position setting (above/below the bar, or inside — centered/left/right) and can be hidden entirely; the module's alignment option was removed in its favor.
 - Placing two modules into one row automatically aligns them to their side (left half → left, right half → right). This happens only at the moment of placement in the element order — manual alignment changes afterwards are kept, and full-width elements are unaffected.
 - The changelog page got its own icon and color in the options tree, and the profile Import/Export page its own icon.
 - Import/export strings (profiles and checkpoints) are now tagged and validated: the import only accepts genuine MAUI export strings of the matching type and rejects foreign, mismatched, or corrupted strings. Note: strings exported with earlier versions are no longer accepted — re-export to share.

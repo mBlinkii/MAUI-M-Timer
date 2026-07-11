@@ -48,8 +48,9 @@ function UI:LayoutBar()
     -- percentage text (textPos) and, in split mode, the segment countdown
     -- (countdownPos). The bar is shifted by the difference so those texts stay
     -- inside the block and cannot overlap neighboring blocks.
+    local textShown = Forces:GetSettings().showText ~= false
     local textMode = Addon:GetElementSetting(ns.E.forcesText).textPos or "center"
-    local textExtra = Addon.Widgets:LineHeight(ns.E.forcesText) + 2
+    local textExtra = textShown and (Addon.Widgets:LineHeight(ns.E.forcesText) + 2) or 0
     local topExtra = (textMode == "above") and textExtra or 0
     local bottomExtra = (textMode == "below") and textExtra or 0
     if countdownOn() then
@@ -57,8 +58,10 @@ function UI:LayoutBar()
         local segExtra = Addon.Widgets:LineHeight(ns.E.forcesSegment) + 2
         if segMode == "below" then
             bottomExtra = math.max(bottomExtra, segExtra)
-        elseif segMode ~= "barLeft" and segMode ~= "barRight" then
-            -- above/left/right all sit on top of the bar (timer semantics).
+        elseif segMode ~= "barLeft" and segMode ~= "barRight"
+            and segMode ~= "center" then
+            -- above/left/right all sit on top of the bar (timer semantics);
+            -- the in-bar modes claim no extra space.
             topExtra = math.max(topExtra, segExtra)
         end
     end
@@ -79,7 +82,7 @@ function UI:LayoutBar()
     -- Block height: bar plus the outside texts; with the text in the bar, the
     -- taller of bar and text (so a large font cannot overflow into the
     -- neighboring blocks).
-    local coreH = (textMode == "center")
+    local coreH = (textShown and textMode == "center")
         and math.max(h, Addon.Widgets:LineHeight(ns.E.forcesText)) or h
     self.frame:SetHeight(coreH + topExtra + bottomExtra)
 
@@ -181,8 +184,9 @@ function UI:LayoutSegments(style, h, vShift)
     -- Checkpoint boundaries (gap centers) in bar-relative coordinates: the
     -- countdown labels anchor there, exactly like the timer bar's divider
     -- labels (see LayoutMarkers). 0% and 100% targets never produce a cut,
-    -- so the bar's own ends stay free of dividers and labels.
-    local boundaryX, boundaryPct = {}, {}
+    -- so the bar's own ends stay free of dividers and markers.
+    local boundaryX, boundaryPct, boundaryMid = {}, {}, {}
+    local lastSectionMid -- center of the final segment (100% countdown)
 
     local x = 0 -- cumulative used width (px) from the left of the bar span
     for i, seg in ipairs(self.segBars) do
@@ -202,6 +206,13 @@ function UI:LayoutSegments(style, h, vShift)
                 local cut = x + w + gap / 2
                 boundaryX[i] = reverse and (total - cut) or cut
                 boundaryPct[i] = def.hi * 100
+                -- Center of the segment leading up to this checkpoint, for the
+                -- "in bar, centered" countdown position.
+                local mid = x + w / 2
+                boundaryMid[i] = reverse and (total - mid) or mid
+            else
+                local mid = x + w / 2
+                lastSectionMid = reverse and (total - mid) or mid
             end
             x = x + w + gap
         else
@@ -210,6 +221,7 @@ function UI:LayoutSegments(style, h, vShift)
     end
 
     self._boundaryX, self._boundaryPct = boundaryX, boundaryPct
+    self._boundaryMid, self._lastSectionMid = boundaryMid, lastSectionMid
 end
 
 -- Anchor the main percentage text relative to the bar span: above/below the
@@ -217,6 +229,12 @@ end
 -- stays a valid anchor in split mode (hidden frames keep their geometry).
 function UI:LayoutMainText()
     if not (self.text and self.bar) then return end
+    -- The whole text is optional (module option "showText").
+    if Forces:GetSettings().showText == false then
+        self.text:Hide()
+        return
+    end
+    self.text:Show()
     local mode = Addon:GetElementSetting(ns.E.forcesText).textPos or "center"
     local x, y = Addon.Widgets:GetOffset(ns.E.forcesText)
     local fs = self.text
@@ -293,10 +311,13 @@ function UI:Build()
 end
 
 -- Anchor a checkpoint countdown label relative to its marker/boundary line,
--- with exactly the timer bar's position modes:
+-- with the timer bar's position modes plus an in-bar centered one:
 --   above / below       -> outside the bar, centered on the line
 --   left / right        -> outside the bar (top), to one side of the line
 --   barLeft / barRight  -> inside the bar, to one side of the line
+-- The "center" mode (inside the bar, centered in the SECTION leading up to
+-- the checkpoint) is handled in LayoutMarkers, as it anchors to the bar
+-- rather than to the line.
 local function anchorCountdownLabel(lbl, line, mode, lx, ly)
     lbl:ClearAllPoints()
     if mode == "below" then
@@ -369,6 +390,7 @@ function UI:LayoutMarkers()
     end
 
     local used = 0
+    local prevPct = 0 -- section start for the "in bar, centered" mode
     for i = 1, count do
         local pct = split and boundaryPct[i] or percents[i]
         -- 0% and 100% targets are skipped entirely: the bar's own ends carry
@@ -406,7 +428,24 @@ function UI:LayoutMarkers()
                     lbl = Addon.Widgets:CreateText(self.overlay, ns.E.forcesSegment, "OVERLAY")
                     m.cdLabel = lbl
                 end
-                anchorCountdownLabel(lbl, m, mode, lx, ly)
+                if mode == "center" then
+                    -- Centered IN the section leading up to this checkpoint
+                    -- (not on the divider line): segment midpoint in split
+                    -- mode, midpoint between the previous and this checkpoint
+                    -- on the single bar.
+                    local cx
+                    if split then
+                        cx = (self._boundaryMid and self._boundaryMid[i]) or bx
+                    else
+                        local midFrac = ((prevPct + pct) / 2) / 100
+                        if reverse then midFrac = 1 - midFrac end
+                        cx = width * midFrac
+                    end
+                    lbl:ClearAllPoints()
+                    lbl:SetPoint("CENTER", self.bar, "LEFT", cx + lx, ly)
+                else
+                    anchorCountdownLabel(lbl, m, mode, lx, ly)
+                end
                 local remaining = pct - livePct
                 if remaining > 0.05 and (showAll or pct == nearest) then
                     lbl:SetText(string.format("%.1f%%", remaining))
@@ -417,8 +456,55 @@ function UI:LayoutMarkers()
             elseif lbl then
                 lbl:Hide()
             end
+            prevPct = pct
         end
     end
+
+    -- Label-only 100% countdown for the final section (the timer's "+limit"
+    -- counterpart): the last stretch always counts down to forces completion,
+    -- but never draws a marker line at the bar's end.
+    if showCountdown then
+        used = used + 1
+        local m = self.markers[used]
+        if not m then
+            m = self.bar:CreateTexture(nil, "OVERLAY")
+            self.markers[used] = m
+        end
+        local bx = reverse and 0 or width
+        m:ClearAllPoints()
+        m:SetWidth(2)
+        m:SetPoint("TOP", self.bar, "TOPLEFT", bx, 0)
+        m:SetPoint("BOTTOM", self.bar, "BOTTOMLEFT", bx, 0)
+        m:Hide()
+
+        local lbl = m.cdLabel
+        if not lbl then
+            lbl = Addon.Widgets:CreateText(self.overlay, ns.E.forcesSegment, "OVERLAY")
+            m.cdLabel = lbl
+        end
+        if mode == "center" then
+            local cx
+            if split then
+                cx = self._lastSectionMid or (width / 2)
+            else
+                local midFrac = ((prevPct + 100) / 2) / 100
+                if reverse then midFrac = 1 - midFrac end
+                cx = width * midFrac
+            end
+            lbl:ClearAllPoints()
+            lbl:SetPoint("CENTER", self.bar, "LEFT", cx + lx, ly)
+        else
+            anchorCountdownLabel(lbl, m, mode, lx, ly)
+        end
+        local remaining = 100 - livePct
+        if remaining > 0.05 and (showAll or nearest == nil) then
+            lbl:SetText(string.format("%.1f%%", remaining))
+            lbl:Show()
+        else
+            lbl:Hide()
+        end
+    end
+
     for i = used + 1, #self.markers do
         local m = self.markers[i]
         m:Hide()

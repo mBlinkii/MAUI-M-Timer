@@ -697,6 +697,9 @@ function Addon:HandleSlash(input)
         if m and m.Editor then m.Editor:Toggle() end
         return
     end
+    -- "/mauimpt setup" deeplink is PARKED together with the Setup module
+    -- (planned for a later release); the silent module lookup keeps this a
+    -- harmless no-op until the module is loaded again.
     if input == "setup" then
         local m = Addon:GetModule("Setup", true)
         if m and m.UI then m.UI:Show() end
