@@ -29,6 +29,7 @@ Data.entries = {
             "Importing a profile no longer overwrites the current one: the profile is created under its exported name and activated. Confirmation is only asked when that name already exists; invalid strings are rejected immediately.",
             "The options window opens noticeably larger by default.",
             "The minimap button and the addon compartment entry now toggle the options window - a second click closes it.",
+            "'Lock display' now also applies in demo mode: a locked HUD can no longer be dragged while styling.",
         },
         fixes = {
             "The profile Import/Export section no longer leaks into the profile pages of other addons (e.g. ElvUI).",

@@ -228,7 +228,7 @@ function Addon:BuildOptions()
                         },
                     },
                     elementOrder = {
-                        type = "group", inline = true, name = L["Element order"], order = 1.5,
+                        type = "group", inline = true, name = L["Element order"], order = 3,
                         args = Addon:BuildBlockOrderArgs(),
                     },
                     misc = {

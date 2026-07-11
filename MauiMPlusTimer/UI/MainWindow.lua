@@ -30,9 +30,9 @@ function MainWindow:Get()
     f:RegisterForDrag("LeftButton")
 
     f:SetScript("OnDragStart", function(frame)
-        -- Movable when unlocked, or always while demo mode is active so the
-        -- HUD can be positioned even with the default lock on.
-        if not Addon.db.profile.ui.locked or Addon.Demo:IsActive() then
+        -- The lock option is authoritative in every mode - including demo
+        -- mode, so the HUD cannot be dragged accidentally while styling.
+        if not Addon.db.profile.ui.locked then
             frame:StartMoving()
         end
     end)
@@ -143,9 +143,13 @@ end
 -- always occupy a full row. profile.ui.blockRows stores
 -- { left = key, right = key } per row.
 
--- User-orderable module blocks in default top-to-bottom order.
+-- User-orderable module blocks in FACTORY top-to-bottom order (forces bar
+-- below the objectives). This is the single source of the default layout:
+-- profile.ui.blockRows is deliberately NOT part of the AceDB defaults, because
+-- AceDB would merge default rows index-wise into user layouts (injecting or
+-- stripping entries); an empty/missing table simply falls back to this order.
 local MODULE_BLOCKS = {
-    "dungeon", "timer", "forces", "objectives",
+    "dungeon", "timer", "objectives", "forces",
     "deaths", "splits", "checkpoints", "cooldowns",
 }
 MainWindow.MODULE_BLOCKS = MODULE_BLOCKS
@@ -241,20 +245,12 @@ function MainWindow:InvalidateRows()
     self._rowsCache, self._rowsCacheSource = nil, nil
 end
 
--- Reset the row layout to the factory default (one block per row, forces bar
--- below the objectives; matches the factory preset in Core/DB.lua) and
--- restack. Enabled separators re-place themselves on the lowest free rows.
+-- Reset the row layout to the factory default (one block per row in
+-- MODULE_BLOCKS order) and restack: clearing the saved rows makes the
+-- normalization fall back to that order. Enabled separators re-place
+-- themselves on the lowest free rows.
 function MainWindow:ResetBlockRows()
-    Addon.db.profile.ui.blockRows = {
-        { left = "dungeon" },
-        { left = "timer" },
-        { left = "objectives" },
-        { left = "forces" },
-        { left = "deaths" },
-        { left = "splits" },
-        { left = "checkpoints" },
-        { left = "cooldowns" },
-    }
+    Addon.db.profile.ui.blockRows = nil
     self:InvalidateRows()
     self:Layout()
 end

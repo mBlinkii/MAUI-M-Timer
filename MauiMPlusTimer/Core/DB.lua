@@ -68,11 +68,14 @@ local defaults = {
             font = {},           -- global font baseline (font, fontSize, fontFlags)
             elements = {},       -- per-element style overrides, keyed by elementKey
             -- Up to two optional separator lines placed between modules. Each is
-            -- a block in the HUD stack anchored just after `after` (a module block
-            -- key), so enabling one shifts the following modules down.
+            -- a block in the HUD stack; the position is configured like any
+            -- other block via the row layout (General -> Element order).
+            -- NOTE: no `after` key here - legacy anchors in the DEFAULTS would
+            -- be re-injected into profiles on every login and re-trigger the
+            -- one-time migration in MigrateProfile over and over.
             separators = {
-                { enabled = false, after = "timer",      width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
-                { enabled = false, after = "objectives", width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
+                { enabled = false, width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
+                { enabled = false, width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
             },
             -- Optional HUD panel: background fill, border and a title bar.
             bg = {
@@ -231,19 +234,10 @@ local preset = {
         align = "center",
         bestPrefix = "",
         bestSuffix = "",
-        -- Factory row layout: one block per row, forces bar below the
-        -- objectives (this was the old EnemyForces position="bottom" default,
-        -- now expressed via the user-configurable rows; see MainWindow).
-        blockRows = {
-            { left = "dungeon" },
-            { left = "timer" },
-            { left = "objectives" },
-            { left = "forces" },
-            { left = "deaths" },
-            { left = "splits" },
-            { left = "checkpoints" },
-            { left = "cooldowns" },
-        },
+        -- NOTE: ui.blockRows (the user-configurable row layout) is deliberately
+        -- NOT part of the defaults/preset: AceDB merges defaults index-wise
+        -- into saved arrays, which would corrupt user layouts. The factory
+        -- fallback lives in UI/MainWindow.lua (MODULE_BLOCKS).
         bg = {
             border = true,
             borderColor = { 0, 0, 0, 1 },
@@ -396,14 +390,12 @@ local preset = {
         scale = 1,
         separators = {
             {
-                after = "objectives",
                 color = { 0.6784, 0.6784, 0.6784, 1 },
                 enabled = false,
                 height = 2,
                 width = 400,
             },
             {
-                after = "deaths",
                 color = { 1, 1, 1, 0.5 },
                 enabled = false,
                 height = 2,
@@ -501,12 +493,25 @@ function Addon:MigrateProfile()
     local seps = p.ui.separators
     if seps and ((seps[1] and seps[1].after ~= nil)
         or (seps[2] and seps[2].after ~= nil)) then
+        -- Only separators that still carry a legacy anchor are recreated from
+        -- it; strip exactly those from the flattened base so they cannot end
+        -- up duplicated. A separator without an anchor keeps its current row.
+        local migrating = {}
+        for i = 1, 2 do
+            if seps[i] and seps[i].after ~= nil then
+                migrating["separator" .. i] = true
+            end
+        end
         local base = {}
         if type(p.ui.blockRows) == "table" then
             for _, row in ipairs(p.ui.blockRows) do
                 if type(row) == "table" then
-                    if row.left then base[#base + 1] = row.left end
-                    if row.right then base[#base + 1] = row.right end
+                    if row.left and not migrating[row.left] then
+                        base[#base + 1] = row.left
+                    end
+                    if row.right and not migrating[row.right] then
+                        base[#base + 1] = row.right
+                    end
                 end
             end
         end
@@ -526,6 +531,45 @@ function Addon:MigrateProfile()
         writeRows(keys)
         for i = 1, 2 do
             if seps[i] then seps[i].after = nil end
+        end
+    end
+
+    -- Repair row layouts written by earlier (pre-release) iterations: the
+    -- re-running legacy migration above accumulated duplicate keys and rows
+    -- beyond the configurable range. Only rewrites when actually damaged, so
+    -- intentional row gaps are preserved for healthy layouts.
+    local rows = p.ui.blockRows
+    if type(rows) == "table" then
+        local maxRows = (self.MainWindow and self.MainWindow.MAX_ROWS) or 10
+        local seen, damaged = {}, #rows > maxRows
+        for _, row in ipairs(rows) do
+            if type(row) == "table" then
+                if row.left ~= nil then
+                    if seen[row.left] then damaged = true end
+                    seen[row.left] = true
+                end
+                if row.right ~= nil then
+                    if seen[row.right] then damaged = true end
+                    seen[row.right] = true
+                end
+            end
+        end
+        if damaged then
+            local clean, taken = {}, {}
+            for _, row in ipairs(rows) do
+                if type(row) == "table" and #clean < maxRows then
+                    local left = (type(row.left) == "string" and not taken[row.left])
+                        and row.left or nil
+                    if left then taken[left] = true end
+                    local right = (type(row.right) == "string" and not taken[row.right])
+                        and row.right or nil
+                    if right then taken[right] = true end
+                    if left or right then
+                        clean[#clean + 1] = { left = left, right = right }
+                    end
+                end
+            end
+            p.ui.blockRows = clean
         end
     end
 

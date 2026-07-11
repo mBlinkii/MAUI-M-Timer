@@ -24,6 +24,7 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 - Importing a profile no longer overwrites the current one: the profile is created under its exported name and activated. You are only asked for confirmation when a profile with that name already exists; invalid strings are rejected immediately without a confirmation popup.
 - The options window opens noticeably larger by default (900x650).
 - The minimap button and the addon compartment entry now toggle the options window — a second click closes it.
+- "Lock display" now also applies in demo mode: a locked HUD can no longer be dragged while styling.
 
 ## [1.1.16] - 2026-07-09
 
