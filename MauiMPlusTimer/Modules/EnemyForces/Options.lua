@@ -8,10 +8,28 @@ local Forces = Addon:GetModule("EnemyForces")
 function Forces:GetOptions()
     local L = ns.L
 
-    -- Text styling plus a dedicated color for the remaining-count number.
+    -- Text styling plus a dedicated color for the remaining-count number and
+    -- the text's own position (in/above/below the bar), independent of the
+    -- segment countdown position.
     local textOpts = Addon:ElementTextOptions(self, ns.E.forcesText, 20, { color = true })
     textOpts.args.countColor = Addon:ElementColorOption(
         self, ns.E.forcesText, "countColor", L["Remaining count color"], 14, { 0.6, 0.6, 0.6, 1 })
+    textOpts.args.textPos = {
+        type = "select", name = L["Position"], order = 15,
+        values = {
+            above    = L["Above"],
+            below    = L["Below"],
+            center   = L["In bar, centered"],
+            barLeft  = L["In bar, left"],
+            barRight = L["In bar, right"],
+        },
+        sorting = { "above", "center", "below", "barLeft", "barRight" },
+        get = function() return Addon:GetElementSetting(ns.E.forcesText).textPos or "center" end,
+        set = function(_, v)
+            Addon:GetElementSetting(ns.E.forcesText).textPos = v
+            Addon.StyleRestyle(Forces)
+        end,
+    }
 
     -- Bar styling plus checkpoint split controls and a nested Checkpoint markers
     -- group.
@@ -29,15 +47,49 @@ function Forces:GetOptions()
         get = function() return Forces:GetSettings().splitGap or 2 end,
         set = function(_, v) Forces:GetSettings().splitGap = v; Addon.StyleRestyle(Forces) end,
     }
-    -- Per-segment "% needed" countdown (split mode only): a toggle plus the
+    -- Checkpoint "% needed" countdown: works with the split bar (per segment)
+    -- AND on the single bar (at the checkpoint markers). A toggle plus the
     -- label's own font/size/offset/color controls (merged flat, orders 11+).
     local segmentArgs = {
         segmentCountdown = {
             type = "toggle", name = L["Segment countdown"], order = 1,
-            desc = L["Show the still-needed percentage on each segment; it counts down and hides when the checkpoint is reached."],
-            disabled = function() return Forces:GetSettings().splitBar ~= true end,
+            desc = L["Show the still-needed percentage on each segment (split bar) or at each checkpoint marker; it counts down and hides when the checkpoint is reached."],
             get = function() return Forces:GetSettings().segmentCountdown == true end,
             set = function(_, v) Forces:GetSettings().segmentCountdown = v; Addon.StyleRestyle(Forces) end,
+        },
+        segmentCountdownAll = {
+            type = "toggle", name = L["All checkpoint countdowns"], order = 1.2,
+            desc = L["Show a countdown to every checkpoint at once, not just the next."],
+            disabled = function() return Forces:GetSettings().segmentCountdown ~= true end,
+            get = function() return Forces:GetSettings().segmentCountdownAll == true end,
+            set = function(_, v) Forces:GetSettings().segmentCountdownAll = v; Addon.StyleRestyle(Forces) end,
+        },
+        -- Exactly the timer bar's position modes, relative to the checkpoint
+        -- boundary (marker line / segment gap).
+        position = {
+            type = "select", name = L["Position"], order = 1.5,
+            disabled = function()
+                return Forces:GetSettings().segmentCountdown ~= true
+            end,
+            values = {
+                above    = L["Above"],
+                below    = L["Below"],
+                left     = L["Left of divider"],
+                right    = L["Right of divider"],
+                barLeft  = L["In bar, left of divider"],
+                barRight = L["In bar, right of divider"],
+            },
+            sorting = { "above", "below", "left", "right", "barLeft", "barRight" },
+            get = function()
+                local v = Addon:GetElementSetting(ns.E.forcesSegment).countdownPos
+                -- "center" existed only in a pre-release iteration.
+                if v == nil or v == "center" then v = "above" end
+                return v
+            end,
+            set = function(_, v)
+                Addon:GetElementSetting(ns.E.forcesSegment).countdownPos = v
+                Addon.StyleRestyle(Forces)
+            end,
         },
         nl = Addon:OptLine(2),
     }
@@ -46,7 +98,6 @@ function Forces:GetOptions()
     end
     barOpts.args.segment = {
         type = "group", inline = true, name = L["Segment percentage"], order = 25,
-        disabled = function() return Forces:GetSettings().splitBar ~= true end,
         args = segmentArgs,
     }
     barOpts.args.markers = {
@@ -75,9 +126,9 @@ function Forces:GetOptions()
             settings = {
                 type = "group", inline = true, name = L["Settings"], order = 2,
                 args = {
-                    align = Addon:ModuleAlignOption(self, 1),
-                    -- The bar's position in the HUD stack is configured under
-                    -- General -> Element order (like every other module).
+                    -- No alignment option: the main text carries its own
+                    -- position setting (see textPos below), and the bar's spot
+                    -- in the HUD stack comes from General -> Element order.
                     showCount = {
                         type = "toggle", name = L["Show remaining count"], order = 3,
                         desc = L["Show the remaining absolute mob count next to the percentage."],

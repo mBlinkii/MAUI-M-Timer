@@ -27,10 +27,11 @@ local OPTIONS_DEFAULT_HEIGHT = 650
 -- by purpose (core appearance, modules, profiles, about) gives the tree a quick
 -- visual hierarchy. Colours are WoW |c colour codes (AARRGGBB).
 local MENU_COLORS = {
-    core     = "ffffd100", -- gold  : core / appearance pages
-    modules  = "ff40c057", -- green : module pages
-    profiles = "ff4a9eff", -- blue  : profile management
-    about    = "ffb0b0b0", -- grey  : informational / about
+    core      = "ffffd100", -- gold  : core / appearance pages
+    modules   = "ff40c057", -- green : module pages
+    profiles  = "ff4a9eff", -- blue  : profile management
+    changelog = "fff040a0", -- pink  : version history (matches the logo "+")
+    about     = "ffb0b0b0", -- grey  : informational / about
 }
 
 -- Single source of truth for the presentation of every top-level tree node:
@@ -44,7 +45,7 @@ local MENU_NODES = {
     colors     = { order = 4,   group = "core",     icon = MENU_ICON_DIR .. "colors" },
     modules    = { order = 10,  group = "modules",  icon = ICON_MODULES },
     profiles   = { order = 90,  group = "profiles", icon = ICON_PROFILES },
-    changelog  = { order = 95,  group = "about",    icon = MENU_ICON_DIR .. "about" },
+    changelog  = { order = 95,  group = "changelog", icon = MENU_ICON_DIR .. "changelog" },
     about      = { order = 100, group = "about",    icon = MENU_ICON_DIR .. "about" },
 }
 
@@ -98,14 +99,18 @@ function Addon:BuildBlockOrderArgs()
     local MainWindow = Addon.MainWindow
     local labels = blockLabels()
 
-    -- Dropdown content: empty + modules; separators (left side only) while
-    -- they are enabled on the HUD panel page.
+    -- Dropdown content: empty + modules; separators (while enabled on the HUD
+    -- panel page). Full-row blocks - timer, forces, objectives, separators -
+    -- can only go into the LEFT dropdown: they always occupy the whole row.
     local leftValues, rightValues = { none = "-" }, { none = "-" }
     local leftSorting, rightSorting = { "none" }, { "none" }
     for _, key in ipairs(MainWindow.MODULE_BLOCKS) do
-        leftValues[key], rightValues[key] = labels[key], labels[key]
+        leftValues[key] = labels[key]
         leftSorting[#leftSorting + 1] = key
-        rightSorting[#rightSorting + 1] = key
+        if not MainWindow:IsFullRowKey(key) then
+            rightValues[key] = labels[key]
+            rightSorting[#rightSorting + 1] = key
+        end
     end
     for i = 1, 2 do
         if MainWindow:IsSeparatorEnabled(i) then
@@ -148,10 +153,9 @@ function Addon:BuildBlockOrderArgs()
         args["row" .. index .. "Right"] = {
             type = "select", order = base + 2, width = 1.0, name = "",
             values = rightValues, sorting = rightSorting,
-            -- A separator occupies the full row; no right-hand neighbor.
+            -- Full-row blocks occupy the whole row; no right-hand neighbor.
             disabled = function()
-                local left = MainWindow:GetBlockRows()[index].left
-                return left ~= nil and MainWindow:IsSeparatorKey(left)
+                return MainWindow:IsFullRowKey(MainWindow:GetBlockRows()[index].left)
             end,
             get = function()
                 return MainWindow:GetBlockRows()[index].right or "none"
@@ -329,7 +333,7 @@ function Addon:BuildShareOptions()
         type = "group",
         name = L["Import / Export"],
         order = 100,
-        icon = "Interface\\ICONS\\INV_Misc_Note_02",
+        icon = MENU_ICON_DIR .. "share",
         args = {
             exportDesc = {
                 type = "description", order = 1,

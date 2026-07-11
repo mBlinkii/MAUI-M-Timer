@@ -170,9 +170,52 @@ MainWindow.MAX_ROWS = MAX_ROWS
 -- Horizontal gap between the two blocks of a split row.
 local SPLIT_GAP = 10
 
+-- Blocks that always occupy a FULL row (no left/right neighbor): the wide
+-- bar/list modules plus the separator lines.
+local FULL_ROW_BLOCKS = {
+    timer = true, forces = true, objectives = true,
+    separator1 = true, separator2 = true,
+}
+
+-- Whether `key` must occupy a full row of its own.
+function MainWindow:IsFullRowKey(key)
+    return key ~= nil and FULL_ROW_BLOCKS[key] == true
+end
+
 -- Whether `key` names a separator entry.
 function MainWindow:IsSeparatorKey(key)
     return key == "separator1" or key == "separator2"
+end
+
+-- Module (AceAddon) name per splittable block key, for the automatic
+-- alignment on placement (full-row blocks and separators have no entry).
+local BLOCK_MODULE = {
+    dungeon = "Dungeon", deaths = "Deaths", splits = "Splits",
+    checkpoints = "Checkpoints", cooldowns = "Cooldowns",
+}
+
+-- Set a block's module alignment; returns true when it actually changed.
+local function setModuleAlign(key, align)
+    local name = key and BLOCK_MODULE[key]
+    local module = name and Addon:GetModule(name, true)
+    if not (module and module.GetSettings) then return false end
+    local settings = module:GetSettings()
+    if settings.align == align then return false end
+    settings.align = align
+    return true
+end
+
+-- Auto-alignment on placement: when a row holds two modules, snap them to
+-- their side (left half -> left aligned, right half -> right aligned). Runs
+-- ONLY from SetBlockSlot, i.e. the moment something is re-placed in the
+-- element-order options - manual alignment changes afterwards stay untouched,
+-- and full-row blocks are never affected (they cannot share a row).
+-- Returns true when any alignment changed.
+function MainWindow:ApplyAutoAlign(row)
+    if not (row.left and row.right) then return false end
+    local changedLeft = setModuleAlign(row.left, "left")
+    local changedRight = setModuleAlign(row.right, "right")
+    return changedLeft or changedRight
 end
 
 -- Whether separator line i (1 or 2) is enabled in the profile.
@@ -206,6 +249,21 @@ function MainWindow:GetBlockRows()
             left  = claim(type(s) == "table" and s.left or nil),
             right = claim(type(s) == "table" and s.right or nil),
         }
+    end
+
+    -- A full-row block can never sit in a right half (guards hand-edited or
+    -- pre-rule saved data): move it to the free left half, or unclaim it so
+    -- the placement below finds it a row of its own.
+    for i = 1, MAX_ROWS do
+        local row = rows[i]
+        if row.right and FULL_ROW_BLOCKS[row.right] then
+            if not row.left then
+                row.left, row.right = row.right, nil
+            else
+                seen[row.right] = nil
+                row.right = nil
+            end
+        end
     end
 
     -- Place a missing key on the first empty row below the used ones (or,
@@ -257,26 +315,37 @@ end
 
 -- Assign `key` (or nil to clear) to one side of a row, persist and restack.
 -- The key is removed from any other slot first (each block exists exactly
--- once); a separator always occupies a full row, so it claims the left half
--- and clears the right one.
+-- once). A full-row block (timer, forces, objectives, separators) always
+-- claims the left half and clears the right one; nothing can be placed next
+-- to it.
 function MainWindow:SetBlockSlot(rowIndex, side, key)
     local rows = self:GetBlockRows()
     local row = rows[rowIndex]
     if not row then return end
+    if side == "right" and key and self:IsFullRowKey(row.left) then
+        return -- no right-hand neighbor next to a full-row block
+    end
     if key then
         for _, r in ipairs(rows) do
             if r.left == key then r.left = nil end
             if r.right == key then r.right = nil end
         end
     end
-    if key and self:IsSeparatorKey(key) then
+    if key and self:IsFullRowKey(key) then
         side = "left"
         row.right = nil
     end
     row[side] = key
+
+    local aligned = self:ApplyAutoAlign(row)
+
     Addon.db.profile.ui.blockRows = rows
     self:InvalidateRows()
-    self:Layout()
+    if aligned then
+        self:Refresh() -- restyle so the snapped alignment shows immediately
+    else
+        self:Layout()
+    end
 end
 
 -- Inner padding reserved around the blocks when the panel is decorated. The

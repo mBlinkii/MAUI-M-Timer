@@ -168,7 +168,6 @@ local preset = {
             showLevel = true,
         },
         EnemyForces = {
-            align = "left",
             enabled = true,
             showCount = false,
             showMarkers = true,
@@ -477,14 +476,18 @@ function Addon:MigrateProfile()
     -- The Enemy Forces "Bar position" select became the free row ordering.
     -- The default rows already place the bar below the objectives (the old
     -- factory default), so only a saved "top" needs carrying over; the dead
-    -- key is dropped either way.
+    -- key is dropped either way. The module's alignment option was removed
+    -- too (the main text has its own position setting now).
     local forces = p.modules and p.modules.EnemyForces
-    if forces and forces.position ~= nil then
-        if forces.position == "top" then
-            writeRows({ "dungeon", "timer", "forces", "objectives",
-                "deaths", "splits", "checkpoints", "cooldowns" })
+    if forces then
+        if forces.position ~= nil then
+            if forces.position == "top" then
+                writeRows({ "dungeon", "timer", "forces", "objectives",
+                    "deaths", "splits", "checkpoints", "cooldowns" })
+            end
+            forces.position = nil
         end
-        forces.position = nil
+        forces.align = nil
     end
 
     -- Separator lines lost their "after <element>" anchor; they are ordinary

@@ -34,6 +34,39 @@ function Checkpoints:GetOptions()
                 type = "group", inline = true, name = L["Settings"], order = 4,
                 args = {
                     align = Addon:ModuleAlignOption(self, 1),
+                    labelIcons = {
+                        type = "toggle", name = L["Icons instead of labels"], order = 2,
+                        desc = L["Replace the 'Boss' and 'PoNR' texts with compact icons."],
+                        get = function() return Checkpoints:GetSettings().labelIcons == true end,
+                        set = function(_, v)
+                            Checkpoints:GetSettings().labelIcons = v
+                            Addon.MainWindow:Refresh()
+                        end,
+                    },
+                    bossIconColor = {
+                        type = "color", name = L["Boss icon color"], order = 3,
+                        disabled = function() return Checkpoints:GetSettings().labelIcons ~= true end,
+                        get = function()
+                            local c = Checkpoints:GetSettings().bossIconColor or { 1, 1, 1 }
+                            return c[1], c[2], c[3]
+                        end,
+                        set = function(_, r, g, b)
+                            Checkpoints:GetSettings().bossIconColor = { r, g, b }
+                            Addon.MainWindow:Refresh()
+                        end,
+                    },
+                    ponrIconColor = {
+                        type = "color", name = L["PoNR icon color"], order = 4,
+                        disabled = function() return Checkpoints:GetSettings().labelIcons ~= true end,
+                        get = function()
+                            local c = Checkpoints:GetSettings().ponrIconColor or { 1, 1, 1 }
+                            return c[1], c[2], c[3]
+                        end,
+                        set = function(_, r, g, b)
+                            Checkpoints:GetSettings().ponrIconColor = { r, g, b }
+                            Addon.MainWindow:Refresh()
+                        end,
+                    },
                 },
             },
             text = Addon:ElementTextOptions(self, ns.E.checkpointsText, 20, { color = true }),

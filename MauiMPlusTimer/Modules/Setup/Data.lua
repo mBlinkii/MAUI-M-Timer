@@ -94,7 +94,6 @@ Data.profiles = {
                     showLevel = true,
                 },
                 EnemyForces = {
-                    align = "left",
                     enabled = true,
                     segmentCountdown = true,
                     showCount = false,

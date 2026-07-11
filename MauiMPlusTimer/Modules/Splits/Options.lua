@@ -49,6 +49,27 @@ function Splits:GetOptions()
                 type = "group", inline = true, name = L["Settings"], order = 3,
                 args = {
                     align = Addon:ModuleAlignOption(self, 1),
+                    labelIcon = {
+                        type = "toggle", name = L["Icon instead of label"], order = 1.5,
+                        desc = L["Replace the 'Run vs best' text with a compact icon."],
+                        get = function() return Splits:GetSettings().labelIcon == true end,
+                        set = function(_, v)
+                            Splits:GetSettings().labelIcon = v
+                            Addon.MainWindow:Refresh()
+                        end,
+                    },
+                    labelIconColor = {
+                        type = "color", name = L["Icon color"], order = 1.6,
+                        disabled = function() return Splits:GetSettings().labelIcon ~= true end,
+                        get = function()
+                            local c = Splits:GetSettings().labelIconColor or { 1, 1, 1 }
+                            return c[1], c[2], c[3]
+                        end,
+                        set = function(_, r, g, b)
+                            Splits:GetSettings().labelIconColor = { r, g, b }
+                            Addon.MainWindow:Refresh()
+                        end,
+                    },
                     storeMode = {
                         type = "select", name = L["Storage mode"], order = 2,
                         desc = L["Keep only the best time per dungeon/level, or a full history."],

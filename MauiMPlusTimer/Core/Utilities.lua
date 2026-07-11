@@ -217,6 +217,20 @@ function Utils.CopyIntoTyped(dst, src)
     return dst
 end
 
+-- Build an inline texture escape for FontStrings. The icon scales with the
+-- line's font height (height/width 0) and gets an optional { r, g, b } vertex
+-- tint (0..1 floats, defaults to white). Expects 64x64 textures (the bundled
+-- label glyphs under Assets/Icons/Labels).
+function Utils.IconTag(path, color)
+    local function byte(x)
+        return math.floor(math.min(math.max(x or 1, 0), 1) * 255 + 0.5)
+    end
+    local r = byte(color and color[1])
+    local g = byte(color and color[2])
+    local b = byte(color and color[3])
+    return string.format("|T%s:0:0:0:0:64:64:0:64:0:64:%d:%d:%d|t", path, r, g, b)
+end
+
 -- Secure share-string codec ---------------------------------------------------
 
 -- Every MAUI export string carries a readable prefix ("!MAUI:<kind>:<v>!") AND
