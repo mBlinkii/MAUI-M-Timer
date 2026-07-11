@@ -15,8 +15,8 @@ Changelog.Data = Data
 --   new/updates/fixes  arrays of plain lines; sections may be omitted
 Data.entries = {
     {
-        version = "Unreleased",
-        date = "",
+        version = "1.2.0",
+        date = "2026-07-10",
         new = {
             "The options window remembers its size and position when you move or resize it; a small reset button at the bottom-left edge of the window restores the default size.",
             "Objectives: optional 'Enemy Forces' entry at the end of the boss list - the live percentage sits directly beside the label, and like the boss rows it shows the best time plus completion time with +/- delta (following the split-times visibility).",

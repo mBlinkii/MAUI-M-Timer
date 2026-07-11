@@ -4,7 +4,7 @@ All notable changes to **MAUI M+ Timer** are documented in this file.
 
 Changes are grouped per version into **New** (features), **Updates** (improvements to existing behavior), and **Fixes** (bug fixes). Changes land under the topmost *Unreleased* version until it is released.
 
-## [Unreleased]
+## [1.2.0] - 2026-07-10
 
 ### New
 
