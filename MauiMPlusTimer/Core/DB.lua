@@ -28,7 +28,7 @@ local defaults = {
                     borderSize = 12, borderColor = { 0, 0, 0, 1 },
                 },
             },
-            EnemyForces = { enabled = true, showMarkers = false, position = "top" }, -- markers; bar above/below objectives
+            EnemyForces = { enabled = true, showMarkers = false }, -- checkpoint markers on the bar
             Objectives  = {
                 enabled = true, rowSpacing = 0,
                 -- Boss-name shortening for display: "off" | "truncate" (with
@@ -167,7 +167,6 @@ local preset = {
         EnemyForces = {
             align = "left",
             enabled = true,
-            position = "bottom",
             showCount = false,
             showMarkers = true,
         },
@@ -232,6 +231,19 @@ local preset = {
         align = "center",
         bestPrefix = "",
         bestSuffix = "",
+        -- Factory row layout: one block per row, forces bar below the
+        -- objectives (this was the old EnemyForces position="bottom" default,
+        -- now expressed via the user-configurable rows; see MainWindow).
+        blockRows = {
+            { left = "dungeon" },
+            { left = "timer" },
+            { left = "objectives" },
+            { left = "forces" },
+            { left = "deaths" },
+            { left = "splits" },
+            { left = "checkpoints" },
+            { left = "cooldowns" },
+        },
         bg = {
             border = true,
             borderColor = { 0, 0, 0, 1 },
@@ -435,6 +447,7 @@ function Addon:SetupDB()
     end
 
     self:MigrateDB()
+    self:MigrateProfile()
 
     -- When the active profile changes, tell every module to reload its settings.
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
@@ -444,9 +457,83 @@ end
 
 -- Broadcast a profile change so modules can re-read db.profile.
 function Addon:OnProfileChanged()
+    self:MigrateProfile() -- a switched/imported profile may carry legacy keys
     if self.Widgets then self.Widgets:InvalidateStyle() end -- new profile -> new styles
     if self.RefreshMinimapButton then self:RefreshMinimapButton() end -- new minimap state
     self:SendMessage("MMT_PROFILE_CHANGED")
+end
+
+-- One-time migrations of removed options in the ACTIVE profile (idempotent;
+-- runs at startup and after every profile switch/copy/reset/import).
+function Addon:MigrateProfile()
+    local p = self.db.profile
+
+    -- Write a fresh single-block-per-row layout from a flat key list.
+    local function writeRows(keys)
+        local rows = {}
+        for i, key in ipairs(keys) do
+            rows[i] = { left = key }
+        end
+        p.ui.blockRows = rows
+    end
+
+    -- Never-released intermediate format of the row layout; drop it.
+    if p.ui.blockOrder ~= nil then
+        p.ui.blockOrder = nil
+    end
+
+    -- The Enemy Forces "Bar position" select became the free row ordering.
+    -- The default rows already place the bar below the objectives (the old
+    -- factory default), so only a saved "top" needs carrying over; the dead
+    -- key is dropped either way.
+    local forces = p.modules and p.modules.EnemyForces
+    if forces and forces.position ~= nil then
+        if forces.position == "top" then
+            writeRows({ "dungeon", "timer", "forces", "objectives",
+                "deaths", "splits", "checkpoints", "cooldowns" })
+        end
+        forces.position = nil
+    end
+
+    -- Separator lines lost their "after <element>" anchor; they are ordinary
+    -- row entries now. Rebuild the rows once from the legacy anchors so each
+    -- separator ends up right below its old anchor module.
+    local seps = p.ui.separators
+    if seps and ((seps[1] and seps[1].after ~= nil)
+        or (seps[2] and seps[2].after ~= nil)) then
+        local base = {}
+        if type(p.ui.blockRows) == "table" then
+            for _, row in ipairs(p.ui.blockRows) do
+                if type(row) == "table" then
+                    if row.left then base[#base + 1] = row.left end
+                    if row.right then base[#base + 1] = row.right end
+                end
+            end
+        end
+        if #base == 0 then
+            base = { "dungeon", "timer", "objectives", "forces",
+                "deaths", "splits", "checkpoints", "cooldowns" }
+        end
+        local keys = {}
+        for _, key in ipairs(base) do
+            keys[#keys + 1] = key
+            for i = 1, 2 do
+                if seps[i] and seps[i].after == key then
+                    keys[#keys + 1] = "separator" .. i
+                end
+            end
+        end
+        writeRows(keys)
+        for i = 1, 2 do
+            if seps[i] then seps[i].after = nil end
+        end
+    end
+
+    -- The row layout may have changed above (or a different profile became
+    -- active): drop the cached normalized rows.
+    if self.MainWindow and self.MainWindow.InvalidateRows then
+        self.MainWindow:InvalidateRows()
+    end
 end
 
 -- Apply versioned migrations to the global scope.

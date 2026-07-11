@@ -23,22 +23,9 @@ local function hideSegment(seg)
     if seg.cdLabel then seg.cdLabel:Hide() end
 end
 
--- Stacking order: "top" keeps the bar above the objectives (default), "bottom"
--- moves it just below them (objectives are order 30, deaths order 40).
-local function blockOrder()
-    return Forces:GetSettings().position == "bottom" and 35 or 20
-end
-
 -- Whether the checkpoint split-bar mode is active.
 local function isSplit()
     return Forces:GetSettings().splitBar == true
-end
-
--- Re-apply the bar's stacking order after the position option changes.
-function UI:UpdatePosition()
-    if self.frame then
-        Addon.MainWindow:SetBlockOrder("forces", blockOrder())
-    end
 end
 
 -- Apply bar height/width/color from the per-element style. The single bar is
@@ -277,7 +264,9 @@ function UI:Build()
     self:LayoutMarkers()
 
     block:Hide()
-    Addon.MainWindow:AddBlock("forces", block, blockOrder())
+    -- Effective position comes from the user-configurable block order
+    -- (MainWindow:GetBlockRows); the value here is only the fallback.
+    Addon.MainWindow:AddBlock("forces", block, 20)
 end
 
 -- Draw vertical markers on the bar at each checkpoint target percentage, when

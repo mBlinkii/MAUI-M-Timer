@@ -74,6 +74,95 @@ local function ApplyMenuStyle(args)
     end
 end
 
+-- Localized display names of the orderable HUD blocks (module blocks plus the
+-- two separator lines; keys match MainWindow's block keys).
+local function blockLabels()
+    local L = ns.L
+    return {
+        dungeon = L["Dungeon"], timer = L["Timer"], forces = L["Enemy Forces"],
+        objectives = L["Objectives"], deaths = L["Deaths"], splits = L["Splits"],
+        checkpoints = L["Checkpoints"], cooldowns = L["Cooldowns"],
+        separator1 = L["Separator line"] .. " 1",
+        separator2 = L["Separator line"] .. " 2",
+    }
+end
+
+-- Args for the "Element order" section on the General page: one dropdown pair
+-- (left / right half) per HUD row. Assigning a block moves it out of its old
+-- slot; clearing a slot re-adds the module on the lowest free row, so modules
+-- can never get lost. Enabled separator lines appear as entries too and
+-- always occupy a full row (the right dropdown is disabled next to one).
+-- Rebuilt on every options refresh (BuildOptions is registered as a function).
+function Addon:BuildBlockOrderArgs()
+    local L = ns.L
+    local MainWindow = Addon.MainWindow
+    local labels = blockLabels()
+
+    -- Dropdown content: empty + modules; separators (left side only) while
+    -- they are enabled on the HUD panel page.
+    local leftValues, rightValues = { none = "-" }, { none = "-" }
+    local leftSorting, rightSorting = { "none" }, { "none" }
+    for _, key in ipairs(MainWindow.MODULE_BLOCKS) do
+        leftValues[key], rightValues[key] = labels[key], labels[key]
+        leftSorting[#leftSorting + 1] = key
+        rightSorting[#rightSorting + 1] = key
+    end
+    for i = 1, 2 do
+        if MainWindow:IsSeparatorEnabled(i) then
+            local key = "separator" .. i
+            leftValues[key] = labels[key]
+            leftSorting[#leftSorting + 1] = key
+        end
+    end
+
+    local args = {
+        desc = {
+            type = "description", order = 0,
+            name = L["Assign each element to a row (top to bottom). A row can hold two blocks side by side (left/right); cleared modules re-appear on the lowest free row. Enabled separator lines are placed here as well."],
+        },
+    }
+
+    for index = 1, MainWindow.MAX_ROWS do
+        local base = index * 10
+        args["row" .. index .. "Num"] = {
+            type = "description", order = base, width = 0.25, fontSize = "medium",
+            name = string.format("%d.", index),
+        }
+        -- Full-width spacer AFTER each row (order base+3, added below) forces
+        -- the flow layout onto a new line, so the rows always stack vertically
+        -- no matter how wide the options window is.
+        args["row" .. index .. "Break"] = {
+            type = "description", order = base + 3, width = "full", name = "",
+        }
+        args["row" .. index .. "Left"] = {
+            type = "select", order = base + 1, width = 1.0, name = "",
+            values = leftValues, sorting = leftSorting,
+            get = function()
+                return MainWindow:GetBlockRows()[index].left or "none"
+            end,
+            set = function(_, v)
+                MainWindow:SetBlockSlot(index, "left", v ~= "none" and v or nil)
+            end,
+        }
+        args["row" .. index .. "Right"] = {
+            type = "select", order = base + 2, width = 1.0, name = "",
+            values = rightValues, sorting = rightSorting,
+            -- A separator occupies the full row; no right-hand neighbor.
+            disabled = function()
+                local left = MainWindow:GetBlockRows()[index].left
+                return left ~= nil and MainWindow:IsSeparatorKey(left)
+            end,
+            get = function()
+                return MainWindow:GetBlockRows()[index].right or "none"
+            end,
+            set = function(_, v)
+                MainWindow:SetBlockSlot(index, "right", v ~= "none" and v or nil)
+            end,
+        }
+    end
+    return args
+end
+
 -- Build the root options table. Appearance pages and modules are added later via
 -- Addon:RegisterModuleOptions(); the root statically defines General, the
 -- Modules parent node and (at the end) Profiles.
@@ -129,6 +218,10 @@ function Addon:BuildOptions()
                                 set = function(_, v) Addon:SetMinimapShown(v) end,
                             },
                         },
+                    },
+                    elementOrder = {
+                        type = "group", inline = true, name = L["Element order"], order = 1.5,
+                        args = Addon:BuildBlockOrderArgs(),
                     },
                     misc = {
                         type = "group", inline = true, name = L["Other"], order = 2,

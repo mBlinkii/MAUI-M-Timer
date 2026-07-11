@@ -13,8 +13,10 @@ local PANEL_PAD = 8 -- inner padding when the background/border/title is shown
 
 -- Reused scratch list + hoisted comparator for Layout(), so the frequently
 -- called layout pass allocates neither a new table nor a new closure per call.
-local orderedScratch = {}
-local function byOrder(a, b) return a.order < b.order end
+-- Reusable scratch for Layout's render entries (parallel arrays, so the hot
+-- Layout path allocates no tables): entryLeft[i] holds the (only) frame of a
+-- full-width row; entryRight[i] holds the right frame of a split row or false.
+local entryLeft, entryRight = {}, {}
 
 -- Return the HUD container, creating it on first use.
 function MainWindow:Get()
@@ -126,71 +128,141 @@ end
 -- Register a module's display block so the HUD can stack the blocks vertically.
 -- `order` is only the fallback for keys that are not user-orderable; the
 -- orderable module blocks get their effective order from the configured list
--- (see ApplyBlockOrder below) on every Layout.
+-- (see GetBlockRows below) on every Layout.
 function MainWindow:AddBlock(key, frame, order)
     self.blocks = self.blocks or {}
     self.blocks[key] = { frame = frame, order = order or 100 }
     self:Layout()
 end
 
--- Block stacking order ---------------------------------------------------------
--- The vertical order of the module blocks is user-configurable: profile.ui
--- .blockOrder lists the block keys top-to-bottom (options: General -> Element
--- order). Keys missing from a saved list - e.g. modules added by a later
--- update - are appended in default order, so old profiles keep working.
+-- Block rows -------------------------------------------------------------------
+-- The HUD is a stack of user-configurable ROWS (options: General -> Element
+-- order). Each row holds one block at full width or two blocks side by side
+-- (left/right half); rows without visible content collapse. Separator lines
+-- take part as normal entries ("separator1"/"separator2") while enabled and
+-- always occupy a full row. profile.ui.blockRows stores
+-- { left = key, right = key } per row.
 
--- Default top-to-bottom order of all user-orderable blocks.
-local DEFAULT_BLOCK_ORDER = {
+-- User-orderable module blocks in default top-to-bottom order.
+local MODULE_BLOCKS = {
     "dungeon", "timer", "forces", "objectives",
     "deaths", "splits", "checkpoints", "cooldowns",
 }
+MainWindow.MODULE_BLOCKS = MODULE_BLOCKS
 
--- Set of the orderable keys, for filtering unknown entries out of saved lists.
+-- Pseudo block keys of the two separator lines (frames are registered by
+-- UpdateSeparators).
+local SEPARATOR_BLOCKS = { "separator1", "separator2" }
+
+-- All orderable keys, for filtering saved rows.
 local ORDERABLE = {}
-for _, key in ipairs(DEFAULT_BLOCK_ORDER) do ORDERABLE[key] = true end
+for _, key in ipairs(MODULE_BLOCKS) do ORDERABLE[key] = true end
+for _, key in ipairs(SEPARATOR_BLOCKS) do ORDERABLE[key] = true end
 
--- The effective top-to-bottom key list: the saved list cleaned of unknown or
--- duplicate keys, with missing known keys appended in default order. Returns
--- a fresh table the caller may modify.
-function MainWindow:GetBlockOrderList()
-    local list, seen = {}, {}
-    local saved = Addon.db.profile.ui.blockOrder
-    if type(saved) == "table" then
-        for _, key in ipairs(saved) do
-            if ORDERABLE[key] and not seen[key] then
-                list[#list + 1] = key
-                seen[key] = true
+-- Number of configurable rows: every module and separator can have its own.
+local MAX_ROWS = #MODULE_BLOCKS + #SEPARATOR_BLOCKS
+MainWindow.MAX_ROWS = MAX_ROWS
+
+-- Horizontal gap between the two blocks of a split row.
+local SPLIT_GAP = 10
+
+-- Whether `key` names a separator entry.
+function MainWindow:IsSeparatorKey(key)
+    return key == "separator1" or key == "separator2"
+end
+
+-- Whether separator line i (1 or 2) is enabled in the profile.
+function MainWindow:IsSeparatorEnabled(i)
+    local cfgs = Addon.db.profile.ui.separators
+    return (cfgs and cfgs[i] and cfgs[i].enabled == true) or false
+end
+
+-- Normalized copy of the configured rows: exactly MAX_ROWS entries; unknown
+-- and duplicate keys are dropped. Blocks that must be placed but are not -
+-- modules always, separators while enabled - go onto the lowest free row, so
+-- nothing can get lost. The result is cached until the rows change.
+function MainWindow:GetBlockRows()
+    local saved = Addon.db.profile.ui.blockRows
+    if self._rowsCache and self._rowsCacheSource == saved then
+        return self._rowsCache
+    end
+
+    local rows, seen = {}, {}
+    local function claim(key)
+        if key and ORDERABLE[key] and not seen[key] then
+            seen[key] = true
+            return key
+        end
+        return nil
+    end
+
+    for i = 1, MAX_ROWS do
+        local s = (type(saved) == "table") and saved[i] or nil
+        rows[i] = {
+            left  = claim(type(s) == "table" and s.left or nil),
+            right = claim(type(s) == "table" and s.right or nil),
+        }
+    end
+
+    -- Place a missing key on the first empty row below the used ones (or,
+    -- packed layouts, on any free left half).
+    local function place(key)
+        if seen[key] then return end
+        local lastUsed = 0
+        for i = 1, MAX_ROWS do
+            if rows[i].left or rows[i].right then lastUsed = i end
+        end
+        for i = lastUsed + 1, MAX_ROWS do
+            if not rows[i].left then
+                rows[i].left, seen[key] = key, true
+                return
+            end
+        end
+        for i = 1, MAX_ROWS do
+            if not rows[i].left then
+                rows[i].left, seen[key] = key, true
+                return
             end
         end
     end
-    for _, key in ipairs(DEFAULT_BLOCK_ORDER) do
-        if not seen[key] then
-            list[#list + 1] = key
-            seen[key] = true
+
+    for _, key in ipairs(MODULE_BLOCKS) do place(key) end
+    for i, key in ipairs(SEPARATOR_BLOCKS) do
+        if self:IsSeparatorEnabled(i) then place(key) end
+    end
+
+    self._rowsCache, self._rowsCacheSource = rows, saved
+    return rows
+end
+
+-- Drop the cached normalized rows (rows changed, separator toggled or the
+-- profile switched).
+function MainWindow:InvalidateRows()
+    self._rowsCache, self._rowsCacheSource = nil, nil
+end
+
+-- Assign `key` (or nil to clear) to one side of a row, persist and restack.
+-- The key is removed from any other slot first (each block exists exactly
+-- once); a separator always occupies a full row, so it claims the left half
+-- and clears the right one.
+function MainWindow:SetBlockSlot(rowIndex, side, key)
+    local rows = self:GetBlockRows()
+    local row = rows[rowIndex]
+    if not row then return end
+    if key then
+        for _, r in ipairs(rows) do
+            if r.left == key then r.left = nil end
+            if r.right == key then r.right = nil end
         end
     end
-    return list
-end
-
--- Move the block at `index` of the effective list one step up (-1) or down
--- (+1), persist the new list and restack.
-function MainWindow:MoveBlock(index, delta)
-    local list = self:GetBlockOrderList()
-    local other = index + delta
-    if not (list[index] and list[other]) then return end
-    list[index], list[other] = list[other], list[index]
-    Addon.db.profile.ui.blockOrder = list
-    self:Layout()
-end
-
--- Apply the configured order to the registered blocks. Positions are spaced
--- by 10 so the separators' x.1/x.2 offsets never collide with them.
-function MainWindow:ApplyBlockOrder()
-    if not self.blocks then return end
-    for index, key in ipairs(self:GetBlockOrderList()) do
-        local b = self.blocks[key]
-        if b then b.order = index * 10 end
+    if key and self:IsSeparatorKey(key) then
+        side = "left"
+        row.right = nil
     end
+    row[side] = key
+    Addon.db.profile.ui.blockRows = rows
+    self:InvalidateRows()
+    self:Layout()
 end
 
 -- Inner padding reserved around the blocks when the panel is decorated. The
@@ -223,96 +295,117 @@ function MainWindow:CreateSeparator(i)
     return { frame = f, line = line }
 end
 
--- Sync the separator blocks with profile.ui.separators: style each line, show it
--- only while its anchor module is visible, and order its block right after that
--- anchor (x.1 / x.2 so it never collides with the integer module orders). Called
--- from Layout BEFORE the stack is built; it never calls Layout itself.
+-- Sync the separator frames with profile.ui.separators: create and style each
+-- enabled line and register it as block "separatorN", so the row layout can
+-- place it like any other block (its position comes from the configured rows,
+-- not from an anchor). Called from Layout BEFORE the rows are rendered; it
+-- never calls Layout itself.
 function MainWindow:UpdateSeparators()
     local cfgs = Addon.db.profile.ui.separators
     self.separators = self.separators or {}
     for i = 1, 2 do
         local cfg = cfgs and cfgs[i]
-        local key = "__separator" .. i
-        local anchor = cfg and cfg.after and self.blocks and self.blocks[cfg.after]
-        local visible = cfg and cfg.enabled and anchor and anchor.frame:IsShown()
         local sep = self.separators[i]
-        if visible then
+        if cfg and cfg.enabled then
             sep = sep or self:CreateSeparator(i)
             self.separators[i] = sep
             local h = math.max(1, cfg.height or 2)
             local w = math.max(1, cfg.width or 180)
             local c = cfg.color or { 1, 1, 1, 0.5 }
-            sep.frame:SetWidth(self:GetWidth())
             sep.frame:SetHeight(h)
             sep.line:SetSize(w, h)
             sep.line:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
             sep.frame:Show()
-            self.blocks[key] = self.blocks[key] or {}
-            self.blocks[key].frame = sep.frame
-            self.blocks[key].order = anchor.order + 0.1 * i
+            -- Register directly; AddBlock would recurse back into Layout.
+            self.blocks = self.blocks or {}
+            self.blocks["separator" .. i] = self.blocks["separator" .. i]
+                or { frame = sep.frame, order = 100 }
         elseif sep then
             sep.frame:Hide()
         end
     end
 end
 
--- Stack all currently shown blocks vertically, resize the container to fit and
--- show/hide the container depending on whether anything is visible.
+-- Stack all visible rows vertically (full-width or left/right split), resize
+-- the container to fit and show/hide it depending on whether anything is
+-- visible.
 function MainWindow:Layout()
     if not self.blocks then return end
     local hud = self:Get()
 
-    -- Effective block order first: the separators anchor to it right after.
-    self:ApplyBlockOrder()
     self:UpdateSeparators()
 
-    local ordered = orderedScratch
-    wipe(ordered)
-    for _, b in pairs(self.blocks) do ordered[#ordered + 1] = b end
-    table.sort(ordered, byOrder)
-
+    local width = self:GetWidth()
     local pad = self:PanelInsets()
     local spacing = Addon.db.profile.ui.spacing or 2
+    local half = (width - SPLIT_GAP) / 2
+
+    -- Collect the visible rows into the reusable scratch. A split row whose
+    -- second block is hidden collapses to a full-width row.
+    local count = 0
+    for _, row in ipairs(self:GetBlockRows()) do
+        local lb = row.left and self.blocks[row.left]
+        local rb = row.right and self.blocks[row.right]
+        local lf = lb and lb.frame:IsShown() and lb.frame or nil
+        local rf = rb and rb.frame:IsShown() and rb.frame or nil
+        if lf or rf then
+            count = count + 1
+            if lf and rf then
+                entryLeft[count], entryRight[count] = lf, rf
+            else
+                entryLeft[count], entryRight[count] = lf or rf, false
+            end
+        end
+    end
+    for i = count + 1, #entryLeft do
+        entryLeft[i], entryRight[i] = nil, nil
+    end
+
+    -- Apply the widths dictated by the placement (full or half row).
+    for i = 1, count do
+        if entryRight[i] then
+            entryLeft[i]:SetWidth(half)
+            entryRight[i]:SetWidth(half)
+        else
+            entryLeft[i]:SetWidth(width)
+        end
+    end
 
     -- Skip when the resulting stack is identical to the last one. Modules call
     -- Layout very frequently while a key runs (timer, forces, cooldowns), almost
-    -- always with unchanged block sizes/visibility. Re-anchoring and resizing the
-    -- HUD on every one of those calls is what made the whole display jitter, so
-    -- we no-op unless something structural (shown blocks, their rounded sizes,
-    -- order or the panel padding) actually changed.
-    local sig = tostring(pad) .. "/" .. tostring(spacing)
-    for _, b in ipairs(ordered) do
-        if b.frame:IsShown() then
-            sig = sig .. "|" .. tostring(b.order)
-                .. ":" .. math.floor((b.frame:GetWidth() or 0) + 0.5)
-                .. "x" .. math.floor((b.frame:GetHeight() or 0) + 0.5)
+    -- always with unchanged sizes/visibility. Re-anchoring and resizing the HUD
+    -- on every one of those calls is what made the whole display jitter, so we
+    -- no-op unless something structural (rows, their frames, rounded heights or
+    -- the panel padding) actually changed.
+    local sig = pad .. "/" .. spacing .. "/" .. width
+    for i = 1, count do
+        sig = sig .. "|" .. tostring(entryLeft[i])
+            .. ":" .. math.floor((entryLeft[i]:GetHeight() or 0) + 0.5)
+        if entryRight[i] then
+            sig = sig .. "+" .. tostring(entryRight[i])
+                .. ":" .. math.floor((entryRight[i]:GetHeight() or 0) + 0.5)
         end
     end
     if sig == self._layoutSig then return end
     self._layoutSig = sig
 
-    local topInset = pad
-    local prev, width, height, count = nil, 0, 0, 0
-
-    for _, b in ipairs(ordered) do
-        local f = b.frame
-        if f:IsShown() then
-            f:ClearAllPoints()
-            if not prev then
-                f:SetPoint("TOP", hud, "TOP", 0, -topInset)
-            else
-                f:SetPoint("TOP", prev, "BOTTOM", 0, -spacing)
-            end
-            prev = f
-            count = count + 1
-            width = math.max(width, f:GetWidth())
-            height = height + f:GetHeight()
+    local y = pad
+    for i = 1, count do
+        local lf, rf = entryLeft[i], entryRight[i]
+        lf:ClearAllPoints()
+        if rf then
+            lf:SetPoint("TOPLEFT", hud, "TOPLEFT", pad, -y)
+            rf:ClearAllPoints()
+            rf:SetPoint("TOPRIGHT", hud, "TOPRIGHT", -pad, -y)
+            y = y + math.max(lf:GetHeight(), rf:GetHeight()) + spacing
+        else
+            lf:SetPoint("TOP", hud, "TOP", 0, -y)
+            y = y + lf:GetHeight() + spacing
         end
     end
 
     if count > 0 then
-        local contentH = height + spacing * (count - 1)
-        hud:SetSize(width + pad * 2, contentH + topInset + pad)
+        hud:SetSize(width + pad * 2, (y - spacing) + pad)
         self:ApplyPanel()
         hud:Show()
     else

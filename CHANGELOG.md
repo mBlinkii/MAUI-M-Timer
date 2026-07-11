@@ -11,6 +11,8 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 - The options window remembers its size and position when you move or resize it; a small reset button at the bottom-left edge of the window restores the default size.
 - First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. It can be re-run anytime via `/mauimpt setup`.
 - The setup wizard ships with the "MaUI" preset profile (the author's personal look, with preview screenshot) alongside the factory default.
+- Free HUD layout: under General -> Element order, every row has dropdowns to place any module — and a row can hold TWO modules side by side (left/right), e.g. Deaths next to Splits. Enabled separator lines appear in the list as well and are placed like any other element. Changes apply live and are stored per profile.
+- The Enemy Forces "Bar position" option and the separator "After element" anchor were replaced by the free layout; saved settings are migrated automatically.
 
 ### Fixes
 

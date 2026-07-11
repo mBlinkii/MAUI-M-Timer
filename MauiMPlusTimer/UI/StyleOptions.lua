@@ -446,32 +446,23 @@ function Addon:BuildWindowOptions()
         ui.separators[i] = ui.separators[i] or {}
         return ui.separators[i]
     end
-    local function sepApply() Addon.MainWindow:Layout() end
-    -- Module block keys a separator can be anchored after (see the AddBlock calls
-    -- in each module's UI). The separator sits between this module and the next.
-    local positions = {
-        dungeon = L["Dungeon"], timer = L["Timer"], forces = L["Enemy Forces"],
-        objectives = L["Objectives"], deaths = L["Deaths"], splits = L["Splits"],
-        checkpoints = L["Checkpoints"], cooldowns = L["Cooldowns"],
-    }
-    local positionSorting = {
-        "dungeon", "timer", "forces", "objectives", "deaths", "splits", "checkpoints", "cooldowns",
-    }
+    -- Enabling/disabling a separator changes which entries the row layout has
+    -- to place, so the normalized-rows cache must be dropped as well.
+    local function sepApply()
+        Addon.MainWindow:InvalidateRows()
+        Addon.MainWindow:Layout()
+    end
     local function separatorGroup(i, order)
         local function off() return sepCfg(i).enabled ~= true end
         return {
             type = "group", inline = true, name = L["Separator line"] .. " " .. i, order = order,
             args = {
+                -- The separator's position is configured like any other block
+                -- under General -> Element order (it appears there once enabled).
                 enabled = {
                     type = "toggle", name = L["Enable"], order = 1,
                     get = function() return sepCfg(i).enabled == true end,
                     set = function(_, v) sepCfg(i).enabled = v; sepApply() end,
-                },
-                after = {
-                    type = "select", name = L["After element"], order = 2,
-                    values = positions, sorting = positionSorting, disabled = off,
-                    get = function() return sepCfg(i).after or "timer" end,
-                    set = function(_, v) sepCfg(i).after = v; sepApply() end,
                 },
                 width = {
                     type = "range", name = L["Width"], order = 3, min = 10, max = 600, step = 2,

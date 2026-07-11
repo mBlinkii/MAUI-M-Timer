@@ -76,13 +76,8 @@ function Forces:GetOptions()
                 type = "group", inline = true, name = L["Settings"], order = 2,
                 args = {
                     align = Addon:ModuleAlignOption(self, 1),
-                    position = {
-                        type = "select", name = L["Bar position"], order = 2,
-                        values = { top = L["Above objectives"], bottom = L["Below objectives"] },
-                        sorting = { "top", "bottom" },
-                        get = function() return Forces:GetSettings().position == "bottom" and "bottom" or "top" end,
-                        set = function(_, v) Forces:GetSettings().position = v; Forces.UI:UpdatePosition() end,
-                    },
+                    -- The bar's position in the HUD stack is configured under
+                    -- General -> Element order (like every other module).
                     showCount = {
                         type = "toggle", name = L["Show remaining count"], order = 3,
                         desc = L["Show the remaining absolute mob count next to the percentage."],
