@@ -164,6 +164,8 @@ L["Show background"] = "Hintergrund anzeigen"
 L["Element order"] = "Element-Anordnung"
 L["Assign each element to a row (top to bottom). A row can hold two blocks side by side (left/right); cleared modules re-appear on the lowest free row. Enabled separator lines are placed here as well."] =
     "Weise jedes Element einer Zeile zu (von oben nach unten). Eine Zeile kann zwei Blöcke nebeneinander aufnehmen (links/rechts); entfernte Module erscheinen automatisch in der untersten freien Zeile. Aktivierte Trennlinien werden ebenfalls hier platziert."
+L["Reset order"] = "Anordnung zurücksetzen"
+L["Reset the element order to the default layout?"] = "Element-Anordnung auf das Standard-Layout zurücksetzen?"
 L["Reverse bar direction"] = "Balken-Richtung umkehren"
 L["Timer sections"] = "Timer-Abschnitte"
 L["Over time"] = "Überzeit"

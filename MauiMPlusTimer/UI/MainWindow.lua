@@ -241,6 +241,24 @@ function MainWindow:InvalidateRows()
     self._rowsCache, self._rowsCacheSource = nil, nil
 end
 
+-- Reset the row layout to the factory default (one block per row, forces bar
+-- below the objectives; matches the factory preset in Core/DB.lua) and
+-- restack. Enabled separators re-place themselves on the lowest free rows.
+function MainWindow:ResetBlockRows()
+    Addon.db.profile.ui.blockRows = {
+        { left = "dungeon" },
+        { left = "timer" },
+        { left = "objectives" },
+        { left = "forces" },
+        { left = "deaths" },
+        { left = "splits" },
+        { left = "checkpoints" },
+        { left = "cooldowns" },
+    }
+    self:InvalidateRows()
+    self:Layout()
+end
+
 -- Assign `key` (or nil to clear) to one side of a row, persist and restack.
 -- The key is removed from any other slot first (each block exists exactly
 -- once); a separator always occupies a full row, so it claims the left half

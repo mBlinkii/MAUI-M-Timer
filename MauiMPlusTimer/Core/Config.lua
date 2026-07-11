@@ -132,7 +132,8 @@ function Addon:BuildBlockOrderArgs()
         -- the flow layout onto a new line, so the rows always stack vertically
         -- no matter how wide the options window is.
         args["row" .. index .. "Break"] = {
-            type = "description", order = base + 3, width = "full", name = "",
+            type = "description", order = base + 3, width = "full", name = " ",
+            fontSize = "small",
         }
         args["row" .. index .. "Left"] = {
             type = "select", order = base + 1, width = 1.0, name = "",
@@ -160,6 +161,13 @@ function Addon:BuildBlockOrderArgs()
             end,
         }
     end
+
+    args.resetOrder = {
+        type = "execute", order = (MainWindow.MAX_ROWS + 1) * 10, width = 1.0,
+        name = L["Reset order"],
+        confirm = function() return L["Reset the element order to the default layout?"] end,
+        func = function() MainWindow:ResetBlockRows() end,
+    }
     return args
 end
 
@@ -471,29 +479,41 @@ function Addon:SetupConfig()
     self.AceConfigDialog:SetDefaultSize(ADDON_NAME, OPTIONS_DEFAULT_WIDTH, OPTIONS_DEFAULT_HEIGHT)
     self.optionsFrame = self.AceConfigDialog:AddToBlizOptions(ADDON_NAME, "MAUI M+ Timer")
 
+    -- AceConfigDialog re-runs :Open for an already-open frame on every options
+    -- refresh (NotifyChange after a setting change) and rebinds ITS internal
+    -- status table - which carries only the default size - to the frame each
+    -- time. That reset the window geometry on the first change after a reload.
+    -- Rebinding our persisted table after EVERY Open keeps the geometry stable.
+    hooksecurefunc(self.AceConfigDialog, "Open", function(_, appName)
+        if appName == ADDON_NAME then
+            Addon:ApplyOptionsWindowStatus()
+        end
+    end)
+
     self:RegisterChatCommand("mauimpt", "HandleSlash")
 end
 
--- Open the standalone options window. Every code path that opens the GUI
--- (slash command, minimap button, addon compartment, changelog auto-show)
--- goes through here so the persisted geometry and the reset control are
--- always applied.
+-- Open the standalone options window. The geometry binding and the reset
+-- control are attached by the Open hook installed in SetupConfig, so they are
+-- applied on every open path (slash command, minimap button, compartment,
+-- changelog auto-show) AND on every internal refresh re-open.
 function Addon:OpenOptions()
     if not self.AceConfigDialog then return end
     self.AceConfigDialog:Open(ADDON_NAME)
+end
 
-    local widget = self.AceConfigDialog.OpenFrames[ADDON_NAME]
+-- Bind the persisted window geometry to the open options frame and attach the
+-- size-reset control. The AceGUI Frame writes its geometry (width/height/
+-- top/left) into its status table whenever the user finishes moving or
+-- resizing; pointing it at a SavedVariables table persists the geometry
+-- across sessions. While the table is empty (first use / after a reset) the
+-- default size from SetDefaultSize stays in effect.
+function Addon:ApplyOptionsWindowStatus()
+    local widget = self.AceConfigDialog and self.AceConfigDialog.OpenFrames[ADDON_NAME]
     if not widget then return end
-
-    -- The AceGUI Frame writes its geometry (width/height/top/left) into its
-    -- status table whenever the user finishes moving or resizing. Pointing it
-    -- at a SavedVariables table persists the window geometry across sessions;
-    -- while the table is empty (first use / after a reset) the default size
-    -- from SetDefaultSize stays in effect.
     if widget.SetStatusTable then
         widget:SetStatusTable(self.db.global.optionsWindow)
     end
-
     self:EnsureOptionsResetButton(widget)
 end
 
