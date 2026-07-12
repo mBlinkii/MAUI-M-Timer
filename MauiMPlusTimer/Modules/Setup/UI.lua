@@ -70,9 +70,10 @@ end
 -- step indicator between them and the built-in close button.
 local NAV_BUTTON_WIDTH = 120
 local NAV_GAP = 8 -- horizontal gap around the step indicator
--- y-offset that vertically centers a 24px button on the AceGUI close-button row
--- (that button is 20px tall at y-offset 17).
-local NAV_Y = 15
+-- The footer buttons share the AceGUI close button's row exactly: 20px tall at
+-- y-offset 17. The close button is widened to NAV_BUTTON_WIDTH as well (see
+-- UI:StyleCloseButton), so all three footer buttons look identical.
+local NAV_Y = 17
 
 -- Logo shown on the welcome step (extension-less path so WoW resolves the .tga).
 local LOGO_TEXTURE = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_big"
@@ -93,7 +94,7 @@ local function ensureNavButton(field)
     if not widget then
         widget = AceGUI:Create("Button")
         widget:SetWidth(NAV_BUTTON_WIDTH)
-        widget:SetHeight(24)
+        widget:SetHeight(20)
         -- Hide the button whenever its host frame is shown for anything that is
         -- not our own wizard window (AceGUI frame recycling).
         widget.frame:SetScript("OnShow", function(f)
@@ -114,6 +115,19 @@ end
 function UI:EnsureNavButtons()
     self.navLeft = ensureNavButton("navLeft")
     self.navNext = ensureNavButton("navNext")
+    self:StyleCloseButton()
+end
+
+-- Widen the AceGUI frame's built-in close button to NAV_BUTTON_WIDTH so it
+-- matches the two footer buttons. AceGUI keeps the button local, so it is found
+-- by its text (the global CLOSE label) among the frame's direct children.
+function UI:StyleCloseButton()
+    for _, child in ipairs({ self.frame.frame:GetChildren() }) do
+        if child.GetText and child:GetText() == CLOSE then
+            child:SetWidth(NAV_BUTTON_WIDTH)
+            break
+        end
+    end
 end
 
 -- Point the two footer buttons at the current step. Pass nil for a text to hide
@@ -138,9 +152,10 @@ function UI:SetNav(leftText, leftFn, nextText, nextFn)
 
     self.navLeft.frame:ClearAllPoints()
     self.navLeft.frame:SetPoint("BOTTOMLEFT", host, "BOTTOMLEFT", 27, NAV_Y)
-    -- The close button is 100 wide anchored at x -27; -135 leaves an 8px gap.
+    -- The (widened) close button is 120 wide anchored at x -27, so its left edge
+    -- sits at -147; -155 leaves an 8px gap before the Next/Finish button.
     self.navNext.frame:ClearAllPoints()
-    self.navNext.frame:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -135, NAV_Y)
+    self.navNext.frame:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -155, NAV_Y)
 end
 
 -- Create/reparent the "Steps 1 - 2 - 3" indicator, spanning the gap between the
