@@ -30,6 +30,7 @@ function UI:Show()
     -- install is never nagged twice; /mauimpt setup reopens it anytime.
     frame:SetCallback("OnClose", function(widget)
         UI:HideNav()
+        UI:RestoreCloseButton() -- undo StyleCloseButton before the frame is pooled
         Setup:MarkDone()
         AceGUI:Release(widget)
         UI.frame = nil
@@ -118,16 +119,31 @@ function UI:EnsureNavButtons()
     self:StyleCloseButton()
 end
 
--- Widen the AceGUI frame's built-in close button to NAV_BUTTON_WIDTH so it
--- matches the two footer buttons. AceGUI keeps the button local, so it is found
--- by its text (the global CLOSE label) among the frame's direct children.
-function UI:StyleCloseButton()
+-- Find the AceGUI frame's built-in close button. The lib keeps it as a local, so
+-- it is located by its text (the global CLOSE label) among the frame's children.
+function UI:GetCloseButton()
     for _, child in ipairs({ self.frame.frame:GetChildren() }) do
         if child.GetText and child:GetText() == CLOSE then
-            child:SetWidth(NAV_BUTTON_WIDTH)
-            break
+            return child
         end
     end
+end
+
+-- Widen the built-in close button to NAV_BUTTON_WIDTH so it matches the two
+-- footer buttons.
+function UI:StyleCloseButton()
+    local close = self:GetCloseButton()
+    if close then close:SetWidth(NAV_BUTTON_WIDTH) end
+end
+
+-- Restore the close button to the AceGUI default width (100, set in the lib's
+-- Frame constructor) before the frame is released. AceGUI pools and reuses its
+-- frames across every addon that embeds the library, and OnAcquire does not
+-- reset the button size - so without this, our widening would leak into the next
+-- addon that reuses this frame.
+function UI:RestoreCloseButton()
+    local close = self:GetCloseButton()
+    if close then close:SetWidth(100) end
 end
 
 -- Point the two footer buttons at the current step. Pass nil for a text to hide
@@ -227,13 +243,19 @@ function UI:SetLogoShown(shown)
     end
 end
 
--- Hide every pinned footer element (on window close), so a pooled frame carries
--- no leftover wizard controls.
+-- Hide every pinned footer element and detach it from the wizard frame (back to
+-- UIParent), so the pooled frame - reused by other AceGUI addons - carries none
+-- of our controls.
 function UI:HideNav()
-    if self.navLeft then self.navLeft.frame:Hide() end
-    if self.navNext then self.navNext.frame:Hide() end
-    if self.stepFrame then self.stepFrame:Hide() end
-    if self.logoFrame then self.logoFrame:Hide() end
+    local function park(frame)
+        frame:Hide()
+        frame:SetParent(UIParent)
+        frame:ClearAllPoints()
+    end
+    if self.navLeft then park(self.navLeft.frame) end
+    if self.navNext then park(self.navNext.frame) end
+    if self.stepFrame then park(self.stepFrame) end
+    if self.logoFrame then park(self.logoFrame) end
 end
 
 -- Steps ------------------------------------------------------------------------
