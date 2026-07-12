@@ -45,11 +45,17 @@ Data.profiles = {
                 Changelog = {
                 },
                 Checkpoints = {
-                    align = "right",
+                    align = "left",
                     enabled = true,
+                    labelIcons = true,
+                    ponrIconColor = {
+                        [1] = 1,
+                        [2] = 0.38431376218796,
+                        [3] = 0,
+                    },
                 },
                 Cooldowns = {
-                    align = "right",
+                    align = "left",
                     brez = {
                         on = true,
                     },
@@ -96,6 +102,7 @@ Data.profiles = {
                 EnemyForces = {
                     enabled = true,
                     segmentCountdown = true,
+                    segmentCountdownAll = true,
                     showCount = false,
                     showMarkers = true,
                     splitBar = true,
@@ -120,6 +127,7 @@ Data.profiles = {
                     },
                     rowSpacing = 0,
                     showDoneIcon = true,
+                    showForcesRow = true,
                     showPendingIcon = true,
                     timeSide = "auto",
                 },
@@ -161,6 +169,12 @@ Data.profiles = {
                 Splits = {
                     align = "right",
                     enabled = true,
+                    labelIcon = true,
+                    labelIconColor = {
+                        [1] = 0,
+                        [2] = 0.75686281919479,
+                        [3] = 1,
+                    },
                     storeMode = "all",
                 },
                 Timer = {
@@ -196,26 +210,23 @@ Data.profiles = {
                     },
                     show = false,
                 },
-                -- Sanitized from the author's export: duplicates removed and
-                -- compacted to MAX_ROWS (the raw export carried stray rows
-                -- from a pre-release data-format iteration).
                 blockRows = {
                     { left = "dungeon" },
                     { left = "timer" },
                     { left = "objectives" },
-                    { left = "separator1" },
                     { left = "forces" },
-                    { left = "deaths" },
-                    { left = "separator2" },
-                    { left = "splits" },
-                    { left = "checkpoints" },
-                    { left = "cooldowns" },
+                    { left = "checkpoints", right = "splits" },
+                    { left = "cooldowns", right = "deaths" },
+                    {},
+                    {},
+                    {},
+                    {},
                 },
                 demo = false,
                 elements = {
                     checkpointsText = {
                         font = "Interface\\AddOns\\!mMT_MediaPack\\media\\fonts\\Ubuntu-Medium.ttf",
-                        fontSize = 20,
+                        fontSize = 18,
                         textColor = {
                             [1] = 1,
                             [2] = 1,
@@ -329,7 +340,7 @@ Data.profiles = {
                         borderOffset = 1,
                         borderOn = true,
                         borderSize = 1,
-                        borderTexture = "Interface\\Buttons\\WHITE8X8",
+                        borderTexture = "1 Pixel",
                         height = 20,
                         markerColor = {
                             [1] = 1,
@@ -340,6 +351,7 @@ Data.profiles = {
                         reverse = false,
                     },
                     forcesSegment = {
+                        countdownPos = "center",
                         font = "Interface\\AddOns\\!mMT_MediaPack\\media\\fonts\\Ubuntu-Medium.ttf",
                         fontSize = 14,
                         textColor = {
@@ -366,6 +378,7 @@ Data.profiles = {
                             [3] = 1,
                             [4] = 1,
                         },
+                        textPos = "barLeft",
                         xOffset = 4,
                         yOffset = 0,
                     },
@@ -402,7 +415,7 @@ Data.profiles = {
                     },
                     splitsText = {
                         font = "Interface\\AddOns\\!mMT_MediaPack\\media\\fonts\\Ubuntu-Medium.ttf",
-                        fontSize = 20,
+                        fontSize = 18,
                         textColor = {
                             [1] = 1,
                             [2] = 1,
@@ -508,8 +521,8 @@ Data.profiles = {
                     font = "Interface\\AddOns\\!mMT_MediaPack\\media\\fonts\\Ubuntu-Medium.ttf",
                     fontSize = 14,
                 },
-                locked = false,
-                point = "RIGHT",
+                locked = true,
+                point = "TOPRIGHT",
                 scale = 1,
                 separators = {
                     [1] = {
@@ -555,8 +568,8 @@ Data.profiles = {
                     text = "",
                 },
                 width = 400,
-                x = -16.000818252563,
-                y = 255.83352661133,
+                x = -10.000774383545,
+                y = -286.16677856445,
             },
         },
     },
