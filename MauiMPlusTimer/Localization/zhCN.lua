@@ -128,6 +128,10 @@ L["Next"] = "下一步"
 L["Skip"] = "跳过"
 L["Finish"] = "完成"
 L["Setup complete! Open the options anytime with /mauimpt."] = "设置完成！随时使用 /mauimpt 打开选项。"
+L["Run setup wizard"] = "运行设置向导"
+L["Steps"] = "步骤"
+L["Reopen the first-start setup wizard to pick a profile and load the recommended checkpoint targets."] =
+    "重新打开首次启动设置向导，选择配置文件并加载推荐的检查点目标。"
 L["Automatically open the changelog once after the addon has been updated to a new version."] =
     "插件更新到新版本后自动打开一次更新日志。"
 L["Minimap button"] = "小地图按钮"

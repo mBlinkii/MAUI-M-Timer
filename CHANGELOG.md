@@ -12,6 +12,11 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 - First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. It can be re-run anytime via `/mauimpt setup`.
 - The setup wizard ships with the "MaUI" preset profile (the author's personal look, with preview screenshot) alongside the factory default.
 
+### Updates
+
+- The setup wizard can now be reopened from the options: General → Other has a "Run setup wizard" button, next to the `/mauimpt setup` slash command.
+- Setup wizard redesign: a consistent footer pinned to the bottom bar (level with the Close button) with a left button (Skip on step 1, Back afterwards), a "Steps 1 - 2 - 3" progress indicator that highlights the current step, and the Next/Finish button next to Close. The welcome step now shows the addon logo, and the profile presets are laid out as preview-plus-description boxes.
+
 ## [1.2.0] - 2026-07-10
 
 ### New

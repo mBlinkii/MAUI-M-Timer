@@ -262,6 +262,18 @@ function Addon:BuildOptions()
                                 get = function() return Addon.db.profile.debug end,
                                 set = function(_, v) Addon.db.profile.debug = v end,
                             },
+                            setup = {
+                                type = "execute",
+                                name = L["Run setup wizard"],
+                                desc = L["Reopen the first-start setup wizard to pick a profile and load the recommended checkpoint targets."],
+                                order = 4,
+                                func = function()
+                                    -- Same entry point as the "/mauimpt setup"
+                                    -- slash command; the module owns its window.
+                                    local m = Addon:GetModule("Setup", true)
+                                    if m and m.UI then m.UI:Show() end
+                                end,
+                            },
                         },
                     },
                 },
@@ -697,9 +709,6 @@ function Addon:HandleSlash(input)
         if m and m.Editor then m.Editor:Toggle() end
         return
     end
-    -- "/mauimpt setup" deeplink is PARKED together with the Setup module
-    -- (planned for a later release); the silent module lookup keeps this a
-    -- harmless no-op until the module is loaded again.
     if input == "setup" then
         local m = Addon:GetModule("Setup", true)
         if m and m.UI then m.UI:Show() end

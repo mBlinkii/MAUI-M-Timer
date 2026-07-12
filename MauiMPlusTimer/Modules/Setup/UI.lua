@@ -13,7 +13,8 @@ local UI = {}
 Setup.UI = UI
 
 local WINDOW_WIDTH, WINDOW_HEIGHT = 560, 470
-local SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT = 512, 160 -- preview size in the wizard
+local SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT = 512, 160 -- native size of the presets
+local PREVIEW_WIDTH = 190 -- width the preview is scaled to in the left column
 
 -- Open the wizard (or focus it when already open) and start at step 1.
 function UI:Show()
@@ -28,6 +29,7 @@ function UI:Show()
     -- Closing the window (X button included) counts as "seen" so a fresh
     -- install is never nagged twice; /mauimpt setup reopens it anytime.
     frame:SetCallback("OnClose", function(widget)
+        UI:HideNav()
         Setup:MarkDone()
         AceGUI:Release(widget)
         UI.frame = nil
@@ -61,39 +63,174 @@ local function addText(container, text, fontObject)
     container:AddChild(label)
 end
 
--- Bottom navigation row with up to two explicit buttons (left, right).
--- Pass nil for a text to skip that button.
-local function addNav(container, leftText, leftFn, rightText, rightFn)
-    local group = AceGUI:Create("SimpleGroup")
-    group:SetFullWidth(true)
-    group:SetLayout("Flow")
-    container:AddChild(group)
+-- Footer navigation ----------------------------------------------------------
 
-    if leftText then
-        local left = AceGUI:Create("Button")
-        left:SetText(leftText)
-        left:SetWidth(140)
-        left:SetCallback("OnClick", leftFn)
-        group:AddChild(left)
+-- Fixed width of the two footer buttons; wide enough for the longest label in
+-- every shipped locale (e.g. German "Fertigstellen") while leaving room for the
+-- step indicator between them and the built-in close button.
+local NAV_BUTTON_WIDTH = 120
+local NAV_GAP = 8 -- horizontal gap around the step indicator
+-- y-offset that vertically centers a 24px button on the AceGUI close-button row
+-- (that button is 20px tall at y-offset 17).
+local NAV_Y = 15
+
+-- Logo shown on the welcome step (extension-less path so WoW resolves the .tga).
+local LOGO_TEXTURE = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_big"
+local LOGO_SIZE = 190
+
+-- Step indicator colors (|c AARRGGBB without the alpha): the active step matches
+-- the module-green used elsewhere, inactive steps and separators are grey.
+local STEP_ACTIVE_COLOR = "40c057"
+local STEP_INACTIVE_COLOR = "808080"
+local TOTAL_STEPS = 3
+
+-- Create one persistent footer button (an AceGUI "Button" widget so third-party
+-- skins like ElvUI/Masque, which hook AceGUI's named buttons, style it just like
+-- the in-content buttons) and reparent it to the current wizard window. Not
+-- added to any container: the wizard positions and reuses it directly.
+local function ensureNavButton(field)
+    local widget = UI[field]
+    if not widget then
+        widget = AceGUI:Create("Button")
+        widget:SetWidth(NAV_BUTTON_WIDTH)
+        widget:SetHeight(24)
+        -- Hide the button whenever its host frame is shown for anything that is
+        -- not our own wizard window (AceGUI frame recycling).
+        widget.frame:SetScript("OnShow", function(f)
+            if not (UI.frame and UI.frame.frame == f:GetParent()) then f:Hide() end
+        end)
+        UI[field] = widget
     end
-    if rightText then
-        local right = AceGUI:Create("Button")
-        right:SetText(rightText)
-        right:SetWidth(140)
-        right:SetCallback("OnClick", rightFn)
-        group:AddChild(right)
+
+    local host = UI.frame.frame
+    widget.frame:SetParent(host)
+    widget.frame:SetFrameLevel(host:GetFrameLevel() + 10)
+    return widget
+end
+
+-- Create/reparent the two persistent footer buttons (left = Skip/Back,
+-- right = Next/Finish) on the bottom bar of the current wizard window. They live
+-- outside the scroll content so they stay pinned while the step content scrolls.
+function UI:EnsureNavButtons()
+    self.navLeft = ensureNavButton("navLeft")
+    self.navNext = ensureNavButton("navNext")
+end
+
+-- Point the two footer buttons at the current step. Pass nil for a text to hide
+-- that button. Left button sits in the far-left corner (Skip on step 1, Back
+-- afterwards); Next/Finish is pinned right, just left of the close button.
+function UI:SetNav(leftText, leftFn, nextText, nextFn)
+    self:EnsureNavButtons()
+    local host = self.frame.frame
+
+    local function configure(widget, text, fn)
+        if text then
+            widget:SetText(text)
+            widget:SetCallback("OnClick", function() fn() end)
+            widget.frame:Show()
+        else
+            widget.frame:Hide()
+        end
     end
+
+    configure(self.navLeft, leftText, leftFn)
+    configure(self.navNext, nextText, nextFn)
+
+    self.navLeft.frame:ClearAllPoints()
+    self.navLeft.frame:SetPoint("BOTTOMLEFT", host, "BOTTOMLEFT", 27, NAV_Y)
+    -- The close button is 100 wide anchored at x -27; -135 leaves an 8px gap.
+    self.navNext.frame:ClearAllPoints()
+    self.navNext.frame:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -135, NAV_Y)
+end
+
+-- Create/reparent the "Steps 1 - 2 - 3" indicator, spanning the gap between the
+-- two footer buttons so it stays centered between them.
+function UI:EnsureStepIndicator()
+    if not self.stepFrame then
+        local f = CreateFrame("Frame", nil, UIParent)
+        f:SetHeight(24)
+        local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetAllPoints(f)
+        fs:SetJustifyH("CENTER")
+        fs:SetJustifyV("MIDDLE")
+        f:SetScript("OnShow", function(fr)
+            if not (UI.frame and UI.frame.frame == fr:GetParent()) then fr:Hide() end
+        end)
+        self.stepFrame, self.stepText = f, fs
+    end
+
+    local host = self.frame.frame
+    self.stepFrame:SetParent(host)
+    self.stepFrame:SetFrameLevel(host:GetFrameLevel() + 10)
+    self.stepFrame:ClearAllPoints()
+    self.stepFrame:SetPoint("LEFT", self.navLeft.frame, "RIGHT", NAV_GAP, 0)
+    self.stepFrame:SetPoint("RIGHT", self.navNext.frame, "LEFT", -NAV_GAP, 0)
+    self.stepFrame:Show()
+end
+
+-- Render the localized "Steps 1 - 2 - 3" line with the active step highlighted.
+function UI:UpdateStepIndicator(current)
+    self:EnsureStepIndicator()
+    local parts = {}
+    for i = 1, TOTAL_STEPS do
+        local color = (i == current) and STEP_ACTIVE_COLOR or STEP_INACTIVE_COLOR
+        parts[i] = "|cff" .. color .. i .. "|r"
+    end
+    local sep = " |cff" .. STEP_INACTIVE_COLOR .. "-|r "
+    self.stepText:SetText(ns.L["Steps"] .. "  " .. table.concat(parts, sep))
+end
+
+-- Create/reparent the welcome-step logo, centered in the content area.
+function UI:EnsureLogo()
+    if not self.logoFrame then
+        local f = CreateFrame("Frame", nil, UIParent)
+        f:SetSize(LOGO_SIZE, LOGO_SIZE)
+        local tex = f:CreateTexture(nil, "ARTWORK")
+        tex:SetAllPoints(f)
+        tex:SetTexture(LOGO_TEXTURE)
+        f:SetScript("OnShow", function(fr)
+            if not (UI.frame and UI.frame.frame == fr:GetParent()) then fr:Hide() end
+        end)
+        self.logoFrame = f
+    end
+
+    local host = self.frame.frame
+    self.logoFrame:SetParent(host)
+    self.logoFrame:SetFrameLevel(host:GetFrameLevel() + 5)
+    self.logoFrame:ClearAllPoints()
+    -- A touch below center to clear the heading and description at the top.
+    self.logoFrame:SetPoint("CENTER", host, "CENTER", 0, -10)
+end
+
+-- Show the logo only on the welcome step.
+function UI:SetLogoShown(shown)
+    if shown then
+        self:EnsureLogo()
+        self.logoFrame:Show()
+    elseif self.logoFrame then
+        self.logoFrame:Hide()
+    end
+end
+
+-- Hide every pinned footer element (on window close), so a pooled frame carries
+-- no leftover wizard controls.
+function UI:HideNav()
+    if self.navLeft then self.navLeft.frame:Hide() end
+    if self.navNext then self.navNext.frame:Hide() end
+    if self.stepFrame then self.stepFrame:Hide() end
+    if self.logoFrame then self.logoFrame:Hide() end
 end
 
 -- Steps ------------------------------------------------------------------------
 
--- Step 1: welcome text plus Next/Skip.
+-- Step 1: welcome text and the centered logo (added by RenderStep), plus the
+-- Skip/Next footer buttons.
 function UI:RenderWelcome(container)
     local L = ns.L
     addHeading(container, L["Welcome to MAUI M+ Timer!"])
     addText(container, L["This quick setup gets you started: pick a starting profile and load the recommended checkpoint targets. Everything can be changed later in the options."])
 
-    addNav(container,
+    self:SetNav(
         L["Skip"],
         function()
             Setup:MarkDone()
@@ -116,23 +253,35 @@ function UI:RenderProfiles(container)
         local group = AceGUI:Create("InlineGroup")
         group:SetTitle(entry.name)
         group:SetFullWidth(true)
-        group:SetLayout("List")
+        group:SetLayout("Flow") -- two columns: preview | description + button
         container:AddChild(group)
+
+        -- Left column: the preview image, scaled to the column width while
+        -- keeping the preset screenshot's true aspect ratio.
+        local left = AceGUI:Create("SimpleGroup")
+        left:SetRelativeWidth(0.4)
+        left:SetLayout("List")
+        group:AddChild(left)
 
         if entry.screenshot then
             local img = AceGUI:Create("Label")
             img:SetText(" ")
             img:SetFullWidth(true)
             img:SetImage(entry.screenshot)
-            -- Display at the preset's original pixel size so a stretched
-            -- power-of-two texture gets its true aspect ratio back.
             local size = entry.screenshotSize
-            img:SetImageSize(size and size[1] or SCREENSHOT_WIDTH,
-                size and size[2] or SCREENSHOT_HEIGHT)
-            group:AddChild(img)
+            local nativeW = (size and size[1]) or SCREENSHOT_WIDTH
+            local nativeH = (size and size[2]) or SCREENSHOT_HEIGHT
+            img:SetImageSize(PREVIEW_WIDTH, PREVIEW_WIDTH * nativeH / nativeW)
+            left:AddChild(img)
         end
 
-        addText(group, L[entry.description])
+        -- Right column: description text and the apply button below it.
+        local right = AceGUI:Create("SimpleGroup")
+        right:SetRelativeWidth(0.6)
+        right:SetLayout("List")
+        group:AddChild(right)
+
+        addText(right, L[entry.description])
 
         local use = AceGUI:Create("Button")
         use:SetText(L["Use this profile"])
@@ -142,10 +291,10 @@ function UI:RenderProfiles(container)
             UI._chosen = entry.key
             Addon:Info(L["Profile applied: %s"], entry.name)
         end)
-        group:AddChild(use)
+        right:AddChild(use)
     end
 
-    addNav(container,
+    self:SetNav(
         L["Back"],
         function()
             UI._step = 1
@@ -158,14 +307,21 @@ function UI:RenderProfiles(container)
         end)
 end
 
--- Step 3: offer the curated checkpoint targets, then finish.
+-- Step 3: offer the curated checkpoint targets in a titled box, then finish.
 function UI:RenderCheckpoints(container)
     local L = ns.L
     addHeading(container, L["Load default checkpoints"])
-    addText(container, L["Load the author's curated checkpoint targets. Matching dungeons will be overwritten."])
 
     local Checkpoints = Addon:GetModule("Checkpoints", true)
     if Checkpoints and Checkpoints.Data then
+        local group = AceGUI:Create("InlineGroup")
+        group:SetTitle(L["Checkpoints"])
+        group:SetFullWidth(true)
+        group:SetLayout("List")
+        container:AddChild(group)
+
+        addText(group, L["Load the author's curated checkpoint targets. Matching dungeons will be overwritten."])
+
         local load = AceGUI:Create("Button")
         load:SetText(L["Load default checkpoints"])
         load:SetWidth(220)
@@ -175,11 +331,10 @@ function UI:RenderCheckpoints(container)
                 Addon:Info(L["Imported checkpoints for %d dungeon(s)."], count or 0)
             end
         end)
-        container:AddChild(load)
-        addText(container, " ")
+        group:AddChild(load)
     end
 
-    addNav(container,
+    self:SetNav(
         L["Back"],
         function()
             UI._step = 2
@@ -210,4 +365,8 @@ function UI:RenderStep()
     else
         self:RenderCheckpoints(scroll)
     end
+
+    -- Pinned footer/content extras (live outside the released scroll content).
+    self:UpdateStepIndicator(self._step)
+    self:SetLogoShown(self._step == 1)
 end
