@@ -64,6 +64,30 @@ local function addText(container, text, fontObject)
     container:AddChild(label)
 end
 
+-- Add a button aligned to the bottom-right of the container. AceGUI has no right
+-- alignment, so an empty spacer on the left pushes the button to the right edge
+-- within a full-width flow row. widthFrac is the button's share of the row.
+local function addRightButton(container, text, onClick, widthFrac)
+    widthFrac = widthFrac or 0.42
+
+    local row = AceGUI:Create("SimpleGroup")
+    row:SetFullWidth(true)
+    row:SetLayout("Flow")
+    container:AddChild(row)
+
+    local spacer = AceGUI:Create("Label")
+    spacer:SetText(" ")
+    spacer:SetRelativeWidth(1 - widthFrac - 0.02)
+    row:AddChild(spacer)
+
+    local btn = AceGUI:Create("Button")
+    btn:SetText(text)
+    btn:SetRelativeWidth(widthFrac)
+    btn:SetCallback("OnClick", onClick)
+    row:AddChild(btn)
+    return btn
+end
+
 -- Footer navigation ----------------------------------------------------------
 
 -- Fixed width of the two footer buttons; wide enough for the longest label in
@@ -290,45 +314,46 @@ function UI:RenderProfiles(container)
         local group = AceGUI:Create("InlineGroup")
         group:SetTitle(entry.name)
         group:SetFullWidth(true)
-        group:SetLayout("Flow") -- two columns: preview | description + button
+        group:SetLayout("List")
         container:AddChild(group)
 
-        -- Left column: the preview image, scaled to the column width while
-        -- keeping the preset screenshot's true aspect ratio.
-        local left = AceGUI:Create("SimpleGroup")
-        left:SetRelativeWidth(0.4)
-        left:SetLayout("List")
-        group:AddChild(left)
+        -- Top row: description on the left, preview on the right.
+        local top = AceGUI:Create("SimpleGroup")
+        top:SetFullWidth(true)
+        top:SetLayout("Flow")
+        group:AddChild(top)
+
+        local descCol = AceGUI:Create("SimpleGroup")
+        descCol:SetRelativeWidth(0.58)
+        descCol:SetLayout("List")
+        top:AddChild(descCol)
+        addText(descCol, L[entry.description])
 
         if entry.screenshot then
+            local previewCol = AceGUI:Create("SimpleGroup")
+            previewCol:SetRelativeWidth(0.4)
+            previewCol:SetLayout("List")
+            top:AddChild(previewCol)
+
             local img = AceGUI:Create("Label")
             img:SetText(" ")
             img:SetFullWidth(true)
             img:SetImage(entry.screenshot)
+            -- Scale to the column width, keeping the screenshot's aspect ratio.
             local size = entry.screenshotSize
             local nativeW = (size and size[1]) or SCREENSHOT_WIDTH
             local nativeH = (size and size[2]) or SCREENSHOT_HEIGHT
             img:SetImageSize(PREVIEW_WIDTH, PREVIEW_WIDTH * nativeH / nativeW)
-            left:AddChild(img)
+            previewCol:AddChild(img)
         end
 
-        -- Right column: description text and the apply button below it.
-        local right = AceGUI:Create("SimpleGroup")
-        right:SetRelativeWidth(0.6)
-        right:SetLayout("List")
-        group:AddChild(right)
-
-        addText(right, L[entry.description])
-
-        local use = AceGUI:Create("Button")
-        use:SetText(L["Use this profile"])
-        use:SetWidth(200)
-        use:SetCallback("OnClick", function()
+        -- A little air, then the apply button in the bottom-right corner.
+        addText(group, " ")
+        addRightButton(group, L["Use this profile"], function()
             Addon.Profiles:ApplyTable(entry.profile)
             UI._chosen = entry.key
             Addon:Info(L["Profile applied: %s"], entry.name)
         end)
-        right:AddChild(use)
     end
 
     self:SetNav(
@@ -358,17 +383,14 @@ function UI:RenderCheckpoints(container)
         container:AddChild(group)
 
         addText(group, L["Load the author's curated checkpoint targets. Matching dungeons will be overwritten."])
-
-        local load = AceGUI:Create("Button")
-        load:SetText(L["Load default checkpoints"])
-        load:SetWidth(220)
-        load:SetCallback("OnClick", function()
+        -- Extra air between the description and the bottom-right button.
+        addText(group, " ")
+        addRightButton(group, L["Load default checkpoints"], function()
             local ok, count = Checkpoints.Data.ImportAuthorPreset()
             if ok then
                 Addon:Info(L["Imported checkpoints for %d dungeon(s)."], count or 0)
             end
-        end)
-        group:AddChild(load)
+        end, 0.48)
     end
 
     self:SetNav(
