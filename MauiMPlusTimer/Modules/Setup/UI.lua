@@ -317,17 +317,11 @@ function UI:RenderProfiles(container)
         group:SetLayout("List")
         container:AddChild(group)
 
-        -- Top row: description on the left, preview on the right.
+        -- Top row: preview on the left, description on the right.
         local top = AceGUI:Create("SimpleGroup")
         top:SetFullWidth(true)
         top:SetLayout("Flow")
         group:AddChild(top)
-
-        local descCol = AceGUI:Create("SimpleGroup")
-        descCol:SetRelativeWidth(0.58)
-        descCol:SetLayout("List")
-        top:AddChild(descCol)
-        addText(descCol, L[entry.description])
 
         if entry.screenshot then
             local previewCol = AceGUI:Create("SimpleGroup")
@@ -346,6 +340,12 @@ function UI:RenderProfiles(container)
             img:SetImageSize(PREVIEW_WIDTH, PREVIEW_WIDTH * nativeH / nativeW)
             previewCol:AddChild(img)
         end
+
+        local descCol = AceGUI:Create("SimpleGroup")
+        descCol:SetRelativeWidth(0.58)
+        descCol:SetLayout("List")
+        top:AddChild(descCol)
+        addText(descCol, L[entry.description])
 
         -- A little air, then the apply button in the bottom-right corner.
         addText(group, " ")
