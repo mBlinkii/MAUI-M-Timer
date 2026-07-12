@@ -15,6 +15,15 @@ Changelog.Data = Data
 --   new/updates/fixes  arrays of plain lines; sections may be omitted
 Data.entries = {
     {
+        version = "Unreleased",
+        date = "",
+        new = {
+            "Simplified Chinese (zhCN) and Traditional Chinese (zhTW) localizations. All interface strings are translated using Blizzard's official Chinese client terminology; untranslated keys still fall back to English.",
+            "First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. Re-run it anytime via /mauimpt setup.",
+            "The setup wizard ships with the 'MaUI' preset profile (the author's personal look, with preview screenshot) alongside the factory default.",
+        },
+    },
+    {
         version = "1.2.0",
         date = "2026-07-10",
         new = {

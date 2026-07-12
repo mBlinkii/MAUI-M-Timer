@@ -29,6 +29,8 @@ embeds.xml
 # --- Localization (enUS must load first as the default locale) ---
 Localization\enUS.lua
 Localization\deDE.lua
+Localization\zhCN.lua
+Localization\zhTW.lua
 
 # --- Core (order lives in Core\Core.xml) ---
 Core\Core.xml

@@ -4,6 +4,14 @@ All notable changes to **MAUI M+ Timer** are documented in this file.
 
 Changes are grouped per version into **New** (features), **Updates** (improvements to existing behavior), and **Fixes** (bug fixes). Changes land under the topmost *Unreleased* version until it is released.
 
+## [Unreleased]
+
+### New
+
+- Simplified Chinese (zhCN) and Traditional Chinese (zhTW) localizations. The addon now ships translations for all interface strings; game terms follow Blizzard's official Chinese client terminology. Untranslated keys still fall back to English.
+- First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. It can be re-run anytime via `/mauimpt setup`.
+- The setup wizard ships with the "MaUI" preset profile (the author's personal look, with preview screenshot) alongside the factory default.
+
 ## [1.2.0] - 2026-07-10
 
 ### New
