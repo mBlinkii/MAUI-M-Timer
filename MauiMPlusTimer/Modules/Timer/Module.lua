@@ -177,17 +177,35 @@ end
 
 -- Demo mode ------------------------------------------------------------------
 
+-- Elapsed-time samples (seconds) for demo mode: 5 / 12 / 20 / 28 minutes. One is
+-- picked at random on each activation so the timer bar and text show varied
+-- states (early through near-timeout) while styling.
+local DEMO_ELAPSED_CHOICES = { 300, 720, 1200, 1680 }
+local DEMO_LIMIT = 1800 -- sample time limit (30:00)
+
+-- Pick a fresh random elapsed sample. Stored on state so a later refresh reuses
+-- it instead of re-rolling.
+function Timer:RollDemoValues()
+    self.state.demoElapsed = DEMO_ELAPSED_CHOICES[math.random(#DEMO_ELAPSED_CHOICES)]
+end
+
 function Timer:SetDemo(state)
+    local wasDemo = self.state.demo
     self.state.demo = state
     if state then
+        -- Re-roll only on a real activation (off -> on), not on the repeated
+        -- SetDemo(true) that Demo:Refresh fires after every settings change.
+        if not wasDemo or not self.state.demoElapsed then
+            self:RollDemoValues()
+        end
         self:StopTicker()
         self.UI:Build()
         self.UI:Show()
-        -- Static sample: 12:00 elapsed of a 30:00 limit -> +2 in range, +18 key.
+        local elapsed = self.state.demoElapsed
         -- The best time is part of the Splits module, so it only shows when enabled.
         local splits = Addon:GetModule("Splits", true)
         local best = (splits and splits:IsEnabled()) and 1500 or nil -- sample best 25:00
-        self.UI:Update(720, 1800, self.Data.GetBonusLevel(720, 1800), best)
+        self.UI:Update(elapsed, DEMO_LIMIT, self.Data.GetBonusLevel(elapsed, DEMO_LIMIT), best)
     else
         if self.state.active then
             self:StartTicker()

@@ -8,11 +8,10 @@ local Addon = ns.Addon
 local Forces = Addon:NewMauiModule("EnemyForces", "enemyForces")
 Forces.state = { demo = false, frozen = false, lastCurrent = 0 }
 
--- Demo mode sample pools. On each activation one entry is picked at random from
--- each pool, so styling the HUD shows the forces display in varied states.
-local DEMO_PERCENT_CHOICES = { 5, 30, 50, 65, 95 }      -- forces %
-local DEMO_TIME_CHOICES    = { 300, 720, 1200, 1680 }   -- best time: 5/12/20/28 min
-local DEMO_TOTAL           = 1000                        -- synthetic total the % maps onto
+-- Demo mode sample pool for the forces percentage. On each activation one entry
+-- is picked at random, so styling the HUD shows the bar in varied fill states.
+local DEMO_PERCENT_CHOICES = { 5, 30, 50, 65, 95 } -- forces %
+local DEMO_TOTAL           = 1000                  -- synthetic total the % maps onto
 
 
 -- Lifecycle ------------------------------------------------------------------
@@ -158,14 +157,13 @@ end
 
 -- Demo mode ------------------------------------------------------------------
 
--- Pick fresh random demo values (a forces percentage and a best-time sample)
--- from the pools above, so each demo activation shows a different state. Stored
--- on state so a later refresh reuses them instead of re-rolling.
+-- Pick a fresh random forces percentage so each demo activation shows a
+-- different fill state. Stored on state so a later refresh reuses it instead of
+-- re-rolling.
 function Forces:RollDemoValues()
     local pct = DEMO_PERCENT_CHOICES[math.random(#DEMO_PERCENT_CHOICES)]
     self.state.demoPercent = pct / 100
     self.state.demoCurrent = pct / 100 * DEMO_TOTAL
-    self.state.demoTime = DEMO_TIME_CHOICES[math.random(#DEMO_TIME_CHOICES)]
 end
 
 function Forces:SetDemo(state)
@@ -181,7 +179,7 @@ function Forces:SetDemo(state)
         self.UI:Show()
         -- The best time belongs to the Splits module, shown only when enabled.
         local splits = Addon:GetModule("Splits", true)
-        local best = (splits and splits:IsEnabled()) and self.state.demoTime or nil
+        local best = (splits and splits:IsEnabled()) and 720 or nil -- best 12:00
         self.UI:Update(self.state.demoCurrent, DEMO_TOTAL, self.state.demoPercent, nil, nil, best)
     elseif self:IsRunActive() then
         self.UI:Show()
