@@ -25,6 +25,10 @@ Setup.Data = Data
 --   profile        plain profile table to apply, or nil = factory defaults
 Data.profiles = {
     {
+        -- NOTE: this preset references the "Ubuntu-Medium" font shipped with the
+        -- external "!mMT_MediaPack" addon. That media pack must be installed for
+        -- the preset to look as intended; without it, WoW silently falls back to
+        -- the default font (everything else still applies normally).
         key = "maui",
         name = "MaUI",
         description = "The author's personal MAUI look.",
