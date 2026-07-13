@@ -116,6 +116,7 @@ L["Use this profile"] = true
 L["Profile applied: %s"] = true
 L["The classic MAUI look with all default settings."] = true
 L["The author's personal MAUI look."] = true
+L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] = true
 L["Back"] = true
 L["Next"] = true
 L["Skip"] = true

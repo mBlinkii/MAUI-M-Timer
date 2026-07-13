@@ -123,6 +123,8 @@ L["Use this profile"] = "使用此配置文件"
 L["Profile applied: %s"] = "已应用配置文件：%s"
 L["The classic MAUI look with all default settings."] = "经典 MAUI 外观，全部为默认设置。"
 L["The author's personal MAUI look."] = "作者个人的 MAUI 外观。"
+L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] =
+    "需要 !mMT_MediaPack 插件提供字体；未安装时将使用默认字体。"
 L["Back"] = "上一步"
 L["Next"] = "下一步"
 L["Skip"] = "跳过"

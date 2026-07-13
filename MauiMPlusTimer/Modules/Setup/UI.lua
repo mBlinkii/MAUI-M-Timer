@@ -346,6 +346,10 @@ function UI:RenderProfiles(container)
         descCol:SetLayout("List")
         top:AddChild(descCol)
         addText(descCol, L[entry.description])
+        -- Optional secondary note (e.g. a dependency hint), greyed out.
+        if entry.note then
+            addText(descCol, "|cff888888" .. L[entry.note] .. "|r")
+        end
 
         -- A little air, then the apply button in the bottom-right corner.
         addText(group, " ")

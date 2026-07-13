@@ -130,6 +130,8 @@ L["Use this profile"] = "Dieses Profil verwenden"
 L["Profile applied: %s"] = "Profil angewendet: %s"
 L["The classic MAUI look with all default settings."] = "Der klassische MAUI-Look mit allen Standardeinstellungen."
 L["The author's personal MAUI look."] = "Der persönliche MAUI-Look des Autors."
+L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] =
+    "Benötigt das Addon !mMT_MediaPack für die Schriftarten; ohne es wird die Standardschrift verwendet."
 L["Back"] = "Zurück"
 L["Next"] = "Weiter"
 L["Skip"] = "Überspringen"
