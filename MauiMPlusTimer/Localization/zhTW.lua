@@ -49,6 +49,12 @@ L["Ahead of best"] = "領先最佳"
 L["Behind best"] = "落後最佳"
 L["Max time color"] = "最大時間顏色"
 L["Show remaining count"] = "顯示剩餘數量"
+L["Percentage only"] = "僅顯示百分比"
+L["Show only the forces percentage in the main text, without the remaining count, best time or completion delta."] =
+    "主文字僅顯示敵軍百分比，不顯示剩餘數量、最佳時間或完成差值。"
+L["Hide first segment countdown"] = "隱藏第一段倒數計時"
+L["Hide the first segment's countdown label so it cannot overlap the main percentage text."] =
+    "隱藏第一段的倒數計時標籤，使其不會與主百分比文字重疊。"
 L["Show the remaining absolute mob count next to the percentage."] = "在百分比旁顯示剩餘的絕對怪物數量。"
 L["Defeated boss name"] = "首領名稱（已擊敗）"
 L["Pending boss name"] = "首領名稱（待擊敗）"

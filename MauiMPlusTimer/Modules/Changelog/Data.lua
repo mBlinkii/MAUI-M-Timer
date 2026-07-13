@@ -26,6 +26,7 @@ Data.entries = {
             "The setup wizard can now be reopened from the options: General -> Other has a 'Run setup wizard' button, next to the /mauimpt setup slash command.",
             "Setup wizard redesign: a consistent footer pinned to the bottom bar (level with the Close button) with a left button (Skip on step 1, Back afterwards), a 'Steps 1 - 2 - 3' progress indicator that highlights the current step, and the Next/Finish button next to Close. The welcome step now shows the addon logo; profile presets are laid out with the preview on the left, the description on the right, and the apply button in the bottom-right corner; and the checkpoint box places its apply button in the bottom-right corner too. A preset can also show a secondary note under its description (the MaUI preset points out its !mMT_MediaPack font dependency).",
             "Demo mode now varies its samples each time it is turned on: the timer shows a random elapsed time (5/12/20/28 min) and the Enemy Forces bar a random percentage (5/30/50/65/95%), so the different display states can be styled.",
+            "Enemy Forces: new 'Percentage only' option shows just the percentage in the main text (no remaining count, best time or completion delta), and a new 'Hide first segment countdown' option suppresses the first segment's countdown label so it cannot overlap the main text.",
         },
     },
     {

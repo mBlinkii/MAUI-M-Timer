@@ -70,6 +70,13 @@ function Forces:GetOptions()
             get = function() return Forces:GetSettings().segmentCountdownAll == true end,
             set = function(_, v) Forces:GetSettings().segmentCountdownAll = v; Addon.StyleRestyle(Forces) end,
         },
+        segmentHideFirst = {
+            type = "toggle", name = L["Hide first segment countdown"], order = 1.3,
+            desc = L["Hide the first segment's countdown label so it cannot overlap the main percentage text."],
+            disabled = function() return Forces:GetSettings().segmentCountdown ~= true end,
+            get = function() return Forces:GetSettings().segmentHideFirst == true end,
+            set = function(_, v) Forces:GetSettings().segmentHideFirst = v; Addon.StyleRestyle(Forces) end,
+        },
         -- The timer bar's position modes plus an in-bar centered one, relative
         -- to the checkpoint boundary (marker line / segment gap).
         position = {
@@ -133,9 +140,16 @@ function Forces:GetOptions()
                     -- No alignment option: the main text carries its own
                     -- position setting (see textPos below), and the bar's spot
                     -- in the HUD stack comes from General -> Element order.
+                    percentOnly = {
+                        type = "toggle", name = L["Percentage only"], order = 2, width = "full",
+                        desc = L["Show only the forces percentage in the main text, without the remaining count, best time or completion delta."],
+                        get = function() return Forces:GetSettings().percentOnly == true end,
+                        set = function(_, v) Forces:GetSettings().percentOnly = v; Addon.StyleRestyle(Forces) end,
+                    },
                     showCount = {
                         type = "toggle", name = L["Show remaining count"], order = 3,
                         desc = L["Show the remaining absolute mob count next to the percentage."],
+                        disabled = function() return Forces:GetSettings().percentOnly == true end,
                         get = function() return Forces:GetSettings().showCount ~= false end,
                         set = function(_, v) Forces:GetSettings().showCount = v; Addon.StyleRestyle(Forces) end,
                     },

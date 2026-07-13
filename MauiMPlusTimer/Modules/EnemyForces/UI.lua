@@ -365,6 +365,10 @@ function UI:LayoutMarkers()
     local mode = Addon:GetElementSetting(ns.E.forcesSegment).countdownPos or "above"
     local lx, ly = Addon.Widgets:GetOffset(ns.E.forcesSegment)
     local showAll = Forces:GetSettings().segmentCountdownAll == true
+    -- Optionally suppress the first segment's countdown label so it cannot
+    -- overlap the main percentage text (e.g. text at the left, countdown
+    -- centered in the first section).
+    local hideFirst = Forces:GetSettings().segmentHideFirst == true
 
     -- A marker disappears once its target percentage has been reached. In demo
     -- mode nothing is "reached", so all markers stay visible for positioning.
@@ -447,7 +451,8 @@ function UI:LayoutMarkers()
                     anchorCountdownLabel(lbl, m, mode, lx, ly)
                 end
                 local remaining = pct - livePct
-                if remaining > 0.05 and (showAll or pct == nearest) then
+                if remaining > 0.05 and (showAll or pct == nearest)
+                    and not (hideFirst and used == 1) then
                     lbl:SetText(string.format("%.1f%%", remaining))
                     lbl:Show()
                 else
@@ -539,8 +544,12 @@ function UI:Update(current, total, percent, completionTime, delta, bestForces)
         self.bar:SetValue(current)
     end
 
+    -- "Percentage only" strips everything but the percentage from the main text:
+    -- no remaining count, no best time, and no completion time/delta on 100%.
+    local percentOnly = Forces:GetSettings().percentOnly == true
+
     local str
-    if total > 0 and current >= total then
+    if total > 0 and current >= total and not percentOnly then
         -- Texture icon (a font check glyph renders as a missing-glyph box) plus
         -- the completion time and the +/- delta versus the best run.
         local timeStr = completionTime
@@ -549,7 +558,7 @@ function UI:Update(current, total, percent, completionTime, delta, bestForces)
         str = "|cff33ff99100%|r |TInterface\\RaidFrame\\ReadyCheck-Ready:12|t" .. timeStr .. deltaStr
     else
         local pct = string.format("%.2f%%", (percent or 0) * 100)
-        if Forces:GetSettings().showCount == false then
+        if percentOnly or Forces:GetSettings().showCount == false then
             -- Percentage only (the remaining absolute count is hidden).
             str = pct
         else
@@ -559,7 +568,7 @@ function UI:Update(current, total, percent, completionTime, delta, bestForces)
             str = string.format("%s  |c%s%d|r", pct, countHex, remaining)
         end
     end
-    if Addon.db.profile.ui.showBest == true and bestForces then
+    if not percentOnly and Addon.db.profile.ui.showBest == true and bestForces then
         str = str .. "  " .. Addon.Widgets:FormatBest(bestForces)
     end
     self.text:SetText(str)

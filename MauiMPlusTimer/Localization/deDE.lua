@@ -52,6 +52,12 @@ L["Ahead of best"] = "Vor Bestzeit"
 L["Behind best"] = "Hinter Bestzeit"
 L["Max time color"] = "Farbe der Maximalzeit"
 L["Show remaining count"] = "Verbleibende Anzahl anzeigen"
+L["Percentage only"] = "Nur Prozent"
+L["Show only the forces percentage in the main text, without the remaining count, best time or completion delta."] =
+    "Zeigt im Haupttext nur den Streitkräfte-Prozentwert an, ohne verbleibende Anzahl, Bestzeit oder Abschluss-Differenz."
+L["Hide first segment countdown"] = "Countdown des ersten Segments ausblenden"
+L["Hide the first segment's countdown label so it cannot overlap the main percentage text."] =
+    "Blendet den Countdown des ersten Segments aus, damit er den Haupt-Prozenttext nicht überlappen kann."
 L["Show the remaining absolute mob count next to the percentage."] =
     "Zeigt die verbleibende absolute Gegnerzahl neben dem Prozentwert."
 L["Defeated boss name"] = "Boss-Name (besiegt)"
