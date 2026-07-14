@@ -175,8 +175,10 @@ local SPLIT_GAP = 10
 
 -- Blocks that always occupy a FULL row (no left/right neighbor): the wide
 -- bar/list modules plus the separator lines.
+-- The timer TEXT block is half-row capable (it can share a row); only the timer
+-- BAR stays full-row (nothing sits next to it).
 local FULL_ROW_BLOCKS = {
-    timer = true, timerbar = true, forces = true, objectives = true,
+    timerbar = true, forces = true, objectives = true,
     separator1 = true, separator2 = true,
 }
 
@@ -193,7 +195,7 @@ end
 -- Module (AceAddon) name per splittable block key, for the automatic
 -- alignment on placement (full-row blocks and separators have no entry).
 local BLOCK_MODULE = {
-    dungeon = "Dungeon", deaths = "Deaths", splits = "Splits",
+    dungeon = "Dungeon", timer = "Timer", deaths = "Deaths", splits = "Splits",
     checkpoints = "Checkpoints", cooldowns = "Cooldowns",
 }
 
@@ -253,6 +255,13 @@ function MainWindow:IsBlockActive(key)
         return (timer and timer:IsEnabled()
             and timer:GetSettings().showBar ~= false) or false
     end
+    -- Splits is a recording module: removing it from the order only hides its
+    -- HUD line (showText), it keeps recording best times for other displays.
+    if key == "splits" then
+        local splits = Addon:GetModule("Splits", true)
+        return (splits and splits:IsEnabled()
+            and splits:GetSettings().showText ~= false) or false
+    end
     local name = BLOCK_MODULE_NAME[key]
     local module = name and Addon:GetModule(name, true)
     return (module and module:IsEnabled()) and true or false
@@ -280,6 +289,17 @@ function MainWindow:SetBlockActive(key, active)
             Addon:ToggleModule("Timer", true)
         end
         if timer.UI and timer.UI.ApplyBarShown then timer.UI:ApplyBarShown() end
+        return
+    end
+    if key == "splits" then
+        local splits = Addon:GetModule("Splits", true)
+        if not (splits and splits.GetSettings) then return end
+        splits:GetSettings().showText = active
+        if active and not splits:IsEnabled() then
+            splits:GetSettings().enabled = true
+            Addon:ToggleModule("Splits", true)
+        end
+        if splits.ApplyTextShown then splits:ApplyTextShown() end
         return
     end
     local name = BLOCK_MODULE_NAME[key]

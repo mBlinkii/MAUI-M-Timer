@@ -36,7 +36,7 @@ local defaults = {
                 nameShorten = "off", nameMaxLength = 12,
             },
             Deaths      = { enabled = true },
-            Splits      = { enabled = true, storeMode = "best" }, -- "best" | "all"
+            Splits      = { enabled = true, storeMode = "best", showText = true }, -- "best" | "all"; showText = HUD line visible (recording is independent)
             Checkpoints = { enabled = true },
             Cooldowns   = { enabled = true, brez = { on = false }, lust = { on = false } },
             Automation  = { enabled = true, hideTracker = false, autoSlotKeystone = false }, -- auto-hide Blizzard tracker / auto-slot keystone

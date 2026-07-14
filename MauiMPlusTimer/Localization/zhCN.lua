@@ -173,6 +173,9 @@ L["Reset order"] = "重置顺序"
 L["Reset the element order to the default layout?"] = "将元素顺序重置为默认布局？"
 L["Icon instead of label"] = "用图标代替标签"
 L["Show label"] = "显示标签"
+L["Show run vs best line"] = "显示本次 vs 最佳行"
+L["Show the run-vs-best line in the HUD. When off, best times are still recorded for the timer, forces and objectives - only this line is hidden. Removing 'Splits' in General -> Element order does the same."] =
+    "在 HUD 中显示本次 vs 最佳行。关闭时仍会为计时器、敌军和目标记录最佳时间，仅隐藏此行。在“常规 -> 元素排序”中移除“分段时间”效果相同。"
 L["Show the 'Run vs best' label before the delta. When off, only the +/- delta is shown."] =
     "在差值前显示“本次 vs 最佳”标签。关闭时仅显示 +/- 差值。"
 L["Replace the 'Run vs best' text with a compact icon."] = "用紧凑图标代替“本次 vs 最佳”文字。"

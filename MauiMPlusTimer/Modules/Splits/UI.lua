@@ -18,7 +18,9 @@ local ICON_PATH = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Labels\\vsb
 -- (no best time available yet) the block hides itself entirely.
 function UI:Update(delta)
     self:Build()
-    if delta == nil then
+    -- The whole line can be hidden (module option / element order "showText")
+    -- while the module keeps recording best times for the other displays.
+    if delta == nil or Splits:GetSettings().showText == false then
         self.frame:Hide()
     else
         self.frame:Show()

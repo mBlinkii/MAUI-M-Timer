@@ -49,9 +49,21 @@ function Splits:GetOptions()
                 type = "group", inline = true, name = L["Settings"], order = 3,
                 args = {
                     align = Addon:ModuleAlignOption(self, 1),
+                    showText = {
+                        type = "toggle", name = L["Show run vs best line"], order = 1.3, width = "full",
+                        desc = L["Show the run-vs-best line in the HUD. When off, best times are still recorded for the timer, forces and objectives - only this line is hidden. Removing 'Splits' in General -> Element order does the same."],
+                        get = function() return Splits:GetSettings().showText ~= false end,
+                        set = function(_, v)
+                            Splits:GetSettings().showText = v
+                            if Splits.ApplyTextShown then Splits:ApplyTextShown() end
+                            Addon.MainWindow:InvalidateRows()
+                            Addon.MainWindow:Layout()
+                        end,
+                    },
                     showLabel = {
                         type = "toggle", name = L["Show label"], order = 1.4,
                         desc = L["Show the 'Run vs best' label before the delta. When off, only the +/- delta is shown."],
+                        disabled = function() return Splits:GetSettings().showText == false end,
                         get = function() return Splits:GetSettings().showLabel ~= false end,
                         set = function(_, v)
                             Splits:GetSettings().showLabel = v
@@ -61,7 +73,10 @@ function Splits:GetOptions()
                     labelIcon = {
                         type = "toggle", name = L["Icon instead of label"], order = 1.5,
                         desc = L["Replace the 'Run vs best' text with a compact icon."],
-                        disabled = function() return Splits:GetSettings().showLabel == false end,
+                        disabled = function()
+                            local s = Splits:GetSettings()
+                            return s.showText == false or s.showLabel == false
+                        end,
                         get = function() return Splits:GetSettings().labelIcon == true end,
                         set = function(_, v)
                             Splits:GetSettings().labelIcon = v
@@ -72,7 +87,7 @@ function Splits:GetOptions()
                         type = "color", name = L["Icon color"], order = 1.6,
                         disabled = function()
                             local s = Splits:GetSettings()
-                            return s.showLabel == false or s.labelIcon ~= true
+                            return s.showText == false or s.showLabel == false or s.labelIcon ~= true
                         end,
                         get = function()
                             local c = Splits:GetSettings().labelIconColor or { 1, 1, 1 }

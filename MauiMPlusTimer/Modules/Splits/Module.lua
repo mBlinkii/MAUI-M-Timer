@@ -143,6 +143,19 @@ function Splits:OnRunCompleted(_, onTime)
     }, self:GetSettings().storeMode or "best")
 end
 
+-- Re-apply the HUD line after the "showText" setting changed (element order or
+-- module option). Recording is unaffected; this only re-shows or hides the
+-- +/- delta line, so the best times still feed the timer/forces/objectives.
+function Splits:ApplyTextShown()
+    if self.state.demo then
+        self.UI:Update(-8)
+    elseif Addon.RunState:Get() then
+        self:UpdateDelta()
+    else
+        self.UI:Hide()
+    end
+end
+
 -- Demo mode ------------------------------------------------------------------
 
 function Splits:SetDemo(state)
