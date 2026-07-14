@@ -132,6 +132,9 @@ end
 function MainWindow:AddBlock(key, frame, order)
     self.blocks = self.blocks or {}
     self.blocks[key] = { frame = frame, order = order or 100 }
+    -- A module registering its block means it just became active; drop the
+    -- cached rows so the (active-state-dependent) normalization includes it.
+    self:InvalidateRows()
     self:Layout()
 end
 
@@ -149,7 +152,7 @@ end
 -- AceDB would merge default rows index-wise into user layouts (injecting or
 -- stripping entries); an empty/missing table simply falls back to this order.
 local MODULE_BLOCKS = {
-    "dungeon", "timer", "objectives", "forces",
+    "dungeon", "timer", "timerbar", "objectives", "forces",
     "deaths", "splits", "checkpoints", "cooldowns",
 }
 MainWindow.MODULE_BLOCKS = MODULE_BLOCKS
@@ -173,7 +176,7 @@ local SPLIT_GAP = 10
 -- Blocks that always occupy a FULL row (no left/right neighbor): the wide
 -- bar/list modules plus the separator lines.
 local FULL_ROW_BLOCKS = {
-    timer = true, forces = true, objectives = true,
+    timer = true, timerbar = true, forces = true, objectives = true,
     separator1 = true, separator2 = true,
 }
 
@@ -191,6 +194,17 @@ end
 -- alignment on placement (full-row blocks and separators have no entry).
 local BLOCK_MODULE = {
     dungeon = "Dungeon", deaths = "Deaths", splits = "Splits",
+    checkpoints = "Checkpoints", cooldowns = "Cooldowns",
+}
+
+-- Module (AceAddon) name for EVERY module block key (full-row ones included),
+-- used to derive a block's active state from its module and to enable/disable
+-- the module when the block is placed/cleared in the element order. "timerbar"
+-- is intentionally absent: it is a sub-block of the Timer module (see
+-- IsBlockActive/SetBlockActive, which special-case it via the showBar setting).
+local BLOCK_MODULE_NAME = {
+    dungeon = "Dungeon", timer = "Timer", objectives = "Objectives",
+    forces = "EnemyForces", deaths = "Deaths", splits = "Splits",
     checkpoints = "Checkpoints", cooldowns = "Cooldowns",
 }
 
@@ -224,6 +238,58 @@ function MainWindow:IsSeparatorEnabled(i)
     return (cfgs and cfgs[i] and cfgs[i].enabled == true) or false
 end
 
+-- Whether a block is "active", i.e. should take part in the element-order list.
+-- Module blocks are active while their module is enabled; the timer bar sub-
+-- block is active while the Timer module is enabled AND its bar is not hidden;
+-- separators while enabled. Inactive blocks are dropped from the rows and are
+-- not auto-placed, so the element order doubles as the enable/disable control.
+function MainWindow:IsBlockActive(key)
+    if not key then return false end
+    if self:IsSeparatorKey(key) then
+        return self:IsSeparatorEnabled(key == "separator1" and 1 or 2)
+    end
+    if key == "timerbar" then
+        local timer = Addon:GetModule("Timer", true)
+        return (timer and timer:IsEnabled()
+            and timer:GetSettings().showBar ~= false) or false
+    end
+    local name = BLOCK_MODULE_NAME[key]
+    local module = name and Addon:GetModule(name, true)
+    return (module and module:IsEnabled()) and true or false
+end
+
+-- Enable or disable the block behind `key`. Placing a block activates it,
+-- clearing its slot deactivates it (see SetBlockSlot). Modules toggle their
+-- AceAddon state (and persist it, matching the per-module enable option); the
+-- timer bar toggles the Timer showBar setting (enabling the Timer module first
+-- when the bar is placed while the module was off); separators toggle enabled.
+function MainWindow:SetBlockActive(key, active)
+    if not key then return end
+    if self:IsSeparatorKey(key) then
+        local i = key == "separator1" and 1 or 2
+        local cfgs = Addon.db.profile.ui.separators
+        if cfgs and cfgs[i] then cfgs[i].enabled = active end
+        return
+    end
+    if key == "timerbar" then
+        local timer = Addon:GetModule("Timer", true)
+        if not (timer and timer.GetSettings) then return end
+        timer:GetSettings().showBar = active
+        if active and not timer:IsEnabled() then
+            timer:GetSettings().enabled = true
+            Addon:ToggleModule("Timer", true)
+        end
+        if timer.UI and timer.UI.ApplyBarShown then timer.UI:ApplyBarShown() end
+        return
+    end
+    local name = BLOCK_MODULE_NAME[key]
+    local module = name and Addon:GetModule(name, true)
+    if module and module.GetSettings then
+        module:GetSettings().enabled = active
+        Addon:ToggleModule(name, active)
+    end
+end
+
 -- Normalized copy of the configured rows: exactly MAX_ROWS entries; unknown
 -- and duplicate keys are dropped. Blocks that must be placed but are not -
 -- modules always, separators while enabled - go onto the lowest free row, so
@@ -236,7 +302,9 @@ function MainWindow:GetBlockRows()
 
     local rows, seen = {}, {}
     local function claim(key)
-        if key and ORDERABLE[key] and not seen[key] then
+        -- Inactive (disabled) blocks are dropped, so the element order reflects
+        -- exactly the enabled modules.
+        if key and ORDERABLE[key] and not seen[key] and self:IsBlockActive(key) then
             seen[key] = true
             return key
         end
@@ -288,7 +356,27 @@ function MainWindow:GetBlockRows()
         end
     end
 
-    for _, key in ipairs(MODULE_BLOCKS) do place(key) end
+    -- Keep the timer bar glued to its own row directly below the timer text,
+    -- even for layouts/presets saved before the split (where it is not listed).
+    local function placeTimerBar()
+        if seen["timerbar"] then return end
+        local idx
+        for i = 1, MAX_ROWS do
+            if rows[i].left == "timer" or rows[i].right == "timer" then idx = i; break end
+        end
+        if not idx then place("timerbar"); return end
+        for i = MAX_ROWS, idx + 2, -1 do
+            rows[i] = rows[i - 1]
+        end
+        rows[idx + 1] = { left = "timerbar" }
+        seen["timerbar"] = true
+    end
+
+    -- Auto-place any ACTIVE block not yet positioned (disabled blocks stay out).
+    for _, key in ipairs(MODULE_BLOCKS) do
+        if key ~= "timerbar" and self:IsBlockActive(key) then place(key) end
+    end
+    if self:IsBlockActive("timerbar") then placeTimerBar() end
     for i, key in ipairs(SEPARATOR_BLOCKS) do
         if self:IsSeparatorEnabled(i) then place(key) end
     end
@@ -319,12 +407,19 @@ end
 -- claims the left half and clears the right one; nothing can be placed next
 -- to it.
 function MainWindow:SetBlockSlot(rowIndex, side, key)
+    -- Activate a block being placed BEFORE reading the rows, so the
+    -- normalization keeps it instead of dropping it as inactive.
+    if key then self:SetBlockActive(key, true) end
+
     local rows = self:GetBlockRows()
     local row = rows[rowIndex]
     if not row then return end
     if side == "right" and key and self:IsFullRowKey(row.left) then
         return -- no right-hand neighbor next to a full-row block
     end
+
+    local prev = row[side] -- what we are replacing or clearing
+
     if key then
         for _, r in ipairs(rows) do
             if r.left == key then r.left = nil end
@@ -336,6 +431,13 @@ function MainWindow:SetBlockSlot(rowIndex, side, key)
         row.right = nil
     end
     row[side] = key
+
+    -- Clearing a slot (to "-") deactivates the block that was there and leaves
+    -- the slot empty, instead of re-placing it on a free row. A replacement
+    -- (key set) leaves the displaced block active so it restacks as before.
+    if not key and prev then
+        self:SetBlockActive(prev, false)
+    end
 
     local aligned = self:ApplyAutoAlign(row)
 

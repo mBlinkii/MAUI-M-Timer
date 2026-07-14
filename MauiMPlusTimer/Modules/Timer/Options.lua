@@ -29,14 +29,18 @@ function Timer:GetOptions()
     -- Bar: shared bar controls (no single color -- the fill is colored per section
     -- on the Colors page) plus split-bar layout, dividers and countdown subgroups.
     local barOpts = Addon:ElementBarOptions(self, ns.E.timerBar, 20, { noColor = true })
-    barOpts.args.barTextGap = {
-        type = "range", name = L["Bar-text spacing"], order = 6,
-        desc = L["Vertical space between the time text and the bar."],
-        min = 0, max = 40, step = 1,
-        get = function() return Timer:GetSettings().barTextGap or 0 end,
-        set = function(_, v) Timer:GetSettings().barTextGap = v; Addon.StyleRestyle(Timer) end,
+    barOpts.args.showBar = {
+        type = "toggle", name = L["Show timer bar"], order = 0.5, width = "full",
+        desc = L["Show the timer bar (with section dividers and countdowns). It is its own block under General -> Element order, so it can be positioned or removed there too."],
+        get = function() return Timer:GetSettings().showBar ~= false end,
+        set = function(_, v)
+            Timer:GetSettings().showBar = v
+            if Timer.UI and Timer.UI.ApplyBarShown then Timer.UI:ApplyBarShown() end
+            Addon.MainWindow:InvalidateRows()
+            Addon.MainWindow:Layout()
+        end,
     }
-    barOpts.args.nlBarTextGap = Addon:OptLine(6.5)
+    barOpts.args.nlShowBar = Addon:OptLine(0.6)
     barOpts.args.splitBar = {
         type = "toggle", name = L["Split bar into three"], order = 7,
         desc = L["Show three segments (+3 large, +2 and +1 small) instead of one bar."],

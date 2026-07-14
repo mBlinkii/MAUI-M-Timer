@@ -23,13 +23,20 @@ function UI:Update(delta)
     else
         self.frame:Show()
         -- The label follows the configurable text color; only the +/- delta
-        -- keeps its semantic green/red coloring. Optionally the label text is
-        -- replaced by a compact icon.
+        -- keeps its semantic green/red coloring. The label can be replaced by a
+        -- compact icon (labelIcon) or hidden entirely (showLabel = false), in
+        -- which case only the delta is shown.
         local settings = Splits:GetSettings()
-        local label = settings.labelIcon == true
-            and Addon.Utils.IconTag(ICON_PATH, settings.labelIconColor)
-            or (ns.L["Run vs best"] .. ":")
-        self.text:SetText(label .. " " .. Addon.Utils.FormatDelta(delta))
+        local label
+        if settings.showLabel == false then
+            label = nil
+        elseif settings.labelIcon == true then
+            label = Addon.Utils.IconTag(ICON_PATH, settings.labelIconColor)
+        else
+            label = ns.L["Run vs best"] .. ":"
+        end
+        local deltaStr = Addon.Utils.FormatDelta(delta)
+        self.text:SetText(label and (label .. " " .. deltaStr) or deltaStr)
     end
     Addon.MainWindow:Layout()
 end

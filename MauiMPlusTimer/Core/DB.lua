@@ -13,9 +13,9 @@ local defaults = {
         modules = {
             Timer       = {
                 enabled = true,
+                showBar = true,    -- the bar is a separate orderable block ("timerbar")
                 splitBar = false,  -- split the bar into three segments (+3/+2/+1)
                 splitGap = 2,      -- pixel gap between the three split segments
-                barTextGap = 0,    -- vertical pixels reserved between the bar and the time text
                 sectionCountdown = false, sectionCountdownAll = false, -- threshold countdowns
             },
             Dungeon     = {
@@ -220,10 +220,10 @@ local preset = {
         },
         Timer = {
             align = "center",
-            barTextGap = 5,
             enabled = true,
             sectionCountdown = true,
             sectionCountdownAll = true,
+            showBar = true,
             showLevel = true,
             splitBar = true,
             splitGap = 6,

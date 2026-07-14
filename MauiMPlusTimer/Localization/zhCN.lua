@@ -172,6 +172,9 @@ L["Assign each element to a row (top to bottom). A row can hold two blocks side 
 L["Reset order"] = "重置顺序"
 L["Reset the element order to the default layout?"] = "将元素顺序重置为默认布局？"
 L["Icon instead of label"] = "用图标代替标签"
+L["Show label"] = "显示标签"
+L["Show the 'Run vs best' label before the delta. When off, only the +/- delta is shown."] =
+    "在差值前显示“本次 vs 最佳”标签。关闭时仅显示 +/- 差值。"
 L["Replace the 'Run vs best' text with a compact icon."] = "用紧凑图标代替“本次 vs 最佳”文字。"
 L["Icons instead of labels"] = "用图标代替标签"
 L["Replace the 'Boss' and 'PoNR' texts with compact icons."] = "用紧凑图标代替“首领”和“PoNR”文字。"
@@ -218,6 +221,10 @@ L["Right of divider"] = "分隔线右侧"
 L["In bar, left of divider"] = "进度条内，分隔线左侧"
 L["In bar, right of divider"] = "进度条内，分隔线右侧"
 L["Split bar into three"] = "将进度条分为三段"
+L["Timer bar"] = "计时器进度条"
+L["Show timer bar"] = "显示计时器进度条"
+L["Show the timer bar (with section dividers and countdowns). It is its own block under General -> Element order, so it can be positioned or removed there too."] =
+    "显示计时器进度条（含分段分隔线和倒计时）。它在“常规 -> 元素排序”中是独立块，也可在此定位或移除。"
 L["Split bar at checkpoints"] = "在检查点分割进度条"
 L["Split the bar into segments at each checkpoint (the 100% target is ignored)."] =
     "在每个检查点将进度条分成若干段（忽略 100% 目标）。"

@@ -80,7 +80,8 @@ end
 local function blockLabels()
     local L = ns.L
     return {
-        dungeon = L["Dungeon"], timer = L["Timer"], forces = L["Enemy Forces"],
+        dungeon = L["Dungeon"], timer = L["Timer"], timerbar = L["Timer bar"],
+        forces = L["Enemy Forces"],
         objectives = L["Objectives"], deaths = L["Deaths"], splits = L["Splits"],
         checkpoints = L["Checkpoints"], cooldowns = L["Cooldowns"],
         separator1 = L["Separator line"] .. " 1",
@@ -685,6 +686,10 @@ function Addon:ToggleModule(name, enabled)
     -- Let other modules react to a dependency's state change (e.g. the Objectives
     -- list hides its split times when the Splits module is disabled).
     self:SendMessage("MMT_MODULE_TOGGLED", name, enabled)
+    -- A module's enabled state is part of the element-order active set now, so
+    -- drop the cached rows before re-laying out (the cache keys on blockRows
+    -- alone and would otherwise keep the just-toggled module in/out of the list).
+    self.MainWindow:InvalidateRows()
     self.MainWindow:Layout()
 end
 

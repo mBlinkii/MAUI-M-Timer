@@ -49,9 +49,19 @@ function Splits:GetOptions()
                 type = "group", inline = true, name = L["Settings"], order = 3,
                 args = {
                     align = Addon:ModuleAlignOption(self, 1),
+                    showLabel = {
+                        type = "toggle", name = L["Show label"], order = 1.4,
+                        desc = L["Show the 'Run vs best' label before the delta. When off, only the +/- delta is shown."],
+                        get = function() return Splits:GetSettings().showLabel ~= false end,
+                        set = function(_, v)
+                            Splits:GetSettings().showLabel = v
+                            Addon.MainWindow:Refresh()
+                        end,
+                    },
                     labelIcon = {
                         type = "toggle", name = L["Icon instead of label"], order = 1.5,
                         desc = L["Replace the 'Run vs best' text with a compact icon."],
+                        disabled = function() return Splits:GetSettings().showLabel == false end,
                         get = function() return Splits:GetSettings().labelIcon == true end,
                         set = function(_, v)
                             Splits:GetSettings().labelIcon = v
@@ -60,7 +70,10 @@ function Splits:GetOptions()
                     },
                     labelIconColor = {
                         type = "color", name = L["Icon color"], order = 1.6,
-                        disabled = function() return Splits:GetSettings().labelIcon ~= true end,
+                        disabled = function()
+                            local s = Splits:GetSettings()
+                            return s.showLabel == false or s.labelIcon ~= true
+                        end,
                         get = function()
                             local c = Splits:GetSettings().labelIconColor or { 1, 1, 1 }
                             return c[1], c[2], c[3]

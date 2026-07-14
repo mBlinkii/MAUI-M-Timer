@@ -1,9 +1,9 @@
 -- Modules/Timer/UI.lua
--- HUD display for the Timer module: a container with a fill bar, the time text,
--- the +3/+2 section dividers and optional per-section countdown labels. The
--- achievable upgrade tier is read from the bar's section colors (no badge).
--- Styling (font, colors, bar size/texture, divider color/width, offsets) is
--- per element.
+-- HUD display for the Timer module, split into two independently orderable
+-- blocks: the "timer" text block (elapsed / limit + best time) and the
+-- "timerbar" block (the fill bar, +3/+2 section dividers and the optional
+-- per-section countdown labels). The bar block can be positioned and hidden
+-- separately (module option "showBar" / element order). Styling is per element.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -11,8 +11,6 @@ local Timer = Addon:GetModule("Timer")
 
 local UI = Addon:NewModuleUI()
 Timer.UI = UI
-
-local TEXT_AREA = 20 -- fallback height reserved for the time text above the bar
 
 -- Shared fallback colors, hoisted so the per-tick Update never allocates a new
 -- table when a style field is unset.
@@ -33,29 +31,33 @@ local function isSplit()
     return Timer:GetSettings().splitBar == true
 end
 
--- Vertical layout reserved for the time text, returned as
--- (top padding, text line height, gap-to-bar). The gap is user-configurable
--- (barTextGap) and sits between the text and the bar, so increasing it pushes
--- the bar further below the time text and grows the block height accordingly.
--- Kept as a function so LayoutBar/LayoutCluster share it.
-function UI:TextArea()
-    local gap = Timer:GetSettings().barTextGap or 0
-    return 0, Addon.Widgets:LineHeight(ns.E.timerText, 16), gap
+-- Vertical space (pixels) the section countdown labels claim OUTSIDE the bar,
+-- returned as (topExtra, bottomExtra). "above/left/right" sit on top of the bar,
+-- "below" underneath, the in-bar modes claim nothing. Reserved in the bar block
+-- so the labels cannot overflow into neighboring blocks.
+function UI:CountdownExtra()
+    if Timer:GetSettings().sectionCountdown ~= true then return 0, 0 end
+    local mode = Addon:GetElementSetting(ns.E.timerSection).countdownPos or "above"
+    if mode == "barLeft" or mode == "barRight" then return 0, 0 end
+    local extra = Addon.Widgets:LineHeight(ns.E.timerSection) + 2
+    if mode == "below" then return 0, extra end
+    return extra, 0 -- above / left / right
 end
 
--- Apply the bar's height/width from the per-element style, choosing the single
--- bar or the three-segment layout depending on the split setting.
+-- Apply the bar block's height and the bar's height/width from the per-element
+-- style, choosing the single bar or the three-segment layout. The bar is
+-- anchored at the block's bottom (offset by the countdown space reserved below).
 function UI:LayoutBar()
-    if not self.bar then return end
+    if not (self.bar and self.barFrame) then return end
     local s = Addon.Widgets.ResolveStyle(ns.E.timerBar)
     local h = s.height or 14
-    local top, textH, bottom = self:TextArea()
-    self._areaTop, self._textH = top, textH
-    self.frame:SetHeight(top + textH + bottom + h)
+    local topExtra, bottomExtra = self:CountdownExtra()
+    self._barBottom = bottomExtra
+    self.barFrame:SetHeight(topExtra + h + bottomExtra)
 
     if isSplit() then
         self.bar:Hide()
-        self:LayoutSegments(s, h)
+        self:LayoutSegments(s, h, bottomExtra)
         return
     end
 
@@ -66,11 +68,11 @@ function UI:LayoutBar()
     self.bar:ClearAllPoints()
     self.bar:SetHeight(h)
     if s.width and s.width > 0 then
-        self.bar:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, 0)
+        self.bar:SetPoint("BOTTOM", self.barFrame, "BOTTOM", 0, bottomExtra)
         self.bar:SetWidth(s.width)
     else
-        self.bar:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 0, 0)
-        self.bar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
+        self.bar:SetPoint("BOTTOMLEFT", self.barFrame, "BOTTOMLEFT", 0, bottomExtra)
+        self.bar:SetPoint("BOTTOMRIGHT", self.barFrame, "BOTTOMRIGHT", 0, bottomExtra)
     end
 end
 
@@ -79,7 +81,7 @@ function UI:EnsureSegments()
     if self.segBars then return end
     self.segBars = {}
     for i = 1, #SEGMENTS do
-        local b = Addon.Widgets:CreateBar(self.frame, ns.E.timerBar)
+        local b = Addon.Widgets:CreateBar(self.barFrame, ns.E.timerBar)
         b:Hide()
         self.segBars[i] = b
     end
@@ -89,12 +91,15 @@ end
 -- right-to-left the whole arrangement is mirrored (the large +3 segment sits on
 -- the right, the small +2/+1 on the left) so it is an exact mirror of the
 -- left-to-right layout, including the segment fills and the boundary positions.
-function UI:LayoutSegments(style, h)
+function UI:LayoutSegments(style, h, bottomExtra)
     self:EnsureSegments()
-    local total = (style.width and style.width > 0) and style.width or self.frame:GetWidth()
+    bottomExtra = bottomExtra or 0
+    local frameW = self.barFrame:GetWidth()
+    if not frameW or frameW <= 0 then frameW = Addon.MainWindow:GetWidth() end
+    local total = (style.width and style.width > 0) and style.width or frameW
     if not total or total <= 0 then total = Addon.MainWindow:GetWidth() end
     local gap = Timer:GetSettings().splitGap or SEGMENT_GAP
-    local startX = (self.frame:GetWidth() - total) / 2
+    local startX = (frameW - total) / 2
     local avail = total - gap * (#SEGMENTS - 1)
     local reverse = Addon:GetElementSetting(ns.E.timerBar).reverse == true
     -- Frame-local x of each gap center, so the countdown can anchor to it.
@@ -106,7 +111,7 @@ function UI:LayoutSegments(style, h)
         local leftX = reverse and (startX + total - x - w) or (startX + x)
         seg:ClearAllPoints()
         seg:SetSize(math.max(1, w), h)
-        seg:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", leftX, 0)
+        seg:SetPoint("BOTTOMLEFT", self.barFrame, "BOTTOMLEFT", leftX, bottomExtra)
         seg:SetReverseFill(reverse)
         seg:Show()
         if i < #self.segBars then
@@ -118,7 +123,6 @@ function UI:LayoutSegments(style, h)
     end
 end
 
-
 -- The best-time FontString follows the time text's font family + outline but
 -- keeps its own configurable size (element timerBest).
 function UI:ApplyBestFont()
@@ -128,26 +132,26 @@ function UI:ApplyBestFont()
     self.bestText:SetFont(base.font, size, base.fontFlags)
 end
 
--- Anchor the time text per the module alignment. Left-justifying inside the
--- fixed-width box (when centered) keeps the elapsed value's left edge from
--- re-centering (and jittering) each tick. The best time (own FontString) sits
--- next to the time on the inner side so it never overhangs the aligned edge.
-function UI:LayoutCluster()
-    if not self.text then return end
+-- Anchor the time text (and the best-time FontString next to it) per the module
+-- alignment inside the text block. Left-justifying inside the fixed-width box
+-- (when centered) keeps the elapsed value's left edge from re-centering (and
+-- jittering) each tick.
+function UI:LayoutText()
+    if not (self.text and self.frame) then return end
     local justify = Addon.MainWindow:GetJustifyH("Timer")
     self.text:SetJustifyH(justify == "CENTER" and "LEFT" or justify)
 
-    local textH = self._textH or TEXT_AREA
+    local textH = Addon.Widgets:LineHeight(ns.E.timerText, 16)
+    self.frame:SetHeight(textH)
     local tx, ty = Addon.Widgets:GetOffset(ns.E.timerText)
-    local rowY = -(textH / 2) + ty -- no badges, so no top padding to account for
 
     self.text:ClearAllPoints()
     if justify == "LEFT" then
-        self.text:SetPoint("LEFT", self.frame, "TOPLEFT", tx, rowY)
+        self.text:SetPoint("LEFT", self.frame, "LEFT", tx, ty)
     elseif justify == "RIGHT" then
-        self.text:SetPoint("RIGHT", self.frame, "TOPRIGHT", tx, rowY)
+        self.text:SetPoint("RIGHT", self.frame, "RIGHT", tx, ty)
     else
-        self.text:SetPoint("CENTER", self.frame, "TOP", tx, rowY)
+        self.text:SetPoint("CENTER", self.frame, "CENTER", tx, ty)
     end
 
     if self.bestText then
@@ -164,27 +168,27 @@ function UI:Build()
     if self.frame then return end
 
     local hud = Addon.MainWindow:Get()
-    local block = Addon.Widgets:CreateContainer(hud, "MauiMPlusTimerTimerBlock")
-    block:SetSize(Addon.MainWindow:GetWidth(), 34)
+    local width = Addon.MainWindow:GetWidth()
 
-    local bar = Addon.Widgets:CreateBar(block, ns.E.timerBar)
-    local text = Addon.Widgets:CreateText(block, ns.E.timerText)
+    -- Text block: elapsed / limit time plus the stored best time.
+    local textBlock = Addon.Widgets:CreateContainer(hud, "MauiMPlusTimerTimerBlock")
+    textBlock:SetSize(width, 20)
+    local text = Addon.Widgets:CreateText(textBlock, ns.E.timerText)
     -- Separate FontString for the stored best time so it can have its own size.
-    local bestText = Addon.Widgets:CreateText(block, ns.E.timerText)
+    local bestText = Addon.Widgets:CreateText(textBlock, ns.E.timerText)
     bestText:Hide()
+    self.frame, self.text, self.bestText = textBlock, text, bestText
 
-    self.frame, self.bar, self.text, self.bestText = block, bar, text, bestText
-
-    self:LayoutBar()
-    self:ApplyBestFont()
-    self:LayoutCluster()
-    bar:SetReverseFill(Addon:GetElementSetting(ns.E.timerBar).reverse == true)
+    -- Bar block: fill bar, section dividers and countdown labels.
+    local barBlock = Addon.Widgets:CreateContainer(hud, "MauiMPlusTimerTimerBarBlock")
+    barBlock:SetSize(width, 14)
+    local bar = Addon.Widgets:CreateBar(barBlock, ns.E.timerBar)
+    self.barFrame, self.bar = barBlock, bar
 
     -- Dedicated overlay frame above the bar(s) so the divider lines and the
-    -- countdown labels always draw ON TOP of the fill, never behind it. Its frame
-    -- level is raised above the bar and the split-mode segment bars.
-    local overlay = CreateFrame("Frame", nil, block)
-    overlay:SetAllPoints(block)
+    -- countdown labels always draw ON TOP of the fill, never behind it.
+    local overlay = CreateFrame("Frame", nil, barBlock)
+    overlay:SetAllPoints(barBlock)
     overlay:SetFrameLevel(bar:GetFrameLevel() + 10)
     self.overlay = overlay
 
@@ -203,11 +207,40 @@ function UI:Build()
         line.label = label
         table.insert(self.dividers, line)
     end
+
+    self:LayoutText()
+    self:LayoutBar()
+    self:ApplyBestFont()
+    bar:SetReverseFill(Addon:GetElementSetting(ns.E.timerBar).reverse == true)
     bar:SetScript("OnSizeChanged", function() UI:LayoutDividers() end)
     self:LayoutDividers()
 
-    block:Hide()
-    Addon.MainWindow:AddBlock("timer", block, 10)
+    textBlock:Hide()
+    barBlock:Hide()
+    Addon.MainWindow:AddBlock("timer", textBlock, 10)
+    Addon.MainWindow:AddBlock("timerbar", barBlock, 11)
+end
+
+-- Show / Hide the bar block according to the showBar setting (and only while the
+-- text block itself is shown). Called on Show and whenever the setting changes.
+function UI:ApplyBarShown()
+    if not self.barFrame then return end
+    local shown = self.frame and self.frame:IsShown()
+        and Timer:GetSettings().showBar ~= false
+    self.barFrame:SetShown(shown and true or false)
+end
+
+function UI:Show()
+    self:Build()
+    if self.frame then self.frame:Show() end
+    self:ApplyBarShown()
+    Addon.MainWindow:Layout()
+end
+
+function UI:Hide()
+    if self.frame then self.frame:Hide() end
+    if self.barFrame then self.barFrame:Hide() end
+    Addon.MainWindow:Layout()
 end
 
 -- Anchor a single countdown label relative to its divider line, according to
@@ -232,16 +265,18 @@ local function anchorCountdown(label, line, mode, lx, ly)
     end
 end
 
--- Position the divider markers and their countdown labels (frame-local). In
--- single-bar mode markers sit at the threshold positions along the bar; in
--- split-bar mode they sit at the gap centers between segments, so the countdown
--- labels stay visible there too. Visibility is handled in UpdateSections.
+-- Position the divider markers and their countdown labels (frame-local, in the
+-- bar block). In single-bar mode markers sit at the threshold positions along
+-- the bar; in split-bar mode they sit at the gap centers between segments, so
+-- the countdown labels stay visible there too. Visibility is handled in
+-- UpdateSections.
 function UI:LayoutDividers()
-    if not self.frame or not self.dividers then return end
+    if not self.barFrame or not self.dividers then return end
 
     local split = isSplit()
-    local frameW = self.frame:GetWidth()
+    local frameW = self.barFrame:GetWidth()
     if not frameW or frameW <= 0 then frameW = Addon.MainWindow:GetWidth() end
+    local bottomExtra = self._barBottom or 0
 
     local reverse = Addon:GetElementSetting(ns.E.timerBar).reverse == true
     local barStyle = Addon.Widgets.ResolveStyle(ns.E.timerBar)
@@ -272,7 +307,7 @@ function UI:LayoutDividers()
 
         line:ClearAllPoints()
         line:SetSize(dw, h)
-        line:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", x, 0)
+        line:SetPoint("BOTTOMLEFT", self.barFrame, "BOTTOMLEFT", x, bottomExtra)
         line:SetColorTexture(dc[1], dc[2], dc[3], dc[4] or 1)
         -- Split mode and the limit marker never draw a line (label anchor only).
         if split or line._labelOnly then line:Hide() end
@@ -354,7 +389,7 @@ function UI:Update(elapsed, timeLimit, bonus, bestTotal)
     local style = Addon.Widgets.ResolveStyle(ns.E.timerBar)
     if isSplit() then
         self:UpdateSegments(elapsed, timeLimit, style)
-    else
+    elseif self.bar then
         local fillElapsed = style.barFill ~= "remaining"
         if timeLimit > 0 then
             self.bar:SetMinMaxValues(0, timeLimit)
@@ -439,11 +474,10 @@ function UI:Restyle()
         end
     end
     self:ApplyBestFont()
+    self:LayoutText()
     self:LayoutBar()
-    self:LayoutCluster()
+    self:ApplyBarShown()
     self.bar:SetReverseFill(Addon:GetElementSetting(ns.E.timerBar).reverse == true)
     self:LayoutDividers()
     Addon.MainWindow:ApplyPosition()
 end
-
--- Show / Hide are provided by the shared UI base (Addon:NewModuleUI).

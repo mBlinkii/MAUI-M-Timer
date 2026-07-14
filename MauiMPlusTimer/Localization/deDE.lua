@@ -179,6 +179,9 @@ L["Assign each element to a row (top to bottom). A row can hold two blocks side 
 L["Reset order"] = "Anordnung zurücksetzen"
 L["Reset the element order to the default layout?"] = "Element-Anordnung auf das Standard-Layout zurücksetzen?"
 L["Icon instead of label"] = "Icon statt Beschriftung"
+L["Show label"] = "Beschriftung anzeigen"
+L["Show the 'Run vs best' label before the delta. When off, only the +/- delta is shown."] =
+    "Zeigt die Beschriftung 'Lauf vs. Best' vor der Differenz an. Aus = nur die +/- Differenz."
 L["Replace the 'Run vs best' text with a compact icon."] = "Ersetzt den Text 'Lauf vs. Bestzeit' durch ein kompaktes Icon."
 L["Icons instead of labels"] = "Icons statt Beschriftungen"
 L["Replace the 'Boss' and 'PoNR' texts with compact icons."] = "Ersetzt die Texte 'Boss' und 'PoNR' durch kompakte Icons."
@@ -227,6 +230,10 @@ L["Right of divider"] = "Rechts von der Trennlinie"
 L["In bar, left of divider"] = "Im Balken, links von der Trennlinie"
 L["In bar, right of divider"] = "Im Balken, rechts von der Trennlinie"
 L["Split bar into three"] = "Balken in drei teilen"
+L["Timer bar"] = "Timer-Balken"
+L["Show timer bar"] = "Timer-Balken anzeigen"
+L["Show the timer bar (with section dividers and countdowns). It is its own block under General -> Element order, so it can be positioned or removed there too."] =
+    "Zeigt den Timer-Balken (mit Section-Dividern und Countdowns). Er ist ein eigener Block unter Allgemein -> Elementanordnung und kann dort ebenfalls positioniert oder entfernt werden."
 L["Split bar at checkpoints"] = "Balken an Checkpoints teilen"
 L["Split the bar into segments at each checkpoint (the 100% target is ignored)."] =
     "Teilt den Balken an jedem Checkpoint in Segmente (das 100%-Ziel wird ignoriert)."

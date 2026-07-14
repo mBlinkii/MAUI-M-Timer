@@ -11,8 +11,12 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 - Simplified Chinese (zhCN) and Traditional Chinese (zhTW) localizations. The addon now ships translations for all interface strings; game terms follow Blizzard's official Chinese client terminology. Untranslated keys still fall back to English.
 - First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. It can be re-run anytime via `/mauimpt setup`.
 - The setup wizard ships with the "MaUI" preset profile (the author's personal look, with preview screenshot) alongside the factory default.
+- The timer bar is now its own block in General → Element order, separate from the timer text, so it can be positioned or hidden independently. A "Show timer bar" toggle in the Timer options does the same. Existing layouts keep the bar directly below the timer text.
 
 ### Updates
+
+- Element order now doubles as the module on/off control: placing a module in a row enables it, clearing a slot to "-" disables it and leaves the slot empty (it no longer slides to another row), and modules that are not listed are disabled. The per-module enable toggles stay in sync.
+- Splits: new "Show label" option to hide the "Run vs best" label and show only the +/- delta.
 
 - The setup wizard can now be reopened from the options: General → Other has a "Run setup wizard" button, next to the `/mauimpt setup` slash command.
 - Setup wizard redesign: a consistent footer pinned to the bottom bar (level with the Close button) with a left button (Skip on step 1, Back afterwards), a "Steps 1 - 2 - 3" progress indicator that highlights the current step, and the Next/Finish button next to Close. The welcome step now shows the addon logo; profile presets are laid out with the preview on the left, the description on the right, and the apply button in the bottom-right corner; and the checkpoint box places its apply button in the bottom-right corner too. A preset can also show a secondary note under its description (the MaUI preset points out its !mMT_MediaPack font dependency).
