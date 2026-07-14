@@ -20,7 +20,7 @@ Data.entries = {
         new = {
             "Simplified Chinese (zhCN) and Traditional Chinese (zhTW) localizations. All interface strings are translated using Blizzard's official Chinese client terminology; untranslated keys still fall back to English.",
             "First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. Re-run it anytime via /mauimpt setup.",
-            "The setup wizard ships with the 'MaUI' preset profile (the author's personal look, with preview screenshot) alongside the factory default.",
+            "The setup wizard ships with the 'MaUI' preset (the author's personal look, with preview screenshot), a 'Simple' preset (a reduced, minimal layout) and a 'Compact' preset (full layout with a separator line and a slim forces bar) alongside the factory default.",
             "The timer bar is now its own block in General -> Element order, separate from the timer text, so it can be positioned or hidden independently. A 'Show timer bar' toggle in the Timer options does the same. The timer text can now share a row (left/right half) with another module, while the bar always occupies a full row. Existing layouts keep the bar directly below the timer text.",
         },
         updates = {

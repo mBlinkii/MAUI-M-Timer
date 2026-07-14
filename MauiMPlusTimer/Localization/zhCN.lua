@@ -129,6 +129,10 @@ L["Use this profile"] = "使用此配置文件"
 L["Profile applied: %s"] = "已应用配置文件：%s"
 L["The classic MAUI look with all default settings."] = "经典 MAUI 外观，全部为默认设置。"
 L["The author's personal MAUI look."] = "作者个人的 MAUI 外观。"
+L["A reduced, minimal look: only dungeon, timer, objectives and deaths (checkpoints, cooldowns and enemy forces off; the run-vs-best line is hidden but still recorded)."] =
+    "精简的极简外观：仅显示地下城、计时器、目标和死亡（检查点、冷却和敌军关闭；本次 vs 最佳行隐藏但仍记录）。"
+L["A compact full layout with a separator line and a slim enemy-forces bar (forces countdown below the bar)."] =
+    "紧凑的完整布局，带分隔线和纤细的敌军进度条（敌军倒计时显示在进度条下方）。"
 L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] =
     "需要 !mMT_MediaPack 插件提供字体；未安装时将使用默认字体。"
 L["Back"] = "上一步"
