@@ -10,7 +10,7 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 
 - Simplified Chinese (zhCN) and Traditional Chinese (zhTW) localizations. The addon now ships translations for all interface strings; game terms follow Blizzard's official Chinese client terminology. Untranslated keys still fall back to English.
 - First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. It can be re-run anytime via `/mauimpt setup`.
-- The setup wizard ships with the "MaUI" preset (the author's personal look, with preview screenshot), a "Simple" preset (a reduced, minimal layout) and a "Compact" preset (full layout with a separator line and a slim forces bar) alongside the factory default.
+- The setup wizard ships with three preset profiles, each with a preview screenshot: "MaUI" (the author's personal look), "Simple" (a reduced, minimal layout) and "Compact" (full layout with a separator line and a slim forces bar).
 - The timer bar is now its own block in General → Element order, separate from the timer text, so it can be positioned or hidden independently. A "Show timer bar" toggle in the Timer options does the same. The timer text can now share a row (left/right half) with another module, while the bar always occupies a full row. Existing layouts keep the bar directly below the timer text.
 
 ### Updates

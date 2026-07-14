@@ -38,7 +38,7 @@ Data.profiles = {
         -- wizard - here the media-pack requirement, so it is visible to users.
         note = "Requires the !mMT_MediaPack addon for its fonts; without it the default font is used.",
         screenshot = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Setup\\maui",
-        screenshotSize = { 450, 342 },
+        screenshotSize = { 256, 256 },
         profile = {
             debug = false,
             minimap = {
@@ -591,7 +591,8 @@ Data.profiles = {
         description = "A reduced, minimal look: only dungeon, timer, objectives and deaths (checkpoints, cooldowns and enemy forces off; the run-vs-best line is hidden but still recorded).",
         -- Uses the same !mMT_MediaPack font as the MaUI preset.
         note = "Requires the !mMT_MediaPack addon for its fonts; without it the default font is used.",
-        screenshot = nil,
+        screenshot = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Setup\\simple",
+        screenshotSize = { 256, 256 },
         profile = {
             debug = false,
             minimap = {
@@ -1145,7 +1146,8 @@ Data.profiles = {
         description = "A compact full layout with a separator line and a slim enemy-forces bar (forces countdown below the bar).",
         -- Uses the same !mMT_MediaPack font as the MaUI preset.
         note = "Requires the !mMT_MediaPack addon for its fonts; without it the default font is used.",
-        screenshot = nil,
+        screenshot = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Setup\\compact",
+        screenshotSize = { 256, 256 },
         profile = {
             debug = false,
             minimap = {
@@ -1692,12 +1694,5 @@ Data.profiles = {
                 y = -280.16717529297,
             },
         },
-    },
-    {
-        key = "standard",
-        name = "MAUI Standard",
-        description = "The classic MAUI look with all default settings.",
-        screenshot = nil,
-        profile = nil, -- factory defaults
     },
 }
