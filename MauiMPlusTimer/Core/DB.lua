@@ -459,12 +459,18 @@ function Addon:OnProfileChanged()
     self:ApplyModuleStates()
     if self.MainWindow then self.MainWindow:InvalidateRows() end
 
+    -- Enabled modules restyle themselves from this message (LoadSettings); it is
+    -- deliberately NOT a full MainWindow:Refresh, whose per-module Restyle would
+    -- re-show blocks of modules the new profile disabled.
     self:SendMessage("MMT_PROFILE_CHANGED")
 
-    -- Apply the new profile's demo state (on OR off) and restyle + relayout, so
-    -- the switch is fully reflected without a reload.
+    -- Apply the new profile's demo state (on OR off) so hidden/shown matches,
+    -- then re-apply position/scale/width and relayout.
     if self.Demo then self.Demo:Apply() end
-    if self.MainWindow then self.MainWindow:Refresh() end
+    if self.MainWindow then
+        self.MainWindow:ApplyPosition()
+        self.MainWindow:ApplyWidth() -- also relayouts
+    end
 end
 
 -- One-time migrations of removed options in the ACTIVE profile (idempotent;

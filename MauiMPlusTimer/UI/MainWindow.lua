@@ -91,7 +91,10 @@ end
 function MainWindow:Refresh()
     Addon.Widgets:InvalidateStyle() -- styles may have changed; drop the cache
     for _, module in Addon:IterateModules() do
-        if module.UI and module.UI.Restyle then
+        -- Only restyle ACTIVE modules: a disabled module's Restyle can re-show
+        -- its (hidden) block from cached values, which would resurrect blocks the
+        -- current profile turned off.
+        if module.UI and module.UI.Restyle and module:IsEnabled() then
             -- Isolate each module's restyle so one faulty module cannot break
             -- the whole refresh, but surface the error instead of hiding it.
             local ok, err = pcall(module.UI.Restyle, module.UI)
