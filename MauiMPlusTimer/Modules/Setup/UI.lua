@@ -12,9 +12,9 @@ local AceGUI = LibStub("AceGUI-3.0")
 local UI = {}
 Setup.UI = UI
 
-local WINDOW_WIDTH, WINDOW_HEIGHT = 560, 470
+local WINDOW_WIDTH, WINDOW_HEIGHT = 560, 500
 local SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT = 512, 160 -- native size of the presets
-local PREVIEW_WIDTH = 190 -- width the preview is scaled to in the left column
+local PREVIEW_WIDTH = 120 -- width the preview is scaled to in the left column
 
 -- Media pack (fonts) the shipped presets reference. The wizard offers a popup
 -- with the copyable download link (WoW cannot open URLs directly).
@@ -72,7 +72,10 @@ function UI:ShowMediaPackPopup()
             hasEditBox = true,
             editBoxWidth = 350,
             OnShow = function(popup)
-                local eb = popup.editBox
+                -- Retail's GameDialog exposes the box as popup.EditBox; older
+                -- StaticPopups used popup.editBox.
+                local eb = popup.EditBox or popup.editBox
+                if not eb then return end
                 eb:SetText(MEDIA_PACK_URL)
                 eb:HighlightText()
                 eb:SetFocus()
@@ -418,6 +421,10 @@ function UI:RenderProfiles(container)
             end
         end)
     end
+
+    -- Trailing spacer so the last preset can always be scrolled fully into view
+    -- (AceGUI's ScrollFrame drops its own bottom padding).
+    addText(container, "\n\n")
 
     self:SetNav(
         L["Back"],
