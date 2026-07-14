@@ -672,6 +672,26 @@ function Addon:ModuleAlignOption(module, order)
     }
 end
 
+-- Enable/disable EVERY module to match the active profile's saved state. Modules
+-- only reload their own settings on a profile change (MMT_PROFILE_CHANGED); they
+-- do not toggle their AceAddon enabled state, so without this a module the new
+-- profile disables would keep its block on screen until a /reload. Idempotent.
+function Addon:ApplyModuleStates()
+    for name, module in self:IterateModules() do
+        if type(module.GetSettings) == "function" then
+            local settings = module:GetSettings()
+            local want = settings and settings.enabled
+            if want == nil then want = module.enabledByDefault ~= false end
+            local isOn = module:IsEnabled()
+            if want and not isOn then
+                self:EnableModule(name)
+            elseif not want and isOn then
+                self:DisableModule(name)
+            end
+        end
+    end
+end
+
 -- Enable/disable a module and keep the display in sync. In demo mode the module
 -- is re-fed sample data so it appears/disappears at once instead of only after
 -- a /reload while previewing.

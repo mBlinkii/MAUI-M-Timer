@@ -34,6 +34,7 @@ Data.entries = {
         },
         fixes = {
             "Separator lines no longer stay visible on their own outside a key: like the modules, they only show during a run or in demo mode.",
+            "Switching profiles now fully refreshes the display without a /reload: modules are enabled/disabled to match, and the layout, position, scale and demo state all update to the new profile (leftovers from the previous profile no longer linger).",
         },
     },
     {

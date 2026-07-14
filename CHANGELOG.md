@@ -27,6 +27,7 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 ### Fixes
 
 - Separator lines no longer stay visible on their own outside a key: like the modules, they only show during a run or in demo mode.
+- Switching profiles now fully refreshes the display without a /reload: modules are enabled/disabled to match, and the layout, position, scale and demo state all update to the new profile (leftovers from the previous profile no longer linger).
 
 ## [1.2.0] - 2026-07-10
 

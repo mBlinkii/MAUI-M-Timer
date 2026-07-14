@@ -50,3 +50,16 @@ function Demo:Refresh()
         end
     end
 end
+
+-- Push the CURRENT demo state (from the active profile, suppressed during a run)
+-- to every enabled module - including turning it OFF. Used after a profile
+-- switch so modules that were showing demo values in the old profile update to
+-- the new profile's demo setting without a reload.
+function Demo:Apply()
+    local effective = self:IsActive()
+    for _, module in Addon:IterateModules() do
+        if module.SetDemo and module:IsEnabled() then
+            module:SetDemo(effective)
+        end
+    end
+end

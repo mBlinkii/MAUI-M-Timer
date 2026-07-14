@@ -451,7 +451,20 @@ function Addon:OnProfileChanged()
     self:MigrateProfile() -- a switched/imported profile may carry legacy keys
     if self.Widgets then self.Widgets:InvalidateStyle() end -- new profile -> new styles
     if self.RefreshMinimapButton then self:RefreshMinimapButton() end -- new minimap state
+
+    -- Match every module's enabled state to the new profile, so blocks the
+    -- previous profile showed but the new one disables do not linger. The
+    -- element order depends on those states, so drop the cached rows too.
+    -- (Previously this only sorted itself out after a /reload.)
+    self:ApplyModuleStates()
+    if self.MainWindow then self.MainWindow:InvalidateRows() end
+
     self:SendMessage("MMT_PROFILE_CHANGED")
+
+    -- Apply the new profile's demo state (on OR off) and restyle + relayout, so
+    -- the switch is fully reflected without a reload.
+    if self.Demo then self.Demo:Apply() end
+    if self.MainWindow then self.MainWindow:Refresh() end
 end
 
 -- One-time migrations of removed options in the ACTIVE profile (idempotent;
