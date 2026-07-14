@@ -268,12 +268,13 @@ end
 function Objectives:SetDemo(state)
     self.state.demo = state
     if state then
+        local L = ns.L
         self.UI:Build()
         self.UI:Show()
         self.UI:Update(self:ForDisplay({
-            { name = "First Boss", done = true, time = 312, delta = -8, best = 320 },
-            { name = "Second Boss", done = true, time = 640, delta = 12, best = 628 },
-            { name = "Final Boss", done = false, best = 940 },
+            { name = L["Boss"] .. " 1", done = true, time = 312, delta = -8, best = 320 },
+            { name = L["Boss"] .. " 2", done = true, time = 640, delta = 12, best = 628 },
+            { name = L["Boss"] .. " 3", done = false, best = 940 },
         }))
     elseif self:IsRunActive() then
         self.UI:Show()

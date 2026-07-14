@@ -25,6 +25,7 @@ L["Author"] = true
 L["Commands"] = true
 L["License"] = true
 L["Category"] = true
+L["Links"] = true
 L["Command list"] = "/mauimpt \226\128\148 open the options\n/mauimpt demo \226\128\148 toggle demo mode\n/mauimpt splits \226\128\148 open the times manager\n/mauimpt checkpoints \226\128\148 open the checkpoint editor\n/mauimpt changelog \226\128\148 open the changelog\n/mauimpt setup \226\128\148 run the setup wizard\n/mauimpt profiles \226\128\148 open the profiles page"
 L["No bracket"] = true
 L["Credits"] = true

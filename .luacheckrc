@@ -75,4 +75,26 @@ read_globals = {
     "C_Spell",
     "C_Timer",
     "C_UnitAuras",
+
+    -- Instance / combat / unit
+    "GetInstanceInfo", "InCombatLockdown", "UnitName",
+
+    -- Minimap (button placement + shape) and cursor
+    "Minimap", "GetMinimapShape", "GetCursorPosition",
+
+    -- Bags / cursor / keystone slotting
+    "ClearCursor", "NUM_BAG_SLOTS",
+
+    -- Frame pools, panels and static popups
+    "CreateFramePool", "HideUIPanel", "StaticPopup_Show", "StaticPopupDialogs",
+
+    -- Encounter Journal (boss name resolution)
+    "EncounterJournal", "EncounterJournal_OpenJournal",
+    "EJ_GetInstanceForMap", "EJ_GetEncounterInfoByIndex", "EJ_SelectInstance",
+
+    -- Sound kit + default font
+    "SOUNDKIT", "STANDARD_TEXT_FONT",
+
+    -- Global UI string constants
+    "NONE", "OKAY", "CLOSE",
 }
