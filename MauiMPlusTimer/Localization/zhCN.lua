@@ -135,6 +135,9 @@ L["A compact full layout with a separator line and a slim enemy-forces bar (forc
     "紧凑的完整布局，带分隔线和纤细的敌军进度条（敌军倒计时显示在进度条下方）。"
 L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] =
     "需要 !mMT_MediaPack 插件提供字体；未安装时将使用默认字体。"
+L["Download media pack"] = "下载媒体包"
+L["Copy the link to download the media pack (%s), then open it in your web browser:"] =
+    "复制链接以下载媒体包（%s），然后在浏览器中打开："
 L["Back"] = "上一步"
 L["Next"] = "下一步"
 L["Skip"] = "跳过"

@@ -16,6 +16,18 @@ local WINDOW_WIDTH, WINDOW_HEIGHT = 560, 470
 local SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT = 512, 160 -- native size of the presets
 local PREVIEW_WIDTH = 190 -- width the preview is scaled to in the left column
 
+-- Media pack (fonts) the shipped presets reference. The wizard offers a popup
+-- with the copyable download link (WoW cannot open URLs directly).
+local MEDIA_PACK_NAME  = "Blinkiis Media Pack"
+local MEDIA_PACK_ADDON = "!mMT_MediaPack"
+local MEDIA_PACK_URL   = "https://www.curseforge.com/wow/addons/mmt-media-pack"
+
+-- Whether the media pack addon is installed and loaded.
+local function mediaPackLoaded()
+    return (C_AddOns and C_AddOns.IsAddOnLoaded
+        and C_AddOns.IsAddOnLoaded(MEDIA_PACK_ADDON)) or false
+end
+
 -- Open the wizard (or focus it when already open) and start at step 1.
 function UI:Show()
     if self.frame then return end
@@ -45,6 +57,42 @@ function UI:Hide()
     if self.frame then
         self.frame:Hide() -- fires OnClose, which releases and marks done
     end
+end
+
+-- Popup with the copyable media-pack download link. The URL sits in a focused,
+-- pre-highlighted edit box (WoW cannot open browser links itself), so the user
+-- can copy it with Ctrl+C right away. Registered lazily so it can use the
+-- loaded locale.
+function UI:ShowMediaPackPopup()
+    local L = ns.L
+    if not StaticPopupDialogs["MAUIMPT_MEDIAPACK"] then
+        StaticPopupDialogs["MAUIMPT_MEDIAPACK"] = {
+            text = L["Copy the link to download the media pack (%s), then open it in your web browser:"],
+            button1 = OKAY,
+            hasEditBox = true,
+            editBoxWidth = 350,
+            OnShow = function(popup)
+                local eb = popup.editBox
+                eb:SetText(MEDIA_PACK_URL)
+                eb:HighlightText()
+                eb:SetFocus()
+            end,
+            EditBoxOnTextChanged = function(eb)
+                -- Keep it effectively read-only: restore the URL if edited.
+                if eb:GetText() ~= MEDIA_PACK_URL then
+                    eb:SetText(MEDIA_PACK_URL)
+                    eb:HighlightText()
+                end
+            end,
+            EditBoxOnEnterPressed = function(eb) eb:GetParent():Hide() end,
+            EditBoxOnEscapePressed = function(eb) eb:GetParent():Hide() end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3, -- avoid taint from the default StaticPopup index
+        }
+    end
+    StaticPopup_Show("MAUIMPT_MEDIAPACK", MEDIA_PACK_NAME)
 end
 
 -- Widget helpers --------------------------------------------------------------
@@ -346,9 +394,15 @@ function UI:RenderProfiles(container)
         descCol:SetLayout("List")
         top:AddChild(descCol)
         addText(descCol, L[entry.description])
-        -- Optional secondary note (e.g. a dependency hint), greyed out.
+        -- Optional secondary note (e.g. a dependency hint), greyed out, with a
+        -- button that opens the media-pack download-link popup.
         if entry.note then
             addText(descCol, "|cff888888" .. L[entry.note] .. "|r")
+            local dl = AceGUI:Create("Button")
+            dl:SetText(L["Download media pack"])
+            dl:SetFullWidth(true)
+            dl:SetCallback("OnClick", function() UI:ShowMediaPackPopup() end)
+            descCol:AddChild(dl)
         end
 
         -- A little air, then the apply button in the bottom-right corner.
@@ -357,6 +411,11 @@ function UI:RenderProfiles(container)
             Addon.Profiles:ApplyTable(entry.profile)
             UI._chosen = entry.key
             Addon:Info(L["Profile applied: %s"], entry.name)
+            -- Presets that depend on the media pack: surface the download link
+            -- when the addon is not installed.
+            if entry.note and not mediaPackLoaded() then
+                UI:ShowMediaPackPopup()
+            end
         end)
     end
 

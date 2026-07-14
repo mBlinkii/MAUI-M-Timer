@@ -142,6 +142,9 @@ L["A compact full layout with a separator line and a slim enemy-forces bar (forc
     "Ein kompaktes, vollständiges Layout mit einer Trennlinie und einem schmalen Streitkräfte-Balken (Streitkräfte-Countdown unter dem Balken)."
 L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] =
     "Benötigt das Addon !mMT_MediaPack für die Schriftarten; ohne es wird die Standardschrift verwendet."
+L["Download media pack"] = "Media-Pack herunterladen"
+L["Copy the link to download the media pack (%s), then open it in your web browser:"] =
+    "Kopiere den Link, um das Media-Pack (%s) herunterzuladen, und öffne ihn in deinem Webbrowser:"
 L["Back"] = "Zurück"
 L["Next"] = "Weiter"
 L["Skip"] = "Überspringen"
