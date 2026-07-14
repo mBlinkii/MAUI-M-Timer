@@ -508,10 +508,15 @@ end
 function MainWindow:UpdateSeparators()
     local cfgs = Addon.db.profile.ui.separators
     self.separators = self.separators or {}
+    -- Separators are decoration between modules, so they follow the same
+    -- visibility as the modules: only shown while a run or demo is active,
+    -- never floating on their own outside a key.
+    local active = (Addon.RunState and Addon.RunState:Get())
+        or (Addon.Demo and Addon.Demo:IsActive()) or false
     for i = 1, 2 do
         local cfg = cfgs and cfgs[i]
         local sep = self.separators[i]
-        if cfg and cfg.enabled then
+        if cfg and cfg.enabled and active then
             sep = sep or self:CreateSeparator(i)
             self.separators[i] = sep
             local h = math.max(1, cfg.height or 2)
