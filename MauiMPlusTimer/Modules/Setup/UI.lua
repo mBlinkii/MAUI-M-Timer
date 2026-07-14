@@ -14,7 +14,7 @@ Setup.UI = UI
 
 local WINDOW_WIDTH, WINDOW_HEIGHT = 560, 500
 local SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT = 512, 160 -- native size of the presets
-local PREVIEW_WIDTH = 120 -- width the preview is scaled to in the left column
+local PREVIEW_WIDTH = 160 -- width the preview is scaled to in the left column
 
 -- Media pack (fonts) the shipped presets reference. The wizard offers a popup
 -- with the copyable download link (WoW cannot open URLs directly).
@@ -376,7 +376,7 @@ function UI:RenderProfiles(container)
 
         if entry.screenshot then
             local previewCol = AceGUI:Create("SimpleGroup")
-            previewCol:SetRelativeWidth(0.4)
+            previewCol:SetRelativeWidth(0.42)
             previewCol:SetLayout("List")
             top:AddChild(previewCol)
 
@@ -393,7 +393,7 @@ function UI:RenderProfiles(container)
         end
 
         local descCol = AceGUI:Create("SimpleGroup")
-        descCol:SetRelativeWidth(0.58)
+        descCol:SetRelativeWidth(0.56)
         descCol:SetLayout("List")
         top:AddChild(descCol)
         addText(descCol, L[entry.description])
