@@ -15,8 +15,8 @@ Changelog.Data = Data
 --   new/updates/fixes  arrays of plain lines; sections may be omitted
 Data.entries = {
     {
-        version = "Unreleased",
-        date = "",
+        version = "1.3.0",
+        date = "2026-07-14",
         new = {
             "Simplified Chinese (zhCN) and Traditional Chinese (zhTW) localizations. All interface strings are translated using Blizzard's official Chinese client terminology; untranslated keys still fall back to English.",
             "First-start setup wizard: on a fresh installation, a short guided setup helps you pick a starting profile and load the recommended checkpoint targets. Re-run it anytime via /mauimpt setup.",
@@ -35,6 +35,8 @@ Data.entries = {
         fixes = {
             "Separator lines no longer stay visible on their own outside a key: like the modules, they only show during a run or in demo mode.",
             "Switching profiles now fully refreshes the display without a /reload: modules are enabled/disabled to match, and the layout, position, scale and demo state all update to the new profile (leftovers from the previous profile no longer linger).",
+            "About page: the project-info heading (Category and License) is now localized on Chinese clients instead of always showing the English label.",
+            "Demo mode: the sample boss names in the Objectives list are now localized instead of always appearing in English.",
         },
     },
     {

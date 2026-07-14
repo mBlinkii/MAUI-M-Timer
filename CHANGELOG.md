@@ -6,6 +6,8 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-14
+
 ### New
 
 - Simplified Chinese (zhCN) and Traditional Chinese (zhTW) localizations. The addon now ships translations for all interface strings; game terms follow Blizzard's official Chinese client terminology. Untranslated keys still fall back to English.
@@ -28,6 +30,8 @@ Changes are grouped per version into **New** (features), **Updates** (improvemen
 
 - Separator lines no longer stay visible on their own outside a key: like the modules, they only show during a run or in demo mode.
 - Switching profiles now fully refreshes the display without a /reload: modules are enabled/disabled to match, and the layout, position, scale and demo state all update to the new profile (leftovers from the previous profile no longer linger).
+- The project-info heading on the About page (Category and License) is now localized on Chinese clients instead of always showing the English label.
+- Demo mode: the sample boss names in the Objectives list are now localized instead of always appearing in English.
 
 ## [1.2.0] - 2026-07-10
 
