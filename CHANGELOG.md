@@ -1,5 +1,13 @@
 # Changelog - MAUI M+ Timer
 
+## [ver. 1.4.0] - 28.07.2026
+### 🔧 UPDATE
+- UPDATE - [Changelog]: Entries carry a scope label that is highlighted on the changelog page, matching the format of CHANGELOG.md.
+### ✨ NEW
+- NEW - [System]: The timer and forces bars can show an edge line at the moving end of the fill, with its own width, height and color.
+- NEW - [System]: The timer and forces bars can fade their fill as a gradient, either to the bar color scaled by a multiplier or to a custom end color, with an option to swap both ends.
+- NEW - [System]: A gradient on a split bar runs continuously across all segments instead of restarting in each one.
+
 ## [ver. 1.3.0] - 14.07.2026
 ### 🐛 FIX
 - FIX - [HUD]: Separator lines no longer stay visible outside a key and now follow the modules, showing only during a run or in demo mode.

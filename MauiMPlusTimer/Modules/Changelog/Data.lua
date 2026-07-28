@@ -18,6 +18,18 @@ Changelog.Data = Data
 -- "->" and "-", and straight double quotes are escaped.
 Data.entries = {
     {
+        version = "1.4.0",
+        date = "28.07.2026",
+        new = {
+            "[System]: The timer and forces bars can show an edge line at the moving end of the fill, with its own width, height and color.",
+            "[System]: The timer and forces bars can fade their fill as a gradient, either to the bar color scaled by a multiplier or to a custom end color, with an option to swap both ends.",
+            "[System]: A gradient on a split bar runs continuously across all segments instead of restarting in each one.",
+        },
+        updates = {
+            "[Changelog]: Entries carry a scope label that is highlighted on the changelog page, matching the format of CHANGELOG.md.",
+        },
+    },
+    {
         version = "1.3.0",
         date = "14.07.2026",
         new = {
