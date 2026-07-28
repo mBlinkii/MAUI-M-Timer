@@ -16,6 +16,10 @@ local SECTIONS = {
       icon = "Interface\\RaidFrame\\ReadyCheck-Ready" },
 }
 
+-- Scope label color. Deliberately none of the three section colors, since
+-- scopes appear under all of them.
+local SCOPE_COLOR = "|cffb653ff"
+
 -- View state only, deliberately not persisted.
 local selected = 1
 
@@ -23,15 +27,21 @@ local function selectedEntry()
     return Changelog.Data.entries[selected] or Changelog.Data.entries[1]
 end
 
+-- Highlights the leading "[Scope]" of an entry. Anchored, so a later bracket in
+-- the description text is left alone.
+local function renderLine(line)
+    return (line:gsub("^%[([^%]]+)%]", SCOPE_COLOR .. "[%1]|r"))
+end
+
 local function sectionText(lines)
     local out = {}
     for i, line in ipairs(lines) do
-        out[i] = "\226\128\162  " .. line -- UTF-8 bullet
+        out[i] = "\226\128\162  " .. renderLine(line) -- UTF-8 bullet
     end
     return table.concat(out, "\n\n") .. "\n"
 end
 
--- "v1.1.15 (2026-07-08)", or plain "Unreleased" for the pending entry.
+-- "v1.1.15 (08.07.2026)".
 local function versionLabel(entry)
     local label = entry.version
     if label ~= "Unreleased" then label = "v" .. label end
