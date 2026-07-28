@@ -1,10 +1,7 @@
 -- Core/MinimapButton.lua
--- Self-contained minimap button (replaces LibDataBroker/LibDBIcon) plus the
--- AddOn Compartment click handler. Left-click opens the options, right-click
--- toggles demo mode; dragging moves the button along the minimap edge.
--- Show/hide state and the position angle persist in db.profile.minimap using
--- the same keys LibDBIcon used (hide, minimapPos), so saved positions from
--- older versions carry over unchanged.
+-- Self-contained minimap button plus the AddOn Compartment click handler.
+-- State persists under the same db.profile.minimap keys LibDBIcon used
+-- (hide, minimapPos), so positions saved by older versions carry over.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -14,17 +11,12 @@ local BUTTON_SIZE = 26
 local EDGE_OFFSET = 5   -- how far the button sits outside the minimap edge
 local DEFAULT_ANGLE = 207 -- degrees; matches the previous LibDBIcon default
 
--- Addon:OpenOptions lives in Core/Config.lua (applies the persisted window
--- geometry and the size-reset control on every open).
-
--- Saved minimap settings table, created on demand.
 local function settings()
     Addon.db.profile.minimap = Addon.db.profile.minimap or { hide = true }
     return Addon.db.profile.minimap
 end
 
--- Place the button on the minimap edge at the saved angle. Handles the round
--- default minimap and square minimaps (GetMinimapShape addon convention).
+-- Square minimaps are detected via the GetMinimapShape addon convention.
 local function updatePosition(button)
     local angle = math.rad(settings().minimapPos or DEFAULT_ANGLE)
     local cx, cy = math.cos(angle), math.sin(angle)
@@ -45,8 +37,7 @@ local function updatePosition(button)
     button:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
 
--- While dragging: derive the angle from the cursor position relative to the
--- minimap center, persist it and reposition (runs as the button's OnUpdate).
+-- Runs as the button's OnUpdate while dragging.
 local function onDragUpdate(button)
     local mx, my = Minimap:GetCenter()
     local px, py = GetCursorPosition()
@@ -56,8 +47,6 @@ local function onDragUpdate(button)
     updatePosition(button)
 end
 
--- Build the button frame: just the addon icon (no tracking border or
--- background), with the standard round hover highlight.
 local function createButton()
     local button = CreateFrame("Button", "MauiMPlusTimerMinimapButton", Minimap)
     button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
@@ -76,7 +65,6 @@ local function createButton()
         if mouseButton == "RightButton" then
             Addon.Demo:Toggle()
         else
-            -- Toggle so a second click closes an already open options window.
             Addon:ToggleOptions()
         end
     end)
@@ -106,29 +94,26 @@ local function createButton()
     return button
 end
 
---- Create the minimap button once and apply the saved state (Core/Init.lua).
+-- Called once from Addon:OnInitialize.
 function Addon:SetupMinimapButton()
     if self.minimapButton then return end
     self.minimapButton = createButton()
     self:RefreshMinimapButton()
 end
 
---- Re-apply the saved position and show/hide state (e.g. after a profile
---- change, where both may differ from the previous profile).
+-- Re-applies position and visibility; both are per profile.
 function Addon:RefreshMinimapButton()
     if not self.minimapButton then return end
     updatePosition(self.minimapButton)
     self.minimapButton:SetShown(not settings().hide)
 end
 
---- Show/hide the minimap button at runtime (from the options toggle).
 function Addon:SetMinimapShown(show)
     settings().hide = not show
     self:RefreshMinimapButton()
 end
 
--- AddOn Compartment entry click (referenced by ## AddonCompartmentFunc).
--- Toggles so a second click closes an already open options window.
+-- Referenced by ## AddonCompartmentFunc in the .toc.
 function _G.MauiMPlusTimer_OnCompartmentClick(_, _)
     Addon:ToggleOptions()
 end

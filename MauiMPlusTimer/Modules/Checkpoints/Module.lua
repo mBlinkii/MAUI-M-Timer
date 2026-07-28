@@ -1,16 +1,12 @@
 -- Modules/Checkpoints/Module.lua
--- Compares the live Enemy Forces percentage against per-dungeon target values,
--- both per boss section and per time point, and shows how far ahead/behind you
--- are. Midnight-safe: only aggregate forces, boss state and elapsed time.
+-- Compares the live forces percentage against the per-dungeon targets.
+-- Midnight-safe: aggregate forces, boss state and elapsed time only.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
 
 local Checkpoints = Addon:NewMauiModule("Checkpoints", "checkpoints")
 Checkpoints.state = { demo = false, frozen = false }
-
-
--- Lifecycle (OnInitialize/LoadSettings come from ModuleBase) -------------------
 
 function Checkpoints:OnEnable()
     self:RegisterMessage("MMT_FORCES_UPDATED", "OnForces")
@@ -34,8 +30,6 @@ function Checkpoints:OnDisable()
     self.UI:Hide()
 end
 
--- Show/hide ------------------------------------------------------------------
-
 function Checkpoints:OnRunStart()
     self.state.demo = false
     self.state.frozen = false
@@ -54,9 +48,7 @@ function Checkpoints:OnRunEnd()
     end
 end
 
--- Comparison -----------------------------------------------------------------
-
--- Number of bosses already defeated (current section = killed + 1).
+-- The current section is this + 1.
 local function killedBosses(run)
     local n = 0
     if run and run.bosses then
@@ -93,15 +85,13 @@ function Checkpoints:Compute(currentPct)
     local sectionTarget = self.Data.GetSectionTarget(run.mapID, section)
     local sectionDelta = sectionTarget and (currentPct - sectionTarget) or nil
 
-    -- Next not-yet-reached Point of No Return threshold and the forces % still
-    -- missing to clear it. nil once every threshold is met (or none defined).
     local ponr
     local nextPonr = self.Data.GetNextPoNR(run.mapID, currentPct)
     if nextPonr then
         ponr = { next = nextPonr, remaining = nextPonr - currentPct }
     end
 
-    -- Announce once when the current section's forces target is reached.
+    -- Announced once per section.
     if sectionTarget and currentPct >= sectionTarget then
         self._reached = self._reached or {}
         if not self._reached[section] then
@@ -113,13 +103,11 @@ function Checkpoints:Compute(currentPct)
     self.UI:Update(sectionDelta, ponr)
 end
 
--- Demo mode ------------------------------------------------------------------
-
 function Checkpoints:SetDemo(state)
     self.state.demo = state
     if state then
         self.UI:Build()
-        self.UI:Update(3.2, { next = 90, remaining = 12 }) -- ahead on boss; next PoNR 90% (+12%)
+        self.UI:Update(3.2, { next = 90, remaining = 12 })
     elseif Addon.RunState:Get() then
         self:Recompute()
     else

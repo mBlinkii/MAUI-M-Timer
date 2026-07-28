@@ -8,14 +8,9 @@ local Addon = ns.Addon
 local Objectives = Addon:NewMauiModule("Objectives", "objectives")
 Objectives.state = { demo = false, frozen = false }
 
--- Lifecycle ------------------------------------------------------------------
-
 function Objectives:OnEnable()
     self._completed = {}
     self._bossTimes = {}
-    -- Only run-lifecycle messages are always listened to; the scenario criteria
-    -- events are (un)registered with the run (RegisterRunEvents) so the module is
-    -- idle outside an active Mythic+ key.
     self:RegisterMessage("MMT_RUN_STARTED", "OnRunStart")
     self:RegisterMessage("MMT_RUN_RESTORED", "OnRunStart")
     self:RegisterMessage("MMT_RUN_COMPLETED", "OnRunCompleted")
@@ -28,14 +23,14 @@ function Objectives:OnEnable()
     if Addon.Demo:IsActive() then
         self:SetDemo(true)
     elseif Addon.RunState:Get() then
-        self:RegisterRunEvents() -- enabled mid-key: begin listening now
+        self:RegisterRunEvents() -- enabled mid-key
         self.UI:Show()
         self:Refresh()
     end
 end
 
--- Scenario criteria events fire in any scenario (Delves included), so they are
--- registered only for the duration of an active Mythic+ run.
+-- Criteria events fire in any scenario, Delves included, so they are only
+-- registered for the duration of a Mythic+ run.
 function Objectives:RegisterRunEvents()
     self:RegisterEvent("SCENARIO_CRITERIA_UPDATE", "Refresh")
     self:RegisterEvent("SCENARIO_POI_UPDATE", "Refresh")
@@ -50,8 +45,6 @@ function Objectives:OnDisable()
     self:UnregisterAllEvents()
     self.UI:Hide()
 end
-
--- Helpers --------------------------------------------------------------------
 
 function Objectives:IsRunActive()
     return C_ChallengeMode and C_ChallengeMode.IsChallengeModeActive
@@ -69,8 +62,7 @@ function Objectives:OnRunStart()
     self:Refresh()
 end
 
--- Freeze on completion WITHOUT re-reading (criteria are already reset); the
--- last good boss list/times stay on screen.
+-- Freeze without re-reading: the criteria are already reset at this point.
 function Objectives:OnRunCompleted()
     self.state.frozen = true
 end
@@ -85,21 +77,18 @@ end
 
 function Objectives:Refresh()
     if self.state.demo or self.state.frozen then return end
-    -- Only process during an active Mythic+ run. The scenario criteria events that
-    -- drive this (SCENARIO_CRITERIA_UPDATE / POI_UPDATE) also fire in other
-    -- scenario content such as Delves; without this guard their criteria would be
-    -- read and broadcast (MMT_OBJECTIVE_COMPLETED) outside Mythic+.
+    -- Without this guard a Delve's criteria would be read and broadcast as
+    -- MMT_OBJECTIVE_COMPLETED outside Mythic+.
     if not Addon.RunState:Get() then return end
     local bosses = self.Data.Read()
 
     local run = Addon.RunState:Get()
     if (not bosses or #bosses == 0) and run and run.bosses then
-        -- Criteria not readable (e.g. after completion): use the stored snapshot.
-        bosses = run.bosses
+        bosses = run.bosses -- stored snapshot
     end
 
-    -- Sticky completion by index: once a boss is defeated it stays defeated,
-    -- even if the scenario reset (on completion) reports it as not done again.
+    -- Sticky by index: the scenario reset on completion reports bosses as not
+    -- done again, which must not undo them.
     self._doneIndex = self._doneIndex or {}
     for i, boss in ipairs(bosses) do
         if boss.done then self._doneIndex[i] = true end
@@ -110,8 +99,7 @@ function Objectives:Refresh()
         run.bosses = bosses
     end
 
-    -- Announce newly completed bosses exactly once. Keyed by boss INDEX (not
-    -- name), so two bosses sharing a name still each announce once.
+    -- Keyed by index, not name, so two bosses sharing a name each announce.
     for i, boss in ipairs(bosses) do
         if boss.done and not self._completed[i] then
             self._completed[i] = true
@@ -119,8 +107,7 @@ function Objectives:Refresh()
         end
     end
 
-    -- Capture each boss's completion time once (stable), instead of recomputing
-    -- it every refresh, then derive the +/- delta versus the best run.
+    -- Captured once per boss, so the displayed time stays stable.
     self._bossTimes = self._bossTimes or {}
     local bestSections = self:GetBestSections()
     for i, boss in ipairs(bosses) do
@@ -135,13 +122,11 @@ function Objectives:Refresh()
         else
             boss.delta = nil
         end
-        -- Stored best section time (shown behind the boss when the option is on).
         boss.best = bestSections and bestSections[i] or nil
     end
 
-    -- Broadcast the latest completed boss's cumulative difference vs the best run
-    -- (negative = ahead) AFTER it has been computed, so the Splits "Run vs best"
-    -- can display the exact same value -- the run's total-so-far time difference.
+    -- Sent after the deltas are computed, so the Splits "Run vs best" shows
+    -- exactly this value.
     local latestDelta
     for _, boss in ipairs(bosses) do
         if boss.done and boss.delta ~= nil then latestDelta = boss.delta end
@@ -151,17 +136,15 @@ function Objectives:Refresh()
     self.UI:Update(self:ForDisplay(bosses))
 end
 
--- Split times in the objectives list are a Splits-module feature. When that
--- module is disabled, the list shows only boss names + status.
+-- Split times belong to the Splits module; without it the list is names only.
 function Objectives:TimesVisible()
     local splits = Addon:GetModule("Splits", true)
     return splits and splits:IsEnabled()
 end
 
--- Re-render when the forces snapshot changes so the optional forces row stays
--- in sync - including the completion tick, which the forces module may
--- process after our own criteria handler already ran (works while frozen,
--- since it renders from the stored boss list without reading criteria).
+-- Keeps the optional forces row in sync, including the completion tick, which
+-- EnemyForces may process after our own criteria handler already ran. Works
+-- while frozen: it renders from the stored boss list, reading no criteria.
 function Objectives:OnForcesUpdated()
     if self:GetSettings().showForcesRow ~= true or self.state.demo then return end
     local run = Addon.RunState:Get()
@@ -170,11 +153,8 @@ function Objectives:OnForcesUpdated()
     end
 end
 
--- Optional synthetic "Enemy Forces" row, always appended LAST: shows the live
--- forces percentage while in progress and the forces completion time once
--- done. It reads the run's forces snapshot (RunState) - the same scenario
--- events that drive this module also update that snapshot, so the row stays
--- live without extra wiring. In demo mode it mirrors the demo forces value.
+-- Synthetic row appended last. Reads the RunState forces snapshot, which the
+-- same scenario events keep current, so it needs no wiring of its own.
 function Objectives:ForcesRow()
     if self:GetSettings().showForcesRow ~= true then return nil end
     local L = ns.L
@@ -195,8 +175,6 @@ function Objectives:ForcesRow()
         done = done,
         progress = (not done) and string.format("%.1f%%", percent * 100) or nil,
     }
-    -- Split-time fields (completion time, best, +/- delta) follow the same
-    -- visibility rule as the boss rows: they belong to the Splits module.
     if self:TimesVisible() then
         local best = Addon:GetBestRun(run.mapID, run.keyLevel)
         row.best = best and best.forcesTime or nil
@@ -210,10 +188,8 @@ function Objectives:ForcesRow()
     return row
 end
 
--- Boss list for display: as-is when split times are visible, otherwise a shallow
--- copy with the time/delta/best fields dropped (run.bosses stays untouched).
--- The optional Enemy Forces row is appended last; the list is copied first when
--- it would otherwise alias run.bosses, which must never be mutated.
+-- Copies before dropping time fields or appending the forces row, because the
+-- input may alias run.bosses, which must never be mutated.
 function Objectives:ForDisplay(bosses)
     local out
     if self:TimesVisible() then
@@ -237,8 +213,7 @@ function Objectives:ForDisplay(bosses)
     return out
 end
 
--- React to the Splits module being enabled/disabled so the split-time columns
--- appear/disappear live without waiting for the next scenario update.
+-- Shows/hides the split-time columns without waiting for a scenario update.
 function Objectives:OnModuleToggled(_, name)
     if name ~= "Splits" then return end
     if self.state.demo then
@@ -251,19 +226,13 @@ function Objectives:OnModuleToggled(_, name)
     end
 end
 
--- Best run's boss section times for the current dungeon+level (or nil). Uses the
--- same level fallback as the Timer's total best (nearest higher/lower level when
--- this exact level has no record yet), so the objective best times appear
--- whenever the timer best does, instead of only on an exact-level match.
--- Soft dependency on the Splits module (Addon:GetBestRun); works without it.
+-- Soft Splits dependency; the level fallback matches the Timer's total best.
 function Objectives:GetBestSections()
     local run = Addon.RunState:Get()
     if not run then return nil end
     local best = Addon:GetBestRun(run.mapID, run.keyLevel)
     return best and best.sections or nil
 end
-
--- Demo mode ------------------------------------------------------------------
 
 function Objectives:SetDemo(state)
     self.state.demo = state

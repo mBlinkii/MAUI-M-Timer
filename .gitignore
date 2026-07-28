@@ -1,26 +1,26 @@
-# --- Internal planning doc, not for the public repo ---
-ARCHITECTURE.md
+# Editor / IDE
+/.vscode/
+*.code-workspace
+*.bak
+*.swp
+*~
 
-# --- Local-only manual release script ---
-Build-Release.ps1
-Build-Release.bat
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# --- Vendored/external libraries ---
-# Fetched fresh by the release workflow (.github/workflows/release.yml) and by
-# Build-Release.ps1, so they are not tracked in version control
+# Lua tooling
+.luacheckcache
+
+# Vendored libraries
+# Fetched fresh by the release workflow, so they are not tracked
 # (see MauiMPlusTimer/Libs/README.md).
 MauiMPlusTimer/Libs/*
 !MauiMPlusTimer/Libs/README.md
 
-# --- Release build output ---
-.release/
+# Build / art sources
 *.zip
-
-# --- OS / editor cruft ---
-.DS_Store
-Thumbs.db
-*.swp
-*.tmp
-
-# --- WoW client artifacts (in case the addon is symlinked/copied for testing) ---
-WowLuaSettings.lua
+*.psd
+*.pnd

@@ -8,11 +8,8 @@ local Addon = ns.Addon
 local Splits = Addon:NewMauiModule("Splits", "splits")
 Splits.state = { demo = false }
 
--- Lifecycle (LoadSettings comes from ModuleBase) -------------------------------
-
--- Standard initialization plus a one-time data migration: backfill the in-time
--- flag on runs stored by older versions, so comparison lookups during a key
--- never have to derive it (see Data.MigrateOnTimeFlags).
+-- Backfills the in-time flag on older records, so lookups during a key never
+-- have to derive it.
 function Splits:OnInitialize()
     ns.ModuleBase.OnInitialize(self)
     self.Data.MigrateOnTimeFlags()
@@ -39,26 +36,19 @@ function Splits:OnDisable()
     self.UI:Hide()
 end
 
--- Best recorded run for a dungeon+level, or nil while this module is disabled.
--- Single source of best-time data for dependent displays (Timer total, Enemy
--- Forces, Objectives), so turning Splits off hides their best times and deltas.
+-- Nil while disabled, which is what hides the dependent displays' best times.
 function Splits:GetBest(mapID, keyLevel)
     if not self:IsEnabled() then return nil end
     return self.Data.GetBestWithFallback(mapID, keyLevel)
 end
 
---- Soft-dependency accessor for other modules: the best recorded run for a
---- dungeon+level, or nil when the Splits module is unavailable or disabled.
---- Defined here (not in Core) so the Core layer stays free of module knowledge;
---- consumers (Timer, EnemyForces, Objectives) call this instead of duplicating
---- the GetModule lookup.
+-- Soft-dependency accessor for Timer, EnemyForces and Objectives. Defined here
+-- rather than in Core, which stays free of module knowledge.
 function Addon:GetBestRun(mapID, keyLevel)
     local splits = self:GetModule("Splits", true)
     if not (splits and splits.GetBest) then return nil end
     return splits:GetBest(mapID, keyLevel)
 end
-
--- Show/hide ------------------------------------------------------------------
 
 function Splits:OnRunStart()
     self.state.demo = false
@@ -71,21 +61,15 @@ function Splits:OnRunEnd()
     end
 end
 
--- Live comparison ------------------------------------------------------------
-
--- The Objectives module is the single source of the run-vs-best difference: it
--- computes each boss's cumulative time difference vs the best run and broadcasts
--- the latest completed boss's value via MMT_RUN_DELTA. That value is the run's
--- total-so-far time difference (negative = ahead), and at the final boss it is
--- the overall total-time difference. We just display it.
+-- Objectives owns the run-vs-best difference and broadcasts the latest
+-- completed boss's cumulative value; this only displays it.
 function Splits:OnDelta(_, delta)
     if self.state.demo then return end
     self.UI:Update(delta) -- nil hides until a comparison exists
 end
 
--- Re-read the current standing on demand (e.g. after a reload mid-run, before
--- the next objective update broadcasts). Uses the same per-boss differences the
--- Objectives module stored on the run, so the value always matches the tracker.
+-- For a reload mid-run, before the next broadcast. Reads the same per-boss
+-- differences Objectives stored, so the value always matches the tracker.
 function Splits:UpdateDelta()
     if self.state.demo then return end
     local run = Addon.RunState:Get()
@@ -97,13 +81,11 @@ function Splits:UpdateDelta()
     self.UI:Update(delta)
 end
 
--- Recording ------------------------------------------------------------------
-
 function Splits:OnRunCompleted(_, onTime)
     local run = Addon.RunState:Get()
     if not run or not run.mapID or not run.keyLevel then return end
 
-    -- Prefer the official completion time (ms); fall back to elapsed.
+    -- Official completion time in ms, with elapsed as the fallback.
     local total
     if C_ChallengeMode and C_ChallengeMode.GetChallengeCompletionInfo then
         local info = C_ChallengeMode.GetChallengeCompletionInfo()
@@ -113,8 +95,7 @@ function Splits:OnRunCompleted(_, onTime)
         total = Addon.Utils.ChallengeElapsedRaw()
     end
 
-    -- In-time flag for the comparison fallback: prefer the official value from
-    -- the completion event; otherwise derive it from the dungeon's time limit.
+    -- Derived only when the completion event carried no official value.
     if onTime == nil and total then
         local limit = Addon.Utils.GetChallengeTimeLimit()
         if limit > 0 then onTime = total <= limit end
@@ -125,9 +106,7 @@ function Splits:OnRunCompleted(_, onTime)
         for i, boss in ipairs(run.bosses) do sections[i] = boss.time end
     end
 
-    -- Final overall delta vs the existing best (computed before we record this
-    -- run, so the comparison is against the previous best, not itself). Uses the
-    -- level fallback so a first run at a new level still shows a comparison.
+    -- Read before recording, or the run would be compared against itself.
     local prevBest = self.Data.GetBestWithFallback(run.mapID, run.keyLevel)
     if prevBest and prevBest.total and total then
         self.UI:Update(total - prevBest.total)
@@ -143,9 +122,7 @@ function Splits:OnRunCompleted(_, onTime)
     }, self:GetSettings().storeMode or "best")
 end
 
--- Re-apply the HUD line after the "showText" setting changed (element order or
--- module option). Recording is unaffected; this only re-shows or hides the
--- +/- delta line, so the best times still feed the timer/forces/objectives.
+-- Only the HUD line; recording keeps running either way.
 function Splits:ApplyTextShown()
     if self.state.demo then
         self.UI:Update(-8)
@@ -156,12 +133,10 @@ function Splits:ApplyTextShown()
     end
 end
 
--- Demo mode ------------------------------------------------------------------
-
 function Splits:SetDemo(state)
     self.state.demo = state
     if state then
-        self.UI:Update(-8) -- 8s ahead of best sample
+        self.UI:Update(-8) -- sample: 8s ahead of best
     elseif Addon.RunState:Get() then
         self:UpdateDelta()
     else

@@ -1,9 +1,6 @@
 -- Modules/Checkpoints/Data.lua
--- Per-dungeon target forces percentages, stored account-wide. Two kinds:
---   bySection: target % to reach before a given boss (sectionIndex/bossIndex)
---   ponr:      "Point of No Return" thresholds — minimum % you must have reached
---              by a stage of the pull; defined as plain forces-% gates.
--- The only API to db.global.checkpoints.
+-- The only API to db.global.checkpoints: per-dungeon target forces percentages,
+-- either bySection (target % before a boss) or ponr (Point of No Return gates).
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -17,36 +14,26 @@ local function store()
     return Addon.db.global.checkpoints
 end
 
--- Change tracking / caching ---------------------------------------------------
-
--- Generation counter, bumped on every mutation of the checkpoint store. Cheap
--- consumers (e.g. the Enemy Forces split bar) compare it instead of the data
--- itself to detect changes without re-reading or re-serializing anything.
+-- Bumped on every mutation, so consumers like the Enemy Forces split bar can
+-- detect changes without re-reading the data.
 local generation = 0
 
--- Cache of GetTargetPercents results keyed by mapID; invalidated wholesale on
--- any mutation. Cached tables are returned by reference and MUST be treated as
--- read-only by callers.
+-- Keyed by mapID; returned by reference and read-only for callers.
 local percentsCache = {}
 
--- Invalidate all derived data after a store mutation.
 local function invalidate()
     generation = generation + 1
     wipe(percentsCache)
 end
 
--- Monotonically increasing counter identifying the current state of the
--- checkpoint store; changes whenever any checkpoint data changes.
 function Data.GetGeneration()
     return generation
 end
 
--- Return the entry for a dungeon (or nil).
 function Data.Get(mapID)
     return store()[mapID]
 end
 
--- Return the entry for a dungeon, creating an empty one if needed.
 function Data.GetOrCreate(mapID)
     local s = store()
     s[mapID] = s[mapID] or { bySection = {}, ponr = {} }
@@ -55,7 +42,6 @@ function Data.GetOrCreate(mapID)
     return s[mapID]
 end
 
--- Target % to have reached before the boss at sectionIndex, or nil if not set.
 function Data.GetSectionTarget(mapID, sectionIndex)
     local e = store()[mapID]
     if not e or not e.bySection then return nil end
@@ -65,8 +51,7 @@ function Data.GetSectionTarget(mapID, sectionIndex)
     return nil
 end
 
--- Sorted list (ascending) of Point of No Return thresholds (% values) for a
--- dungeon. Empty when none are defined.
+-- Ascending; empty when none are defined.
 function Data.GetPointsOfNoReturn(mapID)
     local e = store()[mapID]
     if not e or not e.ponr then return {} end
@@ -78,8 +63,7 @@ function Data.GetPointsOfNoReturn(mapID)
     return out
 end
 
--- The next not-yet-reached Point of No Return above currentPct, or nil if all
--- thresholds are already met (or none are defined).
+-- Nil once every threshold is met.
 function Data.GetNextPoNR(mapID, currentPct)
     for _, pct in ipairs(Data.GetPointsOfNoReturn(mapID)) do
         if pct > (currentPct or 0) then return pct end
@@ -87,13 +71,10 @@ function Data.GetNextPoNR(mapID, currentPct)
     return nil
 end
 
--- Empty result shared by all dungeons without checkpoint data (read-only).
-local EMPTY_PERCENTS = {}
+local EMPTY_PERCENTS = {} -- read-only
 
--- Distinct target percentages (0..100) across the section and time targets,
--- sorted ascending. Used to draw checkpoint markers on the Enemy Forces bar.
--- Results are cached per mapID until the next mutation; the returned table is
--- shared and must not be modified by callers.
+-- Distinct targets across both kinds, ascending. Cached and shared; callers
+-- must not modify the result.
 function Data.GetTargetPercents(mapID)
     local cached = percentsCache[mapID]
     if cached then return cached end
@@ -121,8 +102,6 @@ function Data.GetTargetPercents(mapID)
     percentsCache[mapID] = out
     return out
 end
-
--- Editor helpers -------------------------------------------------------------
 
 function Data.AddSection(mapID, bossIndex, targetPct)
     local e = Data.GetOrCreate(mapID)
@@ -152,8 +131,7 @@ function Data.RemovePoNR(mapID, index)
     end
 end
 
--- Set the boss index of the bySection row at `index`. Non-numeric input is
--- ignored; the value is floored and kept >= 1.
+-- Non-numeric input is ignored, the value floored and kept >= 1.
 function Data.SetSectionBossIndex(mapID, index, value)
     local e = store()[mapID]
     local row = e and e.bySection and e.bySection[index]
@@ -163,8 +141,7 @@ function Data.SetSectionBossIndex(mapID, index, value)
     invalidate()
 end
 
--- Set the target percentage of the bySection row at `index`. Non-numeric input
--- is ignored; the value is clamped to 0..100.
+-- Non-numeric input is ignored, the value clamped to 0..100.
 function Data.SetSectionTargetPct(mapID, index, value)
     local e = store()[mapID]
     local row = e and e.bySection and e.bySection[index]
@@ -174,8 +151,7 @@ function Data.SetSectionTargetPct(mapID, index, value)
     invalidate()
 end
 
--- Set the threshold of the ponr row at `index`. Non-numeric input is ignored;
--- the value is clamped to 0..100.
+-- Non-numeric input is ignored, the value clamped to 0..100.
 function Data.SetPoNRPct(mapID, index, value)
     local e = store()[mapID]
     local row = e and e.ponr and e.ponr[index]
@@ -185,27 +161,19 @@ function Data.SetPoNRPct(mapID, index, value)
     invalidate()
 end
 
--- Share (export / import) ----------------------------------------------------
-
--- Export ALL stored checkpoint data as a printable, shareable string, or nil
--- plus an error message. The string is tagged and validated by the shared
--- codec (Utils.EncodeShare/DecodeShare), so only genuine MAUI checkpoint
--- strings can be re-imported.
+-- All dungeons at once; nil plus an error message on failure.
 function Data.Export()
     return Addon.Utils.EncodeShare("checkpoints", store())
 end
 
--- Export ALL stored checkpoint data as readable Lua source (a table
--- constructor keyed by mapID), e.g. for embedding checkpoint presets directly
--- into addon code. Not importable via Import().
+-- Readable Lua source for embedding a preset in addon code. Developer format;
+-- Import() cannot read it back.
 function Data.ExportPlain()
     return Addon.Utils.SerializeTable(store())
 end
 
--- Rebuild a dungeon entry from untrusted import data, keeping only well-formed
--- values: bySection items need a numeric bossIndex/targetPct, ponr items a
--- numeric pct (percentages clamped to 0..100). Returns nil when nothing in the
--- entry is usable, so garbage never reaches the stored table.
+-- Rebuilds an entry from untrusted data, keeping only well-formed values.
+-- Returns nil when nothing is usable, so garbage never reaches the store.
 local function sanitizeEntry(entry)
     if type(entry) ~= "table" then return nil end
     local out = { bySection = {}, ponr = {} }
@@ -231,12 +199,8 @@ local function sanitizeEntry(entry)
     return out
 end
 
--- Import a checkpoint string. Only tagged, validated MAUI checkpoint strings
--- are accepted (see Utils.DecodeShare). Per dungeon: an incoming entry
--- overwrites the existing one for that dungeon; dungeons not present in the
--- string are kept. Incoming entries are sanitized (see sanitizeEntry);
--- invalid ones are skipped.
--- Returns true plus the number of imported dungeons, or false plus an error.
+-- Per dungeon: an incoming entry overwrites the existing one, dungeons absent
+-- from the string are kept. Returns true plus the count, or false plus an error.
 function Data.Import(str)
     local incoming, err = Addon.Utils.DecodeShare("checkpoints", str)
     if not incoming then return false, err end
@@ -255,11 +219,7 @@ function Data.Import(str)
     return true, count
 end
 
--- Author-curated checkpoint preset, shipped with the addon so any user can
--- adopt sensible per-dungeon targets with a single click (see
--- Data.ImportAuthorPreset and the "Load default checkpoints" option in
--- Options.lua). Kept as plain Lua data, keyed by mapID; edit here to update
--- the shipped defaults.
+-- Shipped defaults, keyed by mapID; edit here to update them.
 local AUTHOR_PRESET = {
     [161] = {
         bySection = {
@@ -323,10 +283,8 @@ local AUTHOR_PRESET = {
     },
 }
 
--- Load the author-curated preset (AUTHOR_PRESET above), overwriting any
--- existing entry for the dungeons it covers; dungeons not covered by the
--- preset are kept untouched. Entries are run through the same validation as
--- a normal import. Returns true plus the number of dungeons loaded.
+-- Overwrites the dungeons it covers and keeps the rest, validated like a normal
+-- import. Returns true plus the count.
 function Data.ImportAuthorPreset()
     local s = store()
     local count = 0

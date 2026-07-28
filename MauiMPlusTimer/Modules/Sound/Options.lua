@@ -1,6 +1,5 @@
 -- Modules/Sound/Options.lua
--- AceConfig options group for the Sound module: a per-trigger enable toggle and
--- sound selection. Triggers are disabled while the module itself is off.
+-- AceConfig options group for the Sound module.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon

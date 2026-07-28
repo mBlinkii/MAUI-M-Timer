@@ -1,15 +1,12 @@
 -- Modules/Changelog/Options.lua
--- AceConfig options page for the in-game changelog: the auto-show toggle, a
--- version dropdown (newest first) and the selected version's New/Updates/
--- Fixes sections rendered below it.
+-- Changelog page: auto-show toggle, version dropdown and the section blocks.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
 local Changelog = Addon:GetModule("Changelog")
 
--- Section order, localization keys, header colors (match the addon logo:
--- green = new, blue = updates, orange = fixes) and header icons (built-in
--- Blizzard textures, so no extra asset files are needed).
+-- Header colors match the addon logo; the icons are Blizzard textures, so no
+-- extra assets are needed.
 local SECTIONS = {
     { key = "new",     label = "New",     color = "|cff33ff99",
       icon = "Interface\\PaperDollInfoFrame\\Character-Plus" },
@@ -19,15 +16,13 @@ local SECTIONS = {
       icon = "Interface\\RaidFrame\\ReadyCheck-Ready" },
 }
 
--- Index into Data.entries currently shown in the dropdown (1 = newest).
--- Session-only view state, intentionally not saved.
+-- View state only, deliberately not persisted.
 local selected = 1
 
 local function selectedEntry()
     return Changelog.Data.entries[selected] or Changelog.Data.entries[1]
 end
 
--- Join a section's lines into one bullet-list description block.
 local function sectionText(lines)
     local out = {}
     for i, line in ipairs(lines) do
@@ -36,8 +31,7 @@ local function sectionText(lines)
     return table.concat(out, "\n\n") .. "\n"
 end
 
--- Dropdown labels, e.g. "v1.1.15 (2026-07-08)" or plain "Unreleased" for the
--- pending entry. Numeric keys keep the newest-first order of Data.entries.
+-- "v1.1.15 (2026-07-08)", or plain "Unreleased" for the pending entry.
 local function versionLabel(entry)
     local label = entry.version
     if label ~= "Unreleased" then label = "v" .. label end
@@ -55,9 +49,8 @@ local function versionValues()
     return values
 end
 
--- One section block of the selected version; hidden when that version has no
--- entries for it. name/args resolve lazily so the dropdown switches the
--- content without any tree rebuild.
+-- name and args resolve lazily, so the dropdown switches the content without
+-- rebuilding the tree.
 local function sectionGroup(section, order)
     local L = ns.L
     return {
@@ -79,7 +72,6 @@ local function sectionGroup(section, order)
     }
 end
 
--- Root changelog page: auto-show toggle, version dropdown, sections.
 function Changelog:GetOptions()
     local L = ns.L
 

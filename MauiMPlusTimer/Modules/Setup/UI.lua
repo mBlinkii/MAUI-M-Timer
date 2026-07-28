@@ -1,6 +1,5 @@
 -- Modules/Setup/UI.lua
--- The setup wizard window (AceGUI): three steps - welcome, profile choice,
--- recommended checkpoints. Pure presentation: profile application lives in
+-- The three-step wizard window. Presentation only: applying a profile lives in
 -- Core/Profiles.lua, checkpoint data in the Checkpoints module.
 
 local ADDON_NAME, ns = ...
@@ -16,19 +15,16 @@ local WINDOW_WIDTH, WINDOW_HEIGHT = 560, 500
 local SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT = 512, 160 -- native size of the presets
 local PREVIEW_WIDTH = 160 -- width the preview is scaled to in the left column
 
--- Media pack (fonts) the shipped presets reference. The wizard offers a popup
--- with the copyable download link (WoW cannot open URLs directly).
+-- Font pack the shipped presets reference.
 local MEDIA_PACK_NAME  = "Blinkiis Media Pack"
 local MEDIA_PACK_ADDON = "!mMT_MediaPack"
 local MEDIA_PACK_URL   = "https://www.curseforge.com/wow/addons/mmt-media-pack"
 
--- Whether the media pack addon is installed and loaded.
 local function mediaPackLoaded()
     return (C_AddOns and C_AddOns.IsAddOnLoaded
         and C_AddOns.IsAddOnLoaded(MEDIA_PACK_ADDON)) or false
 end
 
--- Open the wizard (or focus it when already open) and start at step 1.
 function UI:Show()
     if self.frame then return end
 
@@ -38,11 +34,10 @@ function UI:Show()
     frame:SetHeight(WINDOW_HEIGHT)
     frame:SetLayout("Fill")
     frame:EnableResize(false)
-    -- Closing the window (X button included) counts as "seen" so a fresh
-    -- install is never nagged twice; /mauimpt setup reopens it anytime.
+    -- Closing counts as seen, so a fresh install is never nagged twice.
     frame:SetCallback("OnClose", function(widget)
         UI:HideNav()
-        UI:RestoreCloseButton() -- undo StyleCloseButton before the frame is pooled
+        UI:RestoreCloseButton() -- must run before the frame is pooled
         Setup:MarkDone()
         AceGUI:Release(widget)
         UI.frame = nil
@@ -59,10 +54,8 @@ function UI:Hide()
     end
 end
 
--- Popup with the copyable media-pack download link. The URL sits in a focused,
--- pre-highlighted edit box (WoW cannot open browser links itself), so the user
--- can copy it with Ctrl+C right away. Registered lazily so it can use the
--- loaded locale.
+-- WoW cannot open browser links, so the URL sits in a focused, pre-highlighted
+-- edit box. Registered lazily, so the locale is loaded by then.
 function UI:ShowMediaPackPopup()
     local L = ns.L
     if not StaticPopupDialogs["MAUIMPT_MEDIAPACK"] then
@@ -72,8 +65,7 @@ function UI:ShowMediaPackPopup()
             hasEditBox = true,
             editBoxWidth = 350,
             OnShow = function(popup)
-                -- Retail's GameDialog exposes the box as popup.EditBox; older
-                -- StaticPopups used popup.editBox.
+                -- Retail's GameDialog renamed editBox to EditBox.
                 local eb = popup.EditBox or popup.editBox
                 if not eb then return end
                 eb:SetText(MEDIA_PACK_URL)
@@ -81,7 +73,7 @@ function UI:ShowMediaPackPopup()
                 eb:SetFocus()
             end,
             EditBoxOnTextChanged = function(eb)
-                -- Keep it effectively read-only: restore the URL if edited.
+                -- Effectively read-only.
                 if eb:GetText() ~= MEDIA_PACK_URL then
                     eb:SetText(MEDIA_PACK_URL)
                     eb:HighlightText()
@@ -98,8 +90,6 @@ function UI:ShowMediaPackPopup()
     StaticPopup_Show("MAUIMPT_MEDIAPACK", MEDIA_PACK_NAME)
 end
 
--- Widget helpers --------------------------------------------------------------
-
 local function addHeading(container, text)
     local h = AceGUI:Create("Heading")
     h:SetText(text)
@@ -115,9 +105,8 @@ local function addText(container, text, fontObject)
     container:AddChild(label)
 end
 
--- Add a button aligned to the bottom-right of the container. AceGUI has no right
--- alignment, so an empty spacer on the left pushes the button to the right edge
--- within a full-width flow row. widthFrac is the button's share of the row.
+-- AceGUI has no right alignment, so a spacer pushes the button to the right
+-- edge of a full-width flow row. widthFrac is the button's share of it.
 local function addRightButton(container, text, onClick, widthFrac)
     widthFrac = widthFrac or 0.42
 
@@ -139,40 +128,29 @@ local function addRightButton(container, text, onClick, widthFrac)
     return btn
 end
 
--- Footer navigation ----------------------------------------------------------
-
--- Fixed width of the two footer buttons; wide enough for the longest label in
--- every shipped locale (e.g. German "Fertigstellen") while leaving room for the
--- step indicator between them and the built-in close button.
+-- Wide enough for the longest label in every shipped locale; the close button
+-- is widened to match (StyleCloseButton).
 local NAV_BUTTON_WIDTH = 120
-local NAV_GAP = 8 -- horizontal gap around the step indicator
--- The footer buttons share the AceGUI close button's row exactly: 20px tall at
--- y-offset 17. The close button is widened to NAV_BUTTON_WIDTH as well (see
--- UI:StyleCloseButton), so all three footer buttons look identical.
-local NAV_Y = 17
+local NAV_GAP = 8
+local NAV_Y = 17 -- the AceGUI close button's own row
 
--- Logo shown on the welcome step (extension-less path so WoW resolves the .tga).
 local LOGO_TEXTURE = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_big"
 local LOGO_SIZE = 190
 
--- Step indicator colors (|c AARRGGBB without the alpha): the active step matches
--- the module-green used elsewhere, inactive steps and separators are grey.
 local STEP_ACTIVE_COLOR = "40c057"
 local STEP_INACTIVE_COLOR = "808080"
 local TOTAL_STEPS = 3
 
--- Create one persistent footer button (an AceGUI "Button" widget so third-party
--- skins like ElvUI/Masque, which hook AceGUI's named buttons, style it just like
--- the in-content buttons) and reparent it to the current wizard window. Not
--- added to any container: the wizard positions and reuses it directly.
+-- An AceGUI Button rather than a plain frame, so skins that hook AceGUI (ElvUI,
+-- Masque) style it like the in-content ones. Positioned directly, not added to
+-- a container.
 local function ensureNavButton(field)
     local widget = UI[field]
     if not widget then
         widget = AceGUI:Create("Button")
         widget:SetWidth(NAV_BUTTON_WIDTH)
         widget:SetHeight(20)
-        -- Hide the button whenever its host frame is shown for anything that is
-        -- not our own wizard window (AceGUI frame recycling).
+        -- Guards against AceGUI recycling the host frame for another dialog.
         widget.frame:SetScript("OnShow", function(f)
             if not (UI.frame and UI.frame.frame == f:GetParent()) then f:Hide() end
         end)
@@ -185,17 +163,14 @@ local function ensureNavButton(field)
     return widget
 end
 
--- Create/reparent the two persistent footer buttons (left = Skip/Back,
--- right = Next/Finish) on the bottom bar of the current wizard window. They live
--- outside the scroll content so they stay pinned while the step content scrolls.
+-- Outside the scroll content, so they stay pinned while the step scrolls.
 function UI:EnsureNavButtons()
     self.navLeft = ensureNavButton("navLeft")
     self.navNext = ensureNavButton("navNext")
     self:StyleCloseButton()
 end
 
--- Find the AceGUI frame's built-in close button. The lib keeps it as a local, so
--- it is located by its text (the global CLOSE label) among the frame's children.
+-- AceGUI keeps it as a local, so it has to be found by its CLOSE label.
 function UI:GetCloseButton()
     for _, child in ipairs({ self.frame.frame:GetChildren() }) do
         if child.GetText and child:GetText() == CLOSE then
@@ -204,26 +179,20 @@ function UI:GetCloseButton()
     end
 end
 
--- Widen the built-in close button to NAV_BUTTON_WIDTH so it matches the two
--- footer buttons.
 function UI:StyleCloseButton()
     local close = self:GetCloseButton()
     if close then close:SetWidth(NAV_BUTTON_WIDTH) end
 end
 
--- Restore the close button to the AceGUI default width (100, set in the lib's
--- Frame constructor) before the frame is released. AceGUI pools and reuses its
--- frames across every addon that embeds the library, and OnAcquire does not
--- reset the button size - so without this, our widening would leak into the next
--- addon that reuses this frame.
+-- Back to the AceGUI default of 100. OnAcquire does not reset the width, and
+-- the frame pool is shared with every addon embedding the library, so without
+-- this the widening leaks into the next dialog reusing the frame.
 function UI:RestoreCloseButton()
     local close = self:GetCloseButton()
     if close then close:SetWidth(100) end
 end
 
--- Point the two footer buttons at the current step. Pass nil for a text to hide
--- that button. Left button sits in the far-left corner (Skip on step 1, Back
--- afterwards); Next/Finish is pinned right, just left of the close button.
+-- A nil text hides that button.
 function UI:SetNav(leftText, leftFn, nextText, nextFn)
     self:EnsureNavButtons()
     local host = self.frame.frame
@@ -243,14 +212,12 @@ function UI:SetNav(leftText, leftFn, nextText, nextFn)
 
     self.navLeft.frame:ClearAllPoints()
     self.navLeft.frame:SetPoint("BOTTOMLEFT", host, "BOTTOMLEFT", 27, NAV_Y)
-    -- The (widened) close button is 120 wide anchored at x -27, so its left edge
-    -- sits at -147; -155 leaves an 8px gap before the Next/Finish button.
+    -- The widened close button's left edge sits at -147, so -155 leaves a gap.
     self.navNext.frame:ClearAllPoints()
     self.navNext.frame:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -155, NAV_Y)
 end
 
--- Create/reparent the "Steps 1 - 2 - 3" indicator, spanning the gap between the
--- two footer buttons so it stays centered between them.
+-- Spans the gap between the two footer buttons, so it stays centered.
 function UI:EnsureStepIndicator()
     if not self.stepFrame then
         local f = CreateFrame("Frame", nil, UIParent)
@@ -274,7 +241,6 @@ function UI:EnsureStepIndicator()
     self.stepFrame:Show()
 end
 
--- Render the localized "Steps 1 - 2 - 3" line with the active step highlighted.
 function UI:UpdateStepIndicator(current)
     self:EnsureStepIndicator()
     local parts = {}
@@ -286,7 +252,6 @@ function UI:UpdateStepIndicator(current)
     self.stepText:SetText(ns.L["Steps"] .. "  " .. table.concat(parts, sep))
 end
 
--- Create/reparent the welcome-step logo, centered in the content area.
 function UI:EnsureLogo()
     if not self.logoFrame then
         local f = CreateFrame("Frame", nil, UIParent)
@@ -304,11 +269,10 @@ function UI:EnsureLogo()
     self.logoFrame:SetParent(host)
     self.logoFrame:SetFrameLevel(host:GetFrameLevel() + 5)
     self.logoFrame:ClearAllPoints()
-    -- A touch below center to clear the heading and description at the top.
+    -- Below center, to clear the heading and description.
     self.logoFrame:SetPoint("CENTER", host, "CENTER", 0, -10)
 end
 
--- Show the logo only on the welcome step.
 function UI:SetLogoShown(shown)
     if shown then
         self:EnsureLogo()
@@ -318,9 +282,8 @@ function UI:SetLogoShown(shown)
     end
 end
 
--- Hide every pinned footer element and detach it from the wizard frame (back to
--- UIParent), so the pooled frame - reused by other AceGUI addons - carries none
--- of our controls.
+-- Detaches every pinned element back to UIParent, so the pooled frame carries
+-- none of our controls into the next addon that reuses it.
 function UI:HideNav()
     local function park(frame)
         frame:Hide()
@@ -333,10 +296,6 @@ function UI:HideNav()
     if self.logoFrame then park(self.logoFrame) end
 end
 
--- Steps ------------------------------------------------------------------------
-
--- Step 1: welcome text and the centered logo (added by RenderStep), plus the
--- Skip/Next footer buttons.
 function UI:RenderWelcome(container)
     local L = ns.L
     addHeading(container, L["Welcome to MAUI M+ Timer!"])
@@ -355,7 +314,6 @@ function UI:RenderWelcome(container)
         end)
 end
 
--- Step 2: one selectable block per preset profile from Setup.Data.profiles.
 function UI:RenderProfiles(container)
     local L = ns.L
     addHeading(container, L["Choose a profile"])
@@ -368,7 +326,6 @@ function UI:RenderProfiles(container)
         group:SetLayout("List")
         container:AddChild(group)
 
-        -- Top row: preview on the left, description on the right.
         local top = AceGUI:Create("SimpleGroup")
         top:SetFullWidth(true)
         top:SetLayout("Flow")
@@ -384,7 +341,7 @@ function UI:RenderProfiles(container)
             img:SetText(" ")
             img:SetFullWidth(true)
             img:SetImage(entry.screenshot)
-            -- Scale to the column width, keeping the screenshot's aspect ratio.
+            -- Scaled to the column width, keeping the aspect ratio.
             local size = entry.screenshotSize
             local nativeW = (size and size[1]) or SCREENSHOT_WIDTH
             local nativeH = (size and size[2]) or SCREENSHOT_HEIGHT
@@ -397,8 +354,6 @@ function UI:RenderProfiles(container)
         descCol:SetLayout("List")
         top:AddChild(descCol)
         addText(descCol, L[entry.description])
-        -- Optional secondary note (e.g. a dependency hint), greyed out, with a
-        -- button that opens the media-pack download-link popup.
         if entry.note then
             addText(descCol, "|cff888888" .. L[entry.note] .. "|r")
             local dl = AceGUI:Create("Button")
@@ -408,22 +363,19 @@ function UI:RenderProfiles(container)
             descCol:AddChild(dl)
         end
 
-        -- A little air, then the apply button in the bottom-right corner.
         addText(group, " ")
         addRightButton(group, L["Use this profile"], function()
             Addon.Profiles:ApplyTable(entry.profile)
             UI._chosen = entry.key
             Addon:Info(L["Profile applied: %s"], entry.name)
-            -- Presets that depend on the media pack: surface the download link
-            -- when the addon is not installed.
             if entry.note and not mediaPackLoaded() then
                 UI:ShowMediaPackPopup()
             end
         end)
     end
 
-    -- Trailing spacer so the last preset can always be scrolled fully into view
-    -- (AceGUI's ScrollFrame drops its own bottom padding).
+    -- AceGUI's ScrollFrame drops its bottom padding, so the last preset would
+    -- otherwise never scroll fully into view.
     addText(container, "\n\n")
 
     self:SetNav(
@@ -439,7 +391,6 @@ function UI:RenderProfiles(container)
         end)
 end
 
--- Step 3: offer the curated checkpoint targets in a titled box, then finish.
 function UI:RenderCheckpoints(container)
     local L = ns.L
     addHeading(container, L["Load default checkpoints"])
@@ -453,7 +404,6 @@ function UI:RenderCheckpoints(container)
         container:AddChild(group)
 
         addText(group, L["Load the author's curated checkpoint targets. Matching dungeons will be overwritten."])
-        -- Extra air between the description and the bottom-right button.
         addText(group, " ")
         addRightButton(group, L["Load default checkpoints"], function()
             local ok, count = Checkpoints.Data.ImportAuthorPreset()
@@ -477,7 +427,6 @@ function UI:RenderCheckpoints(container)
         end)
 end
 
--- Clear the window and render the current step into a fresh scroll container.
 function UI:RenderStep()
     local frame = self.frame
     if not frame then return end
@@ -495,7 +444,7 @@ function UI:RenderStep()
         self:RenderCheckpoints(scroll)
     end
 
-    -- Pinned footer/content extras (live outside the released scroll content).
+    -- Pinned extras; they live outside the released scroll content.
     self:UpdateStepIndicator(self._step)
     self:SetLogoShown(self._step == 1)
 end

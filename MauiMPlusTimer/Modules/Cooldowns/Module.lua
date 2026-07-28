@@ -8,12 +8,12 @@ local Addon = ns.Addon
 local Cooldowns = Addon:NewMauiModule("Cooldowns", "cooldowns")
 Cooldowns.state = { demo = false }
 
--- Spell ids shared with the UI (icon lookups): the shared combat-resurrection
--- pool is read via Rebirth's charges; Bloodlust is only used for its icon.
+-- The shared combat-res pool is read via Rebirth's charges; Bloodlust is only
+-- used for its icon.
 Cooldowns.SPELL_REBIRTH   = 20484
 Cooldowns.SPELL_BLOODLUST = 2825
 
--- Battle-rez: current charges and seconds until the next charge (or nil parts).
+-- Returns charges and seconds until the next one; either part may be nil.
 local function getBrez()
     if not (C_Spell and C_Spell.GetSpellCharges) then return nil end
     local info = C_Spell.GetSpellCharges(Cooldowns.SPELL_REBIRTH)
@@ -27,13 +27,10 @@ local function getBrez()
     return charges, recharge
 end
 
--- Lust: seconds remaining on the exhaustion debuff, or nil if available now.
--- The debuff list + scan is shared (Utils) with the Sound module's Heroism cue.
+-- Nil means lust is available now.
 local function getLustCooldown()
     return Addon.Utils.GetLustDebuffRemaining()
 end
-
--- Lifecycle ------------------------------------------------------------------
 
 function Cooldowns:OnEnable()
     self:RegisterMessage("MMT_RUN_STARTED", "OnRunStart")
@@ -58,7 +55,7 @@ end
 function Cooldowns:LoadSettings()
     if self.UI.Restyle then self.UI:Restyle() end
     if Addon.RunState:Get() and not self.state.demo then
-        self:Start() -- re-evaluate visibility after a settings change
+        self:Start() -- re-evaluates visibility
     end
 end
 
@@ -73,8 +70,6 @@ function Cooldowns:OnRunEnd()
         self.UI:Hide()
     end
 end
-
--- Polling --------------------------------------------------------------------
 
 function Cooldowns:AnyEnabled()
     local s = self:GetSettings()
@@ -114,17 +109,14 @@ function Cooldowns:Refresh()
     self.UI:Update(brezOn, charges, recharge, lustOn, lustCd)
 end
 
--- Demo mode ------------------------------------------------------------------
-
 function Cooldowns:SetDemo(state)
     self.state.demo = state
     if state then
         self.UI:Build()
-        -- Respect the per-feature toggles: only show what the user enabled.
+        -- Only show what the per-feature toggles enabled.
         local s = self:GetSettings()
         local brezOn = s.brez and s.brez.on
         local lustOn = s.lust and s.lust.on
-        -- Demo: 1 charge with a 3:20 recharge to the next, lust 6:00 left.
         self.UI:Update(brezOn, brezOn and 1 or nil, brezOn and 200 or nil, lustOn, lustOn and 360 or nil)
     elseif Addon.RunState:Get() then
         self:Start()

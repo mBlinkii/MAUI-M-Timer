@@ -1,6 +1,5 @@
 -- Modules/Splits/Manager.lua
--- AceGUI panel to view and clean up stored run times. Opened via the options
--- button or "/mauimpt splits".
+-- Panel for viewing and cleaning up stored run times, via "/mauimpt splits".
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -11,11 +10,10 @@ local AceGUI = LibStub("AceGUI-3.0")
 local Manager = {}
 Splits.Manager = Manager
 
--- Challenge-map helpers are shared (Core/Utilities): name, texture, time limit.
 local Utils = Addon.Utils
 
--- Flat dungeon list for the TreeGroup widget. Levels are no longer expandable
--- children; selecting a dungeon shows all its runs as cards in the detail pane.
+-- Flat: selecting a dungeon shows all its runs as cards, so key levels need no
+-- expandable children of their own.
 local function buildTree()
     local tree = {}
     for _, mapID in ipairs(Splits.Data.GetDungeons()) do
@@ -28,21 +26,17 @@ local function buildTree()
     return tree
 end
 
--- Border colours for the run cards.
 local COLOR_INTIME  = { 0.2, 0.8, 0.2, 1 }
 local COLOR_OVER    = { 0.85, 0.2, 0.2, 1 }
 local COLOR_UNKNOWN = { 0.45, 0.45, 0.45, 1 }
 
--- Build one run card (coloured border + details + delete button) in the scroll.
 local function addRunCard(scroll, mapID, level, run, best, limit)
     local L = ns.L
 
-    -- nil = unknown (no time limit), true = timed (green), false = over (red).
-    local timed
+    local timed -- nil when the dungeon has no known time limit
     if limit and run.total then timed = (run.total <= limit) end
     local color = (timed == nil and COLOR_UNKNOWN) or (timed and COLOR_INTIME or COLOR_OVER)
-    -- Signed time vs the dungeon timer, coloured green/red: "-1:20" = in time
-    -- (time to spare), "+3:05" = over time.
+    -- Signed against the dungeon timer: "-1:20" is time to spare.
     local delta = (limit and run.total) and Utils.FormatDelta(run.total - limit) or ""
 
     local card = AceGUI:Create("MMTRunCard")
@@ -88,7 +82,7 @@ local function addRunCard(scroll, mapID, level, run, best, limit)
     card:AddChild(del)
 end
 
--- Render the detail pane for the selected dungeon: one coloured card per run.
+-- One coloured card per stored run.
 function Manager:ShowDetail(container, path)
     container:ReleaseChildren()
     local L = ns.L
@@ -118,7 +112,7 @@ function Manager:ShowDetail(container, path)
         return
     end
 
-    -- Newest/highest levels first feels most useful when reviewing.
+    -- Highest levels first.
     for i = #levels, 1, -1 do
         local level = levels[i]
         local runs, best = Splits.Data.GetRuns(mapID, level)
@@ -184,7 +178,7 @@ function Manager:Toggle()
     end
 end
 
--- Rebuild the tree after a deletion.
+-- After a deletion.
 function Manager:Refresh()
     if not self.tree then return end
     self.tree:SetTree(buildTree())

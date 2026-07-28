@@ -8,9 +8,6 @@ local Forces = Addon:GetModule("EnemyForces")
 function Forces:GetOptions()
     local L = ns.L
 
-    -- Text styling plus a dedicated color for the remaining-count number and
-    -- the text's own position (in/above/below the bar), independent of the
-    -- segment countdown position.
     local textOpts = Addon:ElementTextOptions(self, ns.E.forcesText, 20, { color = true })
     textOpts.args.showText = {
         type = "toggle", name = L["Show percentage text"], order = 13, width = "full",
@@ -37,8 +34,6 @@ function Forces:GetOptions()
         end,
     }
 
-    -- Bar styling plus checkpoint split controls and a nested Checkpoint markers
-    -- group.
     local barOpts = Addon:ElementBarOptions(self, ns.E.forcesBar, 30)
     barOpts.args.splitBar = {
         type = "toggle", name = L["Split bar at checkpoints"], order = 7,
@@ -53,9 +48,7 @@ function Forces:GetOptions()
         get = function() return Forces:GetSettings().splitGap or 2 end,
         set = function(_, v) Forces:GetSettings().splitGap = v; Addon.StyleRestyle(Forces) end,
     }
-    -- Checkpoint "% needed" countdown: works with the split bar (per segment)
-    -- AND on the single bar (at the checkpoint markers). A toggle plus the
-    -- label's own font/size/offset/color controls (merged flat, orders 11+).
+    -- The label's own style controls are merged in flat below, at orders 11+.
     local segmentArgs = {
         segmentCountdown = {
             type = "toggle", name = L["Segment countdown"], order = 1,
@@ -77,8 +70,6 @@ function Forces:GetOptions()
             get = function() return Forces:GetSettings().segmentHideFirst == true end,
             set = function(_, v) Forces:GetSettings().segmentHideFirst = v; Addon.StyleRestyle(Forces) end,
         },
-        -- The timer bar's position modes plus an in-bar centered one, relative
-        -- to the checkpoint boundary (marker line / segment gap).
         position = {
             type = "select", name = L["Position"], order = 1.5,
             disabled = function()

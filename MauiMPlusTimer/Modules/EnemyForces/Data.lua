@@ -9,8 +9,7 @@ local Forces = Addon:GetModule("EnemyForces")
 local Data = {}
 Forces.Data = Data
 
--- Return current, total (absolute counts) for the Enemy Forces criterion, or
--- nil when it is not present (e.g. outside a key or before it loads).
+-- Absolute counts, or nil while the criterion is not present.
 function Data.Read()
     if not (C_Scenario and C_Scenario.GetStepInfo) then return nil end
     local stepCount = select(3, C_Scenario.GetStepInfo())
@@ -19,9 +18,8 @@ function Data.Read()
     for i = 1, stepCount do
         local info = C_ScenarioInfo and C_ScenarioInfo.GetCriteriaInfo(i)
         if info and info.isWeightedProgress and info.totalQuantity and info.totalQuantity > 0 then
-            -- quantityString is an absolute value that still carries a '%' sign,
-            -- so we extract the leading number (decimals included, should the
-            -- client ever report fractional progress).
+            -- quantityString is an absolute value that still carries a '%'
+            -- sign, so take the leading number, decimals included.
             local current = info.quantityString and tonumber(info.quantityString:match("%d+%.?%d*")) or 0
             return current, info.totalQuantity
         end

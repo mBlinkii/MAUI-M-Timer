@@ -1,7 +1,6 @@
 -- Modules/Sound/Data.lua
--- Sound selection list and playback. Includes the addon's own bundled sounds
--- (Assets/Sounds), a few built-in WoW sound kits, and any LibSharedMedia sounds.
--- "None" plays nothing.
+-- Sound selection list and playback: bundled assets, WoW sound kits and
+-- LibSharedMedia entries. "None" plays nothing.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -10,10 +9,8 @@ local Sound = Addon:GetModule("Sound")
 local Data = {}
 Sound.Data = Data
 
--- Bundled sounds shipped with the addon (royalty-free game SFX sourced from
--- Pixabay; see the About > Credits page for the authors). Several cues ship
--- multiple takes so the user can pick a favourite in the per-trigger sound
--- dropdown; the cue defaults (see Core/DB.lua) point at the unsuffixed name.
+-- Royalty-free SFX from Pixabay; authors are listed on the About page. The cue
+-- defaults in Core/DB.lua point at the unsuffixed names.
 local SOUND_DIR = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Sounds\\"
 local BUNDLED = {
     -- Death cues.
@@ -56,12 +53,11 @@ local BUNDLED = {
     ["MAUI: Combo 2"]            = SOUND_DIR .. "combo-2.mp3",
     ["MAUI: Combo 3"]            = SOUND_DIR .. "combo-3.mp3",
 
-    -- Run-start jingle (not wired to a cue; selectable for any trigger).
+    -- Run-start jingle, not wired to a cue.
     ["MAUI: Game Start"]         = SOUND_DIR .. "game-start.mp3",
 }
 Data.BUNDLED = BUNDLED
 
--- Built-in fallback sounds (stable SOUNDKIT entries).
 local BUILTIN = {
     ["Raid Warning"] = SOUNDKIT and SOUNDKIT.RAID_WARNING,
     ["Ready Check"]  = SOUNDKIT and SOUNDKIT.READY_CHECK,
@@ -69,7 +65,6 @@ local BUILTIN = {
 }
 Data.BUILTIN = BUILTIN
 
--- Register the bundled sounds with LibSharedMedia so other addons see them too.
 do
     local LSM = LibStub("LibSharedMedia-3.0", true)
     if LSM then
@@ -79,7 +74,7 @@ do
     end
 end
 
--- Build the selectable sound list { value = displayText }.
+-- { value = displayText } for the trigger dropdowns.
 function Data.GetSoundList()
     local list = { None = NONE or "None" }
     for name in pairs(BUNDLED) do list[name] = name end
@@ -92,11 +87,10 @@ function Data.GetSoundList()
     return list
 end
 
--- Play the sound selected by name. "None" = silent.
 function Data.Play(name)
     if not name or name == "None" then return end
 
-    -- Our bundled sounds (also covers them if not via LSM).
+    -- Checked first, so the bundled cues work without LibSharedMedia.
     if BUNDLED[name] then
         PlaySoundFile(BUNDLED[name], "Master")
         return

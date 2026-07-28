@@ -1,8 +1,6 @@
 -- UI/Widgets.lua
--- Frame/region factory and pools. Modules build their displays ONLY through
--- this layer so we stay frugal with frames (ARCHITECTURE.md 8.6). Styling is
--- resolved from: theme defaults -> global style overrides (profile.ui.style)
--- -> per-element overrides (profile.ui.elements[key]).
+-- Frame/region factory and pools; modules build their displays only through
+-- this layer. Style chain: theme -> profile.ui.font -> profile.ui.elements[key].
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -11,16 +9,11 @@ local Widgets = {}
 ns.Widgets = Widgets
 Addon.Widgets = Widgets
 
--- Resolved styles are cached per element key because resolving (merging theme +
--- global font + per-element override into a fresh table) is called very often
--- (every timer tick, every scenario update). Without the cache this churned a
--- lot of short-lived tables and inflated the addon's memory. The cache is wiped
--- whenever styles can change (Widgets:InvalidateStyle, called from restyle /
--- MainWindow:Refresh / profile change). Callers must treat the result as
--- read-only (they only read fields), which they do.
+-- Resolving runs on every tick and every scenario update; without this cache
+-- the short-lived merge tables dominated the addon's memory. Results are
+-- shared, so callers must treat them as read-only.
 local styleCache = {}
 
--- Merge theme -> global font baseline -> per-element override into one table.
 local function resolveStyle(elementKey)
     local cacheKey = elementKey or "\1base"
     local cached = styleCache[cacheKey]
@@ -29,7 +22,6 @@ local function resolveStyle(elementKey)
     local style = {}
     for k, v in pairs(Addon:GetTheme()) do style[k] = v end
 
-    -- Global font baseline (font, fontSize, fontFlags) applies to everything.
     local font = Addon.db and Addon.db.profile.ui.font
     if font then
         for k, v in pairs(font) do style[k] = v end
@@ -45,14 +37,13 @@ local function resolveStyle(elementKey)
 end
 Widgets.ResolveStyle = resolveStyle
 
--- Drop all cached resolved styles (call after any style/profile change).
+-- Mandatory after any style or profile change.
 function Widgets:InvalidateStyle()
     wipe(styleCache)
 end
 
--- Shared +/- comparison color and best-time color. The resolution lives in
--- Core/Utilities (so the Core formatters have no UI dependency); these methods
--- remain as the UI-layer API for options/widget code.
+-- UI-layer API; the resolution lives in Core/Utilities so the Core formatters
+-- have no dependency on this file.
 function Widgets:GetDeltaColor(ahead)
     return Addon.Utils.GetDeltaColor(ahead)
 end
@@ -61,12 +52,8 @@ function Widgets:GetBestColor()
     return Addon.Utils.GetBestColor()
 end
 
--- Build a texture escape for an inline icon. Falls back to the default texture
--- when the configured path is empty/nil, so a cleared value never produces a
--- broken icon. size 0 = match the surrounding text height.
--- When color ({r,g,b} in 0..1) is given, the icon is tinted via the long
--- vertex-color form, which needs an explicit size (0 falls back to 16). Without
--- a color the compact form is used so the auto-size behaviour is preserved.
+-- size 0 matches the surrounding text height. A color forces the long
+-- vertex-color form, which needs an explicit size, so 0 becomes 16 there.
 function Widgets:IconEscape(path, default, size, color)
     if not path or path == "" then path = default end
     size = size or 0
@@ -75,15 +62,13 @@ function Widgets:IconEscape(path, default, size, color)
         local g = math.floor((color[2] or 1) * 255 + 0.5)
         local b = math.floor((color[3] or 1) * 255 + 0.5)
         local s = (size > 0) and size or 16
-        -- |Tpath:h:w:offX:offY:texW:texH:l:r:t:b:rC:gC:bC|t (full texture, RGB 0-255).
+        -- |Tpath:h:w:offX:offY:texW:texH:l:r:t:b:rC:gC:bC|t, RGB 0-255.
         return string.format("|T%s:%d:%d:0:0:64:64:0:64:0:64:%d:%d:%d|t", path, s, s, r, g, b)
     end
     return "|T" .. path .. ":" .. size .. "|t"
 end
 
--- The stored best time wrapped in the configurable bracket characters
--- (profile.ui.bestPrefix / bestSuffix, default "(" / ")"; either may be empty).
--- No color. Returns "" for nil. Used for the timer's own best-time FontString.
+-- Best time in the configurable brackets, uncolored. "" for nil.
 function Widgets:BestText(seconds)
     if not seconds then return "" end
     local ui = Addon.db and Addon.db.profile.ui
@@ -92,23 +77,19 @@ function Widgets:BestText(seconds)
     return pre .. Addon.Utils.FormatTime(seconds) .. suf
 end
 
--- Same as BestText but tinted with the best-time color, for inline use behind
--- other elements (Enemy Forces, Objectives). Returns "" for nil.
+-- BestText tinted with the best-time color, for inline use.
 function Widgets:FormatBest(seconds)
     if not seconds then return "" end
     return "|c" .. Addon.Utils.ColorHex(self:GetBestColor()) .. self:BestText(seconds) .. "|r"
 end
 
--- Per-element x/y text offset (pixels).
 function Widgets:GetOffset(elementKey)
     local s = resolveStyle(elementKey)
     return s.xOffset or 0, s.yOffset or 0
 end
 
--- True rendered line height for a text element, so modules size and position
--- their text by what the font actually occupies (not a guess) and never overlap
--- when the size grows. Measured with a hidden FontString using the element's
--- real font + flags; falls back to an estimate if measurement is unavailable.
+-- Measured with a hidden FontString rather than estimated, so blocks never
+-- overlap when the font size grows.
 local measureFS
 function Widgets:LineHeight(elementKey, fallback)
     local s = resolveStyle(elementKey)
@@ -126,10 +107,8 @@ function Widgets:LineHeight(elementKey, fallback)
     return math.ceil(size * 1.3) + 4
 end
 
--- Replace visible digits with the widest digit ("8") while leaving WoW escape
--- sequences (|T texture |t, |c color, |r) untouched, so a ticking value keeps a
--- constant rendered width (it depends on the digit layout, not the values) and
--- icons/colors still measure correctly.
+-- Replaces digits with the widest one, leaving |T/|c/|r escapes intact, so a
+-- ticking value measures to a constant width.
 local function widenDigits(text)
     local out, i, n = {}, 1, #text
     while i <= n do
@@ -156,10 +135,8 @@ local function widenDigits(text)
     return table.concat(out)
 end
 
--- Width (px) a text occupies with the element's font, measured with every
--- visible digit treated as the widest one. Modules SetWidth a frequently
--- updating text (running timer, cooldown) to this so it never resizes per tick
--- and stops pushing neighboring elements around. nil if unmeasurable.
+-- Modules SetWidth a ticking text to this, so it stops resizing every tick and
+-- pushing its neighbours around. nil if unmeasurable.
 function Widgets:StableTextWidth(elementKey, text)
     if not text then return nil end
     local s = resolveStyle(elementKey)
@@ -168,19 +145,15 @@ function Widgets:StableTextWidth(elementKey, text)
     if not measureFS:SetFont(s.font, s.fontSize or 14, s.fontFlags) then return nil end
     measureFS:SetText(widenDigits(text))
     local w = measureFS:GetStringWidth()
-    -- +2px safety margin: with word wrap disabled the line can never break, so
-    -- the reserved width must comfortably exceed the rendered width to avoid
-    -- truncation when outline flags / font hinting make the glyphs slightly
-    -- wider than GetStringWidth reports.
+    -- +2px: outline flags and font hinting can render slightly wider than
+    -- GetStringWidth reports, and word wrap is off, so it would be truncated.
     if w and w > 0 then return math.ceil(w) + 2 end
     return nil
 end
 
--- Anchor a single-line FontString to ONE point matching the alignment (the same
--- approach the timer text uses): LEFT -> left edge, RIGHT -> right edge,
--- CENTER -> center. This repositions reliably on a direct left<->right switch,
--- unlike a full-width anchor that depends on SetJustifyH reflowing in place.
--- vAnchor "TOP" pins to the top of the parent; otherwise vertically centered.
+-- Anchors to a single point matching the alignment; a full-width anchor would
+-- rely on SetJustifyH reflowing in place and misses a direct left<->right
+-- switch. vAnchor "TOP" pins to the top, otherwise vertically centered.
 function Widgets:LayoutText(fs, parent, elementKey, justify, vAnchor)
     local x, y = self:GetOffset(elementKey)
     justify = justify or "CENTER"
@@ -196,12 +169,11 @@ function Widgets:LayoutText(fs, parent, elementKey, justify, vAnchor)
     fs:SetJustifyH(justify)
 end
 
--- Create a container frame (one per module block, not one per element).
+-- One per module block, never one per element.
 function Widgets:CreateContainer(parent, name)
     return CreateFrame("Frame", name, parent or UIParent, "BackdropTemplate")
 end
 
--- Apply font + text color from the resolved style to a FontString.
 function Widgets:ApplyTextStyle(fs, elementKey)
     local style = resolveStyle(elementKey)
     fs:SetFont(style.font, style.fontSize, style.fontFlags)
@@ -209,12 +181,8 @@ function Widgets:ApplyTextStyle(fs, elementKey)
     return style
 end
 
--- Create a styled FontString region on a frame.
--- HUD text elements are single-line displays (timer, sections, deaths, ...).
--- Word wrap is disabled so a width-constrained value (see StableTextWidth) can
--- never spill onto a second line when a particular font/size renders a hair
--- wider than the reserved width. Width is kept generous in StableTextWidth so
--- the single line is never truncated either.
+-- Word wrap off: HUD texts are single-line, and a width-constrained value must
+-- never spill onto a second line (StableTextWidth reserves the space instead).
 function Widgets:CreateText(parent, elementKey, layer)
     local fs = parent:CreateFontString(nil, layer or "OVERLAY")
     fs:SetWordWrap(false)
@@ -222,16 +190,11 @@ function Widgets:CreateText(parent, elementKey, layer)
     return fs
 end
 
--- Default border edge texture (a real bordered texture, not a solid block).
 local DEFAULT_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border"
--- Default statusbar fill texture.
 local DEFAULT_BAR = "Interface\\TargetingFrame\\UI-StatusBar"
 
--- Resolve a stored media value to an actual texture path. Settings now store the
--- LibSharedMedia *name* (chosen via the preview dropdowns), but legacy/preset
--- data stored a raw path. Names are resolved through LibSharedMedia; a raw path
--- (containing a separator) is passed through unchanged; anything else falls back
--- to `fallback`. This keeps styling correct no matter which form was saved.
+-- Settings store a LibSharedMedia name, but legacy and preset data stored raw
+-- paths, so both forms have to resolve.
 local function mediaPath(mtype, value, fallback)
     if not value or value == "" then return fallback end
     local LSM = LibStub("LibSharedMedia-3.0", true)
@@ -243,20 +206,17 @@ local function mediaPath(mtype, value, fallback)
     return fallback
 end
 
--- Whether the border is enabled. Honors the explicit toggle, falling back to
--- "on when a size was set" so older profiles keep their border.
+-- Without an explicit toggle a set size counts as on, so older profiles keep
+-- their border.
 local function borderEnabled(style)
     if style.borderOn ~= nil then return style.borderOn == true end
     return (style.borderSize or 0) > 0
 end
 
--- Apply (or refresh) a border on a frame from a style table. The border lives on
--- a dedicated child frame so it can be offset from the frame's edges (positive
--- offset = outside the frame). borderSize is the edge thickness, borderTexture
--- the edge file.
+-- The border lives on a child frame so it can sit outside the frame's edges
+-- (positive borderOffset).
 function Widgets:ApplyBorder(frame, style)
-    -- Clear any legacy backdrop set directly on the frame itself.
-    if frame.SetBackdrop then frame:SetBackdrop(nil) end
+    if frame.SetBackdrop then frame:SetBackdrop(nil) end -- clear legacy backdrops
 
     local size = style.borderSize or 0
     if not borderEnabled(style) or size <= 0 then
@@ -277,10 +237,7 @@ function Widgets:ApplyBorder(frame, style)
     b:Show()
 end
 
--- Apply an optional panel (background fill + border) to a BackdropTemplate frame
--- from a bg settings table: { show, color, border, borderTexture, borderSize,
--- borderColor }. The border requires the background, so with the background off
--- the whole panel is cleared. Shared by the HUD panel and the dungeon block.
+-- The border requires the background, so bg.show off clears the whole panel.
 function Widgets:ApplyPanel(frame, bg)
     bg = bg or {}
     local showBorder = bg.show and bg.border
@@ -303,7 +260,7 @@ function Widgets:ApplyPanel(frame, bg)
     end
 end
 
--- Apply texture + background + border (not the fill color, which is dynamic).
+-- Not the fill color; that one is dynamic.
 function Widgets:ApplyBarStyle(bar, elementKey)
     local style = resolveStyle(elementKey)
     bar:SetStatusBarTexture(mediaPath("statusbar", style.barTexture, DEFAULT_BAR))
@@ -315,7 +272,6 @@ function Widgets:ApplyBarStyle(bar, elementKey)
     return style
 end
 
--- Create a styled StatusBar region with a background and border.
 function Widgets:CreateBar(parent, elementKey)
     local style = resolveStyle(elementKey)
     local bar = CreateFrame("StatusBar", nil, parent, "BackdropTemplate")
@@ -329,17 +285,12 @@ function Widgets:CreateBar(parent, elementKey)
     return bar
 end
 
--- Reusable frame pool for recurring rows.
 function Widgets:CreateRowPool(parent, template, resetFn)
     return CreateFramePool("Frame", parent, template, resetFn)
 end
 
--- Module UI base ------------------------------------------------------------
--- Shared behaviour for a module's UI table. Show/Hide are identical across
--- modules (build lazily, toggle the block, relayout the HUD), so they live here
--- instead of being copied into every module. A module overrides Build, Update,
--- Restyle (and, if needed, Show/Hide) on the table returned by NewModuleUI.
-
+-- Shared base for a module's UI table; modules override Build, Update and
+-- Restyle on the table returned by NewModuleUI.
 local UIBase = {}
 ns.UIBase = UIBase
 
@@ -354,24 +305,14 @@ function UIBase:Hide()
     Addon.MainWindow:Layout()
 end
 
--- Build is module-specific; the base is a no-op so Show works before a module
--- has defined its own Build (it never should reach this in practice).
+-- No-op so Show works before a module defines its own Build.
 function UIBase:Build() end
 
--- Create a fresh UI table inheriting the shared Show/Hide (and any base passed
--- in, e.g. the text-block base below).
 function Addon:NewModuleUI(base)
     return setmetatable({}, { __index = base or UIBase })
 end
 
--- Single-line text block base ------------------------------------------------
--- Many modules are just one line of text in the HUD (deaths, splits,
--- checkpoints, ...). They share the same Build/Restyle; only the displayed text
--- (Update) differs. A module creates its UI with NewTextBlockUI{...} and then
--- implements only Update. Spec fields:
---   name     module name (used for the alignment lookup + block name/key)
---   element  per-element style key (e.g. "deathsText")
---   order    stacking order in the HUD
+-- Base for the one-line HUD modules: shared Build/Restyle, only Update differs.
 local TextBlock = setmetatable({}, { __index = UIBase })
 ns.TextBlockUI = TextBlock
 
@@ -395,7 +336,7 @@ function TextBlock:Restyle()
     Widgets:LayoutText(self.text, self.frame, self.element, Addon.MainWindow:GetJustifyH(self.name))
 end
 
--- Create a text-block UI table from a spec; the module implements only Update.
+-- spec: name (module name, also the block key), element (style key), order.
 function Addon:NewTextBlockUI(spec)
     local ui = setmetatable({}, { __index = TextBlock })
     ui.name = spec.name

@@ -1,6 +1,5 @@
 -- Modules/Splits/Data.lua
--- Persistent storage + access for run times. Lives in the account-wide scope,
--- keyed by dungeon (mapID) and keystone level. The only API to db.global.splits.
+-- The only API to db.global.splits: run times keyed by mapID and key level.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -9,7 +8,6 @@ local Splits = Addon:GetModule("Splits")
 local Data = {}
 Splits.Data = Data
 
--- Internal: the splits store, creating the path as needed.
 local function store()
     Addon.db.global.splits = Addon.db.global.splits or {}
     return Addon.db.global.splits
@@ -24,24 +22,18 @@ local function levelEntry(mapID, keyLevel, create)
     return s[mapID] and s[mapID][keyLevel] or nil
 end
 
--- Return the best recorded run for a dungeon+level, or nil.
 function Data.GetBest(mapID, keyLevel)
     local e = levelEntry(mapID, keyLevel, false)
     return e and e.best or nil
 end
 
--- Whether a stored run counts as "in time". Reads the recorded onTime flag;
--- legacy runs are backfilled once at load (MigrateOnTimeFlags). A run that
--- still has no flag (time limit unavailable) counts as in time.
+-- A run with no flag at all (time limit unavailable) counts as in time.
 local function isInTime(run)
     return run.onTime ~= false
 end
 
--- Backfill the onTime flag on runs stored by versions that did not record it,
--- classifying each run against its dungeon's time limit (same rule as the
--- splits manager cards). Called once at addon load; only touches runs without
--- the flag, so repeated calls are cheap and maps whose time limit is not yet
--- available are simply retried on the next load.
+-- Only touches runs without the flag, so repeated calls are cheap and a map
+-- whose time limit is not loaded yet is simply retried next session.
 function Data.MigrateOnTimeFlags()
     for mapID, levels in pairs(store()) do
         local limit = Addon.Utils.GetMapTimeLimit(mapID)
@@ -62,16 +54,9 @@ function Data.MigrateOnTimeFlags()
     end
 end
 
--- Comparison run for a dungeon+level. Selection priority:
---   1. same level, in-time best
---   2. same level, over-time best
---   3. nearest HIGHER level with an in-time best
---   4. nearest HIGHER level with an over-time best
---   5. nearest LOWER level with an in-time best
---   6. nearest LOWER level with an over-time best
--- At any single level the in-time best is always the fastest run, so the exact
--- level's stored best already covers priorities 1-2. Returns best, sourceLevel
--- (nil, nil if none).
+-- Priority: exact level, then the nearest higher level, then the nearest lower
+-- one, in-time before over-time. The exact level needs no in/over distinction:
+-- its stored best is the fastest run there by definition. Returns best, level.
 function Data.GetBestWithFallback(mapID, keyLevel)
     local exact = Data.GetBest(mapID, keyLevel)
     if exact then return exact, keyLevel end
@@ -103,8 +88,8 @@ function Data.GetBestWithFallback(mapID, keyLevel)
     return nil, nil
 end
 
--- Record a finished run. `run` = { total, sections = { [i]=time }, deaths, date }.
--- storeMode "best" keeps only the fastest total; "all" also appends to history.
+-- run = { total, sections = { [i] = time }, deaths, date }. storeMode "best"
+-- keeps only the fastest total, "all" also appends to the history.
 function Data.Record(mapID, keyLevel, run, storeMode)
     if not mapID or not keyLevel or not run then return end
     local e = levelEntry(mapID, keyLevel, true)
@@ -119,7 +104,7 @@ function Data.Record(mapID, keyLevel, run, storeMode)
     end
 end
 
--- Trim stored history down to just the best (used when switching to "best").
+-- For the switch back to storeMode "best".
 function Data.TrimToBest()
     for _, levels in pairs(store()) do
         for _, e in pairs(levels) do
@@ -128,7 +113,6 @@ function Data.TrimToBest()
     end
 end
 
--- Cleanup helpers used by the Manager.
 function Data.DeleteLevel(mapID, keyLevel)
     local s = store()
     if s[mapID] then
@@ -141,9 +125,7 @@ function Data.DeleteDungeon(mapID)
     store()[mapID] = nil
 end
 
--- Runs to display for a dungeon+level: the full history when kept ("all" mode),
--- otherwise just the best. Returns (runs, best) where best is the reference to
--- the fastest run (for flagging it in the UI). Empty list when nothing stored.
+-- Returns (runs, best); best is a reference into runs, for flagging it in the UI.
 function Data.GetRuns(mapID, keyLevel)
     local e = levelEntry(mapID, keyLevel, false)
     if not e then return {}, nil end
@@ -152,8 +134,7 @@ function Data.GetRuns(mapID, keyLevel)
     return {}, nil
 end
 
--- Delete a single stored run (by table identity). Recomputes the best from the
--- remaining history; drops the level (and dungeon) once nothing is left.
+-- By table identity. Recomputes the best and drops the level once it is empty.
 function Data.DeleteRun(mapID, keyLevel, run)
     local e = levelEntry(mapID, keyLevel, false)
     if not e then return end
@@ -186,7 +167,7 @@ function Data.Wipe()
     Addon.db.global.splits = {}
 end
 
--- Sorted list of mapIDs that have data (for the Manager tree).
+-- Sorted mapIDs that have data, for the Manager tree.
 function Data.GetDungeons()
     local list = {}
     for mapID in pairs(store()) do list[#list + 1] = mapID end
@@ -194,7 +175,6 @@ function Data.GetDungeons()
     return list
 end
 
--- Sorted list of key levels recorded for a dungeon.
 function Data.GetLevels(mapID)
     local list = {}
     local s = store()

@@ -1,7 +1,5 @@
 -- UI/MainWindow.lua
--- The HUD: a single movable container that hosts every module's display as an
--- anchored block. Created lazily on first access to avoid spending a frame
--- before anything is shown.
+-- The HUD: one movable container hosting every module's display as a block.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -11,14 +9,11 @@ Addon.MainWindow = MainWindow
 
 local PANEL_PAD = 8 -- inner padding when the background/border/title is shown
 
--- Reused scratch list + hoisted comparator for Layout(), so the frequently
--- called layout pass allocates neither a new table nor a new closure per call.
--- Reusable scratch for Layout's render entries (parallel arrays, so the hot
--- Layout path allocates no tables): entryLeft[i] holds the (only) frame of a
--- full-width row; entryRight[i] holds the right frame of a split row or false.
+-- Parallel scratch arrays so the hot Layout path allocates nothing. entryLeft
+-- is the only frame of a full-width row; entryRight is false there.
 local entryLeft, entryRight = {}, {}
 
--- Return the HUD container, creating it on first use.
+-- Created lazily on first use.
 function MainWindow:Get()
     if self.frame then return self.frame end
 
@@ -30,8 +25,7 @@ function MainWindow:Get()
     f:RegisterForDrag("LeftButton")
 
     f:SetScript("OnDragStart", function(frame)
-        -- The lock option is authoritative in every mode - including demo
-        -- mode, so the HUD cannot be dragged accidentally while styling.
+        -- The lock also applies in demo mode, so styling cannot drag the HUD.
         if not Addon.db.profile.ui.locked then
             frame:StartMoving()
         end
@@ -43,12 +37,10 @@ function MainWindow:Get()
 
     self.frame = f
     self:ApplyPosition()
-    -- Start hidden; modules show the HUD when they have something to display.
-    f:Hide()
+    f:Hide() -- modules show the HUD once they have something to display
     return f
 end
 
--- Apply the stored position and scale.
 function MainWindow:ApplyPosition()
     if not self.frame then return end
     local ui = Addon.db.profile.ui
@@ -57,7 +49,6 @@ function MainWindow:ApplyPosition()
     self.frame:SetScale(ui.scale or 1)
 end
 
--- Persist the current position back to the profile.
 function MainWindow:SavePosition()
     if not self.frame then return end
     local ui = Addon.db.profile.ui
@@ -65,15 +56,13 @@ function MainWindow:SavePosition()
     ui.point, ui.x, ui.y = point, x, y
 end
 
--- Translate an alignment value into a FontString justification.
 local function alignToJustify(align)
     if align == "left" then return "LEFT" end
     if align == "right" then return "RIGHT" end
     return "CENTER"
 end
 
--- Resolve the justification for a module (its own setting, or "inherit" -> the
--- global alignment). Called with no key it returns the global justification.
+-- "inherit" or no key falls back to the global alignment.
 function MainWindow:GetJustifyH(moduleKey)
     local align
     if moduleKey then
@@ -86,17 +75,14 @@ function MainWindow:GetJustifyH(moduleKey)
     return alignToJustify(align)
 end
 
--- Re-apply styling (alignment, fonts) to every module and relayout the HUD.
--- Used after a global or per-module alignment/style change.
+-- Restyles every module and relayouts.
 function MainWindow:Refresh()
-    Addon.Widgets:InvalidateStyle() -- styles may have changed; drop the cache
+    Addon.Widgets:InvalidateStyle()
     for _, module in Addon:IterateModules() do
-        -- Only restyle ACTIVE modules: a disabled module's Restyle can re-show
-        -- its (hidden) block from cached values, which would resurrect blocks the
-        -- current profile turned off.
+        -- Enabled only: a disabled module's Restyle can re-show its hidden
+        -- block from cached values.
         if module.UI and module.UI.Restyle and module:IsEnabled() then
-            -- Isolate each module's restyle so one faulty module cannot break
-            -- the whole refresh, but surface the error instead of hiding it.
+            -- Isolated, so one faulty module cannot break the whole refresh.
             local ok, err = pcall(module.UI.Restyle, module.UI)
             if not ok then
                 Addon:Error("Restyle failed for module %s: %s",
@@ -104,8 +90,7 @@ function MainWindow:Refresh()
             end
         end
     end
-    -- In demo mode, re-feed the synthetic values so dynamic content (bar fills,
-    -- colors, deltas) reflects the change live, not just the static styling.
+    -- Re-feed the samples so bar fills, colors and deltas follow the change too.
     if Addon.Demo and Addon.Demo:IsActive() then
         Addon.Demo:Refresh()
     end
@@ -113,12 +98,10 @@ function MainWindow:Refresh()
     self:Layout()
 end
 
--- The configured HUD width (shared by all module blocks).
 function MainWindow:GetWidth()
     return math.max(120, Addon.db.profile.ui.width or 220)
 end
 
--- Re-apply the configured width to every registered block and restack.
 function MainWindow:ApplyWidth()
     if not self.blocks then return end
     local w = self:GetWidth()
@@ -128,92 +111,70 @@ function MainWindow:ApplyWidth()
     self:Layout()
 end
 
--- Register a module's display block so the HUD can stack the blocks vertically.
--- `order` is only the fallback for keys that are not user-orderable; the
--- orderable module blocks get their effective order from the configured list
--- (see GetBlockRows below) on every Layout.
+-- `order` only applies to keys that are not user-orderable; orderable blocks
+-- take their position from GetBlockRows on every Layout.
 function MainWindow:AddBlock(key, frame, order)
     self.blocks = self.blocks or {}
     self.blocks[key] = { frame = frame, order = order or 100 }
-    -- A module registering its block means it just became active; drop the
-    -- cached rows so the (active-state-dependent) normalization includes it.
+    -- Registering means the block just became active.
     self:InvalidateRows()
     self:Layout()
 end
 
--- Block rows -------------------------------------------------------------------
--- The HUD is a stack of user-configurable ROWS (options: General -> Element
--- order). Each row holds one block at full width or two blocks side by side
--- (left/right half); rows without visible content collapse. Separator lines
--- take part as normal entries ("separator1"/"separator2") while enabled and
--- always occupy a full row. profile.ui.blockRows stores
--- { left = key, right = key } per row.
+-- The HUD is a stack of configurable rows; profile.ui.blockRows stores
+-- { left = key, right = key } per row, empty rows collapse.
 
--- User-orderable module blocks in FACTORY top-to-bottom order (forces bar
--- below the objectives). This is the single source of the default layout:
--- profile.ui.blockRows is deliberately NOT part of the AceDB defaults, because
--- AceDB would merge default rows index-wise into user layouts (injecting or
--- stripping entries); an empty/missing table simply falls back to this order.
+-- Factory top-to-bottom order and single source of the default layout:
+-- blockRows is deliberately not an AceDB default, since AceDB merges arrays
+-- index-wise and would inject or strip entries in user layouts.
 local MODULE_BLOCKS = {
     "dungeon", "timer", "timerbar", "objectives", "forces",
     "deaths", "splits", "checkpoints", "cooldowns",
 }
 MainWindow.MODULE_BLOCKS = MODULE_BLOCKS
 
--- Pseudo block keys of the two separator lines (frames are registered by
--- UpdateSeparators).
+-- Pseudo keys; the frames are registered by UpdateSeparators.
 local SEPARATOR_BLOCKS = { "separator1", "separator2" }
 
--- All orderable keys, for filtering saved rows.
 local ORDERABLE = {}
 for _, key in ipairs(MODULE_BLOCKS) do ORDERABLE[key] = true end
 for _, key in ipairs(SEPARATOR_BLOCKS) do ORDERABLE[key] = true end
 
--- Number of configurable rows: every module and separator can have its own.
+-- Every module and separator can have a row of its own.
 local MAX_ROWS = #MODULE_BLOCKS + #SEPARATOR_BLOCKS
 MainWindow.MAX_ROWS = MAX_ROWS
 
--- Horizontal gap between the two blocks of a split row.
-local SPLIT_GAP = 10
+local SPLIT_GAP = 10 -- horizontal gap between the two blocks of a split row
 
--- Blocks that always occupy a FULL row (no left/right neighbor): the wide
--- bar/list modules plus the separator lines.
--- The timer TEXT block is half-row capable (it can share a row); only the timer
--- BAR stays full-row (nothing sits next to it).
+-- The timer TEXT block can share a row; only the BAR stays full-row.
 local FULL_ROW_BLOCKS = {
     timerbar = true, forces = true, objectives = true,
     separator1 = true, separator2 = true,
 }
 
--- Whether `key` must occupy a full row of its own.
 function MainWindow:IsFullRowKey(key)
     return key ~= nil and FULL_ROW_BLOCKS[key] == true
 end
 
--- Whether `key` names a separator entry.
 function MainWindow:IsSeparatorKey(key)
     return key == "separator1" or key == "separator2"
 end
 
--- Module (AceAddon) name per splittable block key, for the automatic
--- alignment on placement (full-row blocks and separators have no entry).
+-- Splittable block keys only, for the auto-alignment on placement.
 local BLOCK_MODULE = {
     dungeon = "Dungeon", timer = "Timer", deaths = "Deaths", splits = "Splits",
     checkpoints = "Checkpoints", cooldowns = "Cooldowns",
 }
 
--- Module (AceAddon) name for EVERY module block key (full-row ones included),
--- used to derive a block's active state from its module and to enable/disable
--- the module when the block is placed/cleared in the element order. "timerbar"
--- is intentionally absent: it is a sub-block of the Timer module (see
--- IsBlockActive/SetBlockActive, which special-case it via the showBar setting).
+-- All module block keys; ties a block's active state to its module. "timerbar"
+-- is absent on purpose -- it is a Timer sub-block, special-cased via showBar.
 local BLOCK_MODULE_NAME = {
     dungeon = "Dungeon", timer = "Timer", objectives = "Objectives",
     forces = "EnemyForces", deaths = "Deaths", splits = "Splits",
     checkpoints = "Checkpoints", cooldowns = "Cooldowns",
 }
 
--- Set a block's module alignment; returns true when it actually changed.
+-- Returns true when the alignment actually changed.
 local function setModuleAlign(key, align)
     local name = key and BLOCK_MODULE[key]
     local module = name and Addon:GetModule(name, true)
@@ -224,12 +185,8 @@ local function setModuleAlign(key, align)
     return true
 end
 
--- Auto-alignment on placement: when a row holds two modules, snap them to
--- their side (left half -> left aligned, right half -> right aligned). Runs
--- ONLY from SetBlockSlot, i.e. the moment something is re-placed in the
--- element-order options - manual alignment changes afterwards stay untouched,
--- and full-row blocks are never affected (they cannot share a row).
--- Returns true when any alignment changed.
+-- Snaps the two modules of a split row to their side. Runs only from
+-- SetBlockSlot, so a manual alignment afterwards is never overwritten.
 function MainWindow:ApplyAutoAlign(row)
     if not (row.left and row.right) then return false end
     local changedLeft = setModuleAlign(row.left, "left")
@@ -237,17 +194,13 @@ function MainWindow:ApplyAutoAlign(row)
     return changedLeft or changedRight
 end
 
--- Whether separator line i (1 or 2) is enabled in the profile.
 function MainWindow:IsSeparatorEnabled(i)
     local cfgs = Addon.db.profile.ui.separators
     return (cfgs and cfgs[i] and cfgs[i].enabled == true) or false
 end
 
--- Whether a block is "active", i.e. should take part in the element-order list.
--- Module blocks are active while their module is enabled; the timer bar sub-
--- block is active while the Timer module is enabled AND its bar is not hidden;
--- separators while enabled. Inactive blocks are dropped from the rows and are
--- not auto-placed, so the element order doubles as the enable/disable control.
+-- Inactive blocks are dropped from the rows and never auto-placed, so the
+-- element order doubles as the enable/disable control.
 function MainWindow:IsBlockActive(key)
     if not key then return false end
     if self:IsSeparatorKey(key) then
@@ -258,8 +211,7 @@ function MainWindow:IsBlockActive(key)
         return (timer and timer:IsEnabled()
             and timer:GetSettings().showBar ~= false) or false
     end
-    -- Splits is a recording module: removing it from the order only hides its
-    -- HUD line (showText), it keeps recording best times for other displays.
+    -- Splits keeps recording best times when its HUD line is removed.
     if key == "splits" then
         local splits = Addon:GetModule("Splits", true)
         return (splits and splits:IsEnabled()
@@ -270,11 +222,8 @@ function MainWindow:IsBlockActive(key)
     return (module and module:IsEnabled()) and true or false
 end
 
--- Enable or disable the block behind `key`. Placing a block activates it,
--- clearing its slot deactivates it (see SetBlockSlot). Modules toggle their
--- AceAddon state (and persist it, matching the per-module enable option); the
--- timer bar toggles the Timer showBar setting (enabling the Timer module first
--- when the bar is placed while the module was off); separators toggle enabled.
+-- Placing a block activates it, clearing its slot deactivates it. The timer bar
+-- maps to showBar (enabling the Timer module first if needed).
 function MainWindow:SetBlockActive(key, active)
     if not key then return end
     if self:IsSeparatorKey(key) then
@@ -313,10 +262,8 @@ function MainWindow:SetBlockActive(key, active)
     end
 end
 
--- Normalized copy of the configured rows: exactly MAX_ROWS entries; unknown
--- and duplicate keys are dropped. Blocks that must be placed but are not -
--- modules always, separators while enabled - go onto the lowest free row, so
--- nothing can get lost. The result is cached until the rows change.
+-- Exactly MAX_ROWS entries; unknown and duplicate keys are dropped, missing
+-- active blocks go onto the lowest free row so nothing can get lost. Cached.
 function MainWindow:GetBlockRows()
     local saved = Addon.db.profile.ui.blockRows
     if self._rowsCache and self._rowsCacheSource == saved then
@@ -325,8 +272,6 @@ function MainWindow:GetBlockRows()
 
     local rows, seen = {}, {}
     local function claim(key)
-        -- Inactive (disabled) blocks are dropped, so the element order reflects
-        -- exactly the enabled modules.
         if key and ORDERABLE[key] and not seen[key] and self:IsBlockActive(key) then
             seen[key] = true
             return key
@@ -342,9 +287,8 @@ function MainWindow:GetBlockRows()
         }
     end
 
-    -- A full-row block can never sit in a right half (guards hand-edited or
-    -- pre-rule saved data): move it to the free left half, or unclaim it so
-    -- the placement below finds it a row of its own.
+    -- Guards hand-edited or pre-rule data: a full-row block in a right half
+    -- moves left, or is unclaimed so the placement below gives it its own row.
     for i = 1, MAX_ROWS do
         local row = rows[i]
         if row.right and FULL_ROW_BLOCKS[row.right] then
@@ -357,8 +301,7 @@ function MainWindow:GetBlockRows()
         end
     end
 
-    -- Place a missing key on the first empty row below the used ones (or,
-    -- packed layouts, on any free left half).
+    -- First empty row below the used ones, or any free left half.
     local function place(key)
         if seen[key] then return end
         local lastUsed = 0
@@ -379,8 +322,8 @@ function MainWindow:GetBlockRows()
         end
     end
 
-    -- Keep the timer bar glued to its own row directly below the timer text,
-    -- even for layouts/presets saved before the split (where it is not listed).
+    -- Keeps the bar on its own row below the timer text, including for layouts
+    -- saved before the two were split.
     local function placeTimerBar()
         if seen["timerbar"] then return end
         local idx
@@ -395,7 +338,6 @@ function MainWindow:GetBlockRows()
         seen["timerbar"] = true
     end
 
-    -- Auto-place any ACTIVE block not yet positioned (disabled blocks stay out).
     for _, key in ipairs(MODULE_BLOCKS) do
         if key ~= "timerbar" and self:IsBlockActive(key) then place(key) end
     end
@@ -408,30 +350,22 @@ function MainWindow:GetBlockRows()
     return rows
 end
 
--- Drop the cached normalized rows (rows changed, separator toggled or the
--- profile switched).
 function MainWindow:InvalidateRows()
     self._rowsCache, self._rowsCacheSource = nil, nil
 end
 
--- Reset the row layout to the factory default (one block per row in
--- MODULE_BLOCKS order) and restack: clearing the saved rows makes the
--- normalization fall back to that order. Enabled separators re-place
--- themselves on the lowest free rows.
+-- Clearing the saved rows makes the normalization fall back to MODULE_BLOCKS.
 function MainWindow:ResetBlockRows()
     Addon.db.profile.ui.blockRows = nil
     self:InvalidateRows()
     self:Layout()
 end
 
--- Assign `key` (or nil to clear) to one side of a row, persist and restack.
--- The key is removed from any other slot first (each block exists exactly
--- once). A full-row block (timer, forces, objectives, separators) always
--- claims the left half and clears the right one; nothing can be placed next
--- to it.
+-- nil clears the slot. The key is removed from any other slot first, so each
+-- block exists exactly once; a full-row block always claims the left half.
 function MainWindow:SetBlockSlot(rowIndex, side, key)
-    -- Activate a block being placed BEFORE reading the rows, so the
-    -- normalization keeps it instead of dropping it as inactive.
+    -- Must run before reading the rows, or the normalization drops the block
+    -- as inactive.
     if key then self:SetBlockActive(key, true) end
 
     local rows = self:GetBlockRows()
@@ -441,7 +375,7 @@ function MainWindow:SetBlockSlot(rowIndex, side, key)
         return -- no right-hand neighbor next to a full-row block
     end
 
-    local prev = row[side] -- what we are replacing or clearing
+    local prev = row[side]
 
     if key then
         for _, r in ipairs(rows) do
@@ -455,9 +389,8 @@ function MainWindow:SetBlockSlot(rowIndex, side, key)
     end
     row[side] = key
 
-    -- Clearing a slot (to "-") deactivates the block that was there and leaves
-    -- the slot empty, instead of re-placing it on a free row. A replacement
-    -- (key set) leaves the displaced block active so it restacks as before.
+    -- Clearing deactivates the previous block instead of re-placing it; a
+    -- replacement leaves it active so it restacks elsewhere.
     if not key and prev then
         self:SetBlockActive(prev, false)
     end
@@ -473,28 +406,18 @@ function MainWindow:SetBlockSlot(rowIndex, side, key)
     end
 end
 
--- Inner padding reserved around the blocks when the panel is decorated. The
--- border only exists together with the background, so the padding tracks
--- bg.show alone.
+-- The border only exists together with the background, so bg.show alone
+-- decides the padding.
 function MainWindow:PanelInsets()
     local bg = Addon.db.profile.ui.bg or {}
     return bg.show and PANEL_PAD or 0
 end
 
--- Apply the optional HUD panel (background + border) from profile.ui.bg via the
--- shared Widgets:ApplyPanel helper.
 function MainWindow:ApplyPanel()
     if not self.frame then return end
     Addon.Widgets:ApplyPanel(self.frame, Addon.db.profile.ui.bg)
 end
 
--- Optical separator lines ----------------------------------------------------
--- Up to two thin lines the user can drop between modules (configured on the HUD
--- panel page). Each separator is a normal block in the stack, anchored just
--- after a chosen module, so enabling one pushes the following modules down by
--- its height. Config lives in profile.ui.separators.
-
--- Create a separator's frame + centered line texture on first use.
 function MainWindow:CreateSeparator(i)
     local f = CreateFrame("Frame", "MauiMPlusTimerSeparator" .. i, self:Get())
     f:SetWidth(self:GetWidth())
@@ -503,17 +426,13 @@ function MainWindow:CreateSeparator(i)
     return { frame = f, line = line }
 end
 
--- Sync the separator frames with profile.ui.separators: create and style each
--- enabled line and register it as block "separatorN", so the row layout can
--- place it like any other block (its position comes from the configured rows,
--- not from an anchor). Called from Layout BEFORE the rows are rendered; it
--- never calls Layout itself.
+-- Syncs the separator frames with profile.ui.separators and registers each as
+-- block "separatorN". Called from Layout before rendering; never calls Layout.
 function MainWindow:UpdateSeparators()
     local cfgs = Addon.db.profile.ui.separators
     self.separators = self.separators or {}
-    -- Separators are decoration between modules, so they follow the same
-    -- visibility as the modules: only shown while a run or demo is active,
-    -- never floating on their own outside a key.
+    -- Decoration between modules, so they follow the modules' visibility and
+    -- never float on their own outside a key.
     local active = (Addon.RunState and Addon.RunState:Get())
         or (Addon.Demo and Addon.Demo:IsActive()) or false
     for i = 1, 2 do
@@ -539,9 +458,7 @@ function MainWindow:UpdateSeparators()
     end
 end
 
--- Stack all visible rows vertically (full-width or left/right split), resize
--- the container to fit and show/hide it depending on whether anything is
--- visible.
+-- Stacks the visible rows, resizes the container and shows or hides it.
 function MainWindow:Layout()
     if not self.blocks then return end
     local hud = self:Get()
@@ -553,8 +470,7 @@ function MainWindow:Layout()
     local spacing = Addon.db.profile.ui.spacing or 2
     local half = (width - SPLIT_GAP) / 2
 
-    -- Collect the visible rows into the reusable scratch. A split row whose
-    -- second block is hidden collapses to a full-width row.
+    -- A split row whose second block is hidden collapses to full width.
     local count = 0
     for _, row in ipairs(self:GetBlockRows()) do
         local lb = row.left and self.blocks[row.left]
@@ -574,7 +490,6 @@ function MainWindow:Layout()
         entryLeft[i], entryRight[i] = nil, nil
     end
 
-    -- Apply the widths dictated by the placement (full or half row).
     for i = 1, count do
         if entryRight[i] then
             entryLeft[i]:SetWidth(half)
@@ -584,12 +499,9 @@ function MainWindow:Layout()
         end
     end
 
-    -- Skip when the resulting stack is identical to the last one. Modules call
-    -- Layout very frequently while a key runs (timer, forces, cooldowns), almost
-    -- always with unchanged sizes/visibility. Re-anchoring and resizing the HUD
-    -- on every one of those calls is what made the whole display jitter, so we
-    -- no-op unless something structural (rows, their frames, rounded heights or
-    -- the panel padding) actually changed.
+    -- Modules call Layout on nearly every tick, almost always with unchanged
+    -- sizes. Re-anchoring the HUD each time made the display jitter, so bail
+    -- out unless something structural changed.
     local sig = pad .. "/" .. spacing .. "/" .. width
     for i = 1, count do
         sig = sig .. "|" .. tostring(entryLeft[i])

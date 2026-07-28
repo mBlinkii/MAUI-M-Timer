@@ -1,6 +1,6 @@
 -- Modules/Changelog/Data.lua
--- Version history shown on the in-game changelog page. Mirrors CHANGELOG.md
--- (always English by project policy) and must be updated together with it.
+-- Version history for the in-game page. Mirrors CHANGELOG.md, always English,
+-- and must be updated together with it.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -9,10 +9,8 @@ local Changelog = Addon:GetModule("Changelog")
 local Data = {}
 Changelog.Data = Data
 
--- Ordered list, NEWEST FIRST. Each entry:
---   version          "x.y.z", matching the .toc version / release tag
---   date             release date ("YYYY-MM-DD") or "Unreleased"
---   new/updates/fixes  arrays of plain lines; sections may be omitted
+-- Newest first. version matches the .toc, date is "YYYY-MM-DD" or "Unreleased",
+-- and the new/updates/fixes arrays may each be omitted.
 Data.entries = {
     {
         version = "1.3.0",

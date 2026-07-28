@@ -1,9 +1,5 @@
 -- Modules/Checkpoints/Editor.lua
--- AceGUI panel to define per-dungeon forces targets: a target % before each boss
--- (section targets) and the Point of No Return thresholds. Laid out like the
--- Splits manager: a dungeon tree on the left, the editor on the right, plus an
--- "Import / Export" entry in the tree. Opened via the options button or
--- "/mauimpt checkpoints".
+-- Panel for the per-dungeon forces targets, opened via "/mauimpt checkpoints".
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -14,13 +10,11 @@ local AceGUI = LibStub("AceGUI-3.0")
 local Editor = {}
 Checkpoints.Editor = Editor
 
--- Sentinel tree value for the Import / Export page.
-local SHARE = "__share__"
+local SHARE = "__share__" -- sentinel tree value for the Import / Export page
 
--- Challenge-map helpers are shared (Core/Utilities): name and texture.
 local Utils = Addon.Utils
 
--- Available dungeons: current season's maps + the active key + any already set.
+-- Current season's maps, plus the active key and anything already configured.
 local function dungeonList()
     local list, order = {}, {}
     local seen = {}
@@ -42,8 +36,7 @@ local function dungeonList()
     return list, order
 end
 
--- Left-hand tree: one node per dungeon, with an Import/Export entry pinned to
--- the very bottom (own icon + a distinct gold label so it stands out).
+-- One node per dungeon, with Import/Export pinned to the bottom.
 local function buildTree()
     local L = ns.L
     local tree = {}
@@ -59,7 +52,6 @@ local function buildTree()
     return tree
 end
 
--- Build one editable row (two inputs + remove button) inside a parent.
 local function addRow(parent, leftLabel, leftValue, rightValue, onLeft, onRight, onRemove)
     local L = ns.L
     local row = AceGUI:Create("SimpleGroup")
@@ -88,7 +80,7 @@ local function addRow(parent, leftLabel, leftValue, rightValue, onLeft, onRight,
     row:AddChild(del)
 end
 
--- Build one Point of No Return row (single % input + remove button).
+-- One % input plus a remove button.
 local function addPonrRow(parent, value, onValue, onRemove)
     local L = ns.L
     local row = AceGUI:Create("SimpleGroup")
@@ -110,7 +102,6 @@ local function addPonrRow(parent, value, onValue, onRemove)
     row:AddChild(del)
 end
 
--- Right pane: the boss-section + Point of No Return editor for one dungeon.
 function Editor:ShowDungeon(container, mapID)
     container:ReleaseChildren()
     local L = ns.L
@@ -127,22 +118,19 @@ function Editor:ShowDungeon(container, mapID)
     head:SetText("|cffffd200" .. Utils.GetMapName(mapID) .. "|r\n")
     scroll:AddChild(head)
 
-    -- Read without creating an entry, so merely browsing a dungeon does not store
-    -- an empty record. The Add buttons create the entry on first use.
+    -- Get, not GetOrCreate: browsing a dungeon must not store an empty record.
+    -- The Add buttons create the entry on first use.
     local entry = Checkpoints.Data.Get(mapID)
     local bySection = (entry and entry.bySection) or {}
     local ponr = (entry and entry.ponr) or {}
 
-    -- Boss section targets ----------------------------------------------------
     local h1 = AceGUI:Create("Heading")
     h1:SetFullWidth(true)
     h1:SetText(L["Boss section targets"])
     scroll:AddChild(h1)
 
     for i, s in ipairs(bySection) do
-        -- Writes go through the Data setters (validation + change tracking):
-        -- boss index is a whole number >= 1, the target is clamped to 0..100 %.
-        -- Non-numeric input keeps the previous value.
+        -- Via the Data setters, which validate and bump the generation counter.
         addRow(scroll, L["Boss"] .. " #", tostring(s.bossIndex or 1), tostring(s.targetPct or 0),
             function(text)
                 Checkpoints.Data.SetSectionBossIndex(mapID, i, text)
@@ -165,15 +153,12 @@ function Editor:ShowDungeon(container, mapID)
     end)
     scroll:AddChild(addBoss)
 
-    -- Point of No Return thresholds -------------------------------------------
     local h2 = AceGUI:Create("Heading")
     h2:SetFullWidth(true)
     h2:SetText(L["Point of No Return"])
     scroll:AddChild(h2)
 
     for i, p in ipairs(ponr) do
-        -- Writes go through the Data setter (validation + change tracking): the
-        -- threshold is clamped to 0..100 %; non-numeric input is ignored.
         addPonrRow(scroll, tostring(p.pct or 0),
             function(text)
                 Checkpoints.Data.SetPoNRPct(mapID, i, text)
@@ -194,7 +179,6 @@ function Editor:ShowDungeon(container, mapID)
     scroll:AddChild(addPonr)
 end
 
--- Right pane: export / import of all checkpoints.
 function Editor:ShowShare(container)
     container:ReleaseChildren()
     local L = ns.L
@@ -205,7 +189,6 @@ function Editor:ShowShare(container)
     scroll:SetFullHeight(true)
     container:AddChild(scroll)
 
-    -- Export ------------------------------------------------------------------
     local h1 = AceGUI:Create("Heading")
     h1:SetFullWidth(true)
     h1:SetText(L["Export"])
@@ -216,8 +199,7 @@ function Editor:ShowShare(container)
     d1:SetText(L["Click Export to generate a shareable string of all your checkpoints, then copy it."])
     scroll:AddChild(d1)
 
-    -- Format toggle: shareable string (default) vs. readable Lua code for
-    -- embedding checkpoints into addon code (not re-importable).
+    -- Shareable string, or readable Lua code that Import() cannot read back.
     local exportAsLua = false
 
     local plainToggle = AceGUI:Create("CheckBox")
@@ -254,7 +236,6 @@ function Editor:ShowShare(container)
     end)
     scroll:AddChild(exportBtn)
 
-    -- Import ------------------------------------------------------------------
     local h2 = AceGUI:Create("Heading")
     h2:SetFullWidth(true)
     h2:SetText(L["Import"])

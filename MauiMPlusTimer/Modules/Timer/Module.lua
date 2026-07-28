@@ -1,24 +1,20 @@
 -- Modules/Timer/Module.lua
--- The Mythic+ timer display. Run start/stop detection AND the mid-run timeout
--- broadcast (MMT_RUN_TIMED_OUT) live in Core/RunController; this module only
--- reacts to the MMT_RUN_* messages, so it can be enabled/disabled without
--- affecting the rest of the addon.
+-- Timer display. Pure consumer of the MMT_RUN_* messages -- run detection and
+-- the timeout broadcast live in Core/RunController, so this can be toggled off
+-- without affecting the rest of the addon.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
 
 local Timer = Addon:NewMauiModule("Timer", "timer")
 
--- Per-run display state held in memory; the persistent record lives in RunState.
--- `active` is true while a key is running; `running` is false during the pre-run
--- countdown and true once the timed run has actually started
--- (WORLD_STATE_TIMER_START). `lastElapsed` guards against the elapsed time
--- regressing when the scenario resets on completion.
+-- In-memory display state; the persistent record lives in RunState. `active` is
+-- true while a key runs, `running` only after the pre-run countdown.
+-- `lastElapsed` stops the time regressing when the scenario resets on completion.
 Timer.state = { active = false, running = false,
                 timeLimit = 0, demo = false, lastElapsed = 0 }
 
--- Stored best total time for the current dungeon+level (soft Splits dependency),
--- shown behind the timer when the "best times" option is on.
+-- Soft Splits dependency via Addon:GetBestRun.
 function Timer:GetBestTotal()
     local run = Addon.RunState:Get()
     if not run then return nil end
@@ -26,11 +22,7 @@ function Timer:GetBestTotal()
     return best and best.total or nil
 end
 
--- Lifecycle (OnInitialize is provided by ModuleBase via the optionsKey) -------
-
 function Timer:OnEnable()
-    -- Run lifecycle is owned by Core/RunController; the Timer is a pure display
-    -- module driven by the MMT_RUN_* messages and can be toggled freely.
     self:RegisterMessage("MMT_RUN_STARTED", "OnRunStart")
     self:RegisterMessage("MMT_RUN_RESTORED", "OnRunStart")
     self:RegisterMessage("MMT_RUN_TIMER_STARTED", "OnTimerStarted")
@@ -40,8 +32,7 @@ function Timer:OnEnable()
     self:RegisterMessage("MMT_MODULE_TOGGLED", "OnModuleToggled")
 
     self.UI:Build()
-    -- Demo display (e.g. after a /reload), or the live display if a key is
-    -- already running (login/reload mid-key, or enabled mid-run).
+    -- Catch up: the module can be enabled mid-run or after a /reload.
     if Addon.Demo:IsActive() then
         self:SetDemo(true)
     elseif Addon.RunState:Get() then
@@ -55,31 +46,23 @@ function Timer:OnDisable()
     self.UI:Hide()
 end
 
--- Run display (driven by Core/RunController via the MMT_RUN_* messages) --------
-
--- A key started, was restored after a /reload, or the module was enabled mid
--- run: show the live timer and start ticking. The run record itself is created
--- by Core/RunController, not here.
 function Timer:OnRunStart()
     self.state.demo = false
     self.state.active = true
     self.state.lastElapsed = 0
     self.state.timeLimit = Addon.Utils.GetChallengeTimeLimit()
-    -- If the timed run already began (restore / mid-run enable), reflect it so
-    -- the ticker counts immediately instead of waiting at 0.
+    -- After a restore the run may already be past the countdown, so the ticker
+    -- has to count immediately instead of waiting at 0.
     local run = Addon.RunState:Get()
     self.state.running = run ~= nil and run.timerStartedAt ~= nil
     self.UI:Show()
     self:StartTicker()
 end
 
--- The timed run actually began (start countdown finished).
 function Timer:OnTimerStarted()
     self.state.running = true
 end
 
--- The run ended (player left/abandoned the key): hide and clear display state.
--- The run record is cleared by Core/RunController (RunState:Stop).
 function Timer:OnRunEnd()
     self.state.active = false
     self.state.running = false
@@ -88,8 +71,6 @@ function Timer:OnRunEnd()
         self.UI:Hide()
     end
 end
-
--- Ticker ---------------------------------------------------------------------
 
 function Timer:StartTicker()
     if self.ticker then return end
@@ -112,12 +93,10 @@ function Timer:OnTick()
         self.state.timeLimit = limit
     end
 
-    -- During the start countdown the run has not begun: keep the display frozen
-    -- at 0. If the world timer starts reporting a value, treat the run as begun
-    -- (backup in case WORLD_STATE_TIMER_START did not fire).
+    -- Frozen at 0 during the countdown. A world timer value appearing anyway
+    -- means MMT_RUN_TIMER_STARTED was missed, so anchor and start counting.
     if not self.state.running then
         if official and official > 0 then
-            -- Backup if MMT_RUN_TIMER_STARTED was missed: anchor and start counting.
             self.state.running = true
             local run = Addon.RunState:Get()
             if run and not run.timerStartedAt then
@@ -129,31 +108,24 @@ function Timer:OnTick()
         end
     end
 
-    -- Prefer the Blizzard challenge timer; fall back to wall-clock elapsed from
-    -- the recorded run start (reload-safe if the world timer API differs).
+    -- Wall-clock fallback from the recorded run start.
     local elapsed = official
     if not elapsed then
         local run = Addon.RunState:Get()
         elapsed = (run and run.timerStartedAt) and (time() - run.timerStartedAt) or 0
     end
 
-    -- Never regress: a scenario reset on completion can briefly report 0, which
-    -- must not overwrite the elapsed time on screen.
+    -- A scenario reset on completion briefly reports 0; never regress.
     if self.state.lastElapsed and elapsed < self.state.lastElapsed then
         elapsed = self.state.lastElapsed
     end
     self.state.lastElapsed = elapsed
 
-    -- The timed-out broadcast (key depleted) is owned by Core/RunController.
     local bonus = self.Data.GetBonusLevel(elapsed, limit)
     self.UI:Update(elapsed, limit, bonus, self:GetBestTotal())
 end
 
--- Event handlers -------------------------------------------------------------
-
--- Run completion (broadcast by Core/RunController with the final time): freeze
--- the display on screen so the group can review the summary; it is hidden later
--- on MMT_RUN_ENDED when the player leaves the dungeon.
+-- Freezes the display on the final time; MMT_RUN_ENDED hides it later.
 function Timer:OnRunCompleted(_, _, total)
     self.state.active = false
     self.state.running = false
@@ -167,24 +139,17 @@ function Timer:OnRunCompleted(_, _, total)
     end
 end
 
--- React to the Splits module toggling so the best total shows/hides at once.
--- A live run already refreshes on its next ticker tick; this covers demo mode.
+-- A live run refreshes on its next tick anyway; this covers demo mode.
 function Timer:OnModuleToggled(_, name)
     if name == "Splits" and self.state.demo then
         self:SetDemo(true)
     end
 end
 
--- Demo mode ------------------------------------------------------------------
-
--- Elapsed-time samples (seconds) for demo mode: 5 / 12 / 20 / 28 minutes. One is
--- picked at random on each activation so the timer bar and text show varied
--- states (early through near-timeout) while styling.
+-- Picked at random per activation, so styling sees varied bar states.
 local DEMO_ELAPSED_CHOICES = { 300, 720, 1200, 1680 }
-local DEMO_LIMIT = 1800 -- sample time limit (30:00)
+local DEMO_LIMIT = 1800
 
--- Pick a fresh random elapsed sample. Stored on state so a later refresh reuses
--- it instead of re-rolling.
 function Timer:RollDemoValues()
     self.state.demoElapsed = DEMO_ELAPSED_CHOICES[math.random(#DEMO_ELAPSED_CHOICES)]
 end
@@ -193,8 +158,8 @@ function Timer:SetDemo(state)
     local wasDemo = self.state.demo
     self.state.demo = state
     if state then
-        -- Re-roll only on a real activation (off -> on), not on the repeated
-        -- SetDemo(true) that Demo:Refresh fires after every settings change.
+        -- Only on a real off -> on, not on the repeated SetDemo(true) that
+        -- Demo:Refresh fires after every settings change.
         if not wasDemo or not self.state.demoElapsed then
             self:RollDemoValues()
         end
@@ -202,9 +167,8 @@ function Timer:SetDemo(state)
         self.UI:Build()
         self.UI:Show()
         local elapsed = self.state.demoElapsed
-        -- The best time is part of the Splits module, so it only shows when enabled.
         local splits = Addon:GetModule("Splits", true)
-        local best = (splits and splits:IsEnabled()) and 1500 or nil -- sample best 25:00
+        local best = (splits and splits:IsEnabled()) and 1500 or nil
         self.UI:Update(elapsed, DEMO_LIMIT, self.Data.GetBonusLevel(elapsed, DEMO_LIMIT), best)
     else
         if self.state.active then

@@ -1,13 +1,7 @@
 -- Modules/Setup/Data.lua
--- Preset profiles offered by the setup wizard.
---
--- To add a preset:
---   1. Configure a profile in-game, then export it via Options -> Share ->
---      "Export as Lua table" and paste the table as `profile`.
---   2. (Optional) Add a screenshot as a power-of-two TGA under Assets/Setup/
---      and set `screenshot` to its texture path (plus `screenshotSize` with
---      the original pixel size for the correct aspect ratio).
---   3. Add the `description` key to both localization files.
+-- Preset profiles offered by the setup wizard. To add one: export a configured
+-- profile via Options -> Share -> "Export as Lua table", paste it as `profile`,
+-- and add the `description` key to the localization files.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -16,26 +10,16 @@ local Setup = Addon:GetModule("Setup")
 local Data = {}
 Setup.Data = Data
 
--- Ordered list of selectable presets.
---   key            stable identifier (used in debug output)
---   name           display name (plain data, deliberately not localized)
---   description    localization key for the short description
---   note           optional localization key for a secondary label (e.g. a
---                  dependency hint) shown under the description in the wizard
---   screenshot     optional texture path (power-of-two TGA) shown as preview
---   screenshotSize optional { width, height } display size for the preview
---   profile        plain profile table to apply, or nil = factory defaults
+-- key, name (deliberately not localized), description and the optional note are
+-- shown in the wizard; screenshot needs a power-of-two TGA plus screenshotSize
+-- for the aspect ratio. A nil profile means factory defaults.
 Data.profiles = {
     {
-        -- NOTE: this preset references the "Ubuntu-Medium" font shipped with the
-        -- external "!mMT_MediaPack" addon. That media pack must be installed for
-        -- the preset to look as intended; without it, WoW silently falls back to
-        -- the default font (everything else still applies normally).
+        -- Needs the "Ubuntu-Medium" font from the external !mMT_MediaPack addon;
+        -- without it WoW silently falls back to the default font.
         key = "maui",
         name = "MaUI",
         description = "The author's personal MAUI look.",
-        -- Optional second (localized) label shown under the description in the
-        -- wizard - here the media-pack requirement, so it is visible to users.
         note = "Requires the !mMT_MediaPack addon for its fonts; without it the default font is used.",
         screenshot = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Setup\\maui",
         screenshotSize = { 256, 256 },

@@ -1,7 +1,6 @@
 -- Modules/Dungeon/Module.lua
--- Displays the current Mythic+ dungeon name and, optionally, the active affixes
--- beneath it. Read-only: it derives everything from RunState and the challenge
--- mode API and owns no run logic of its own.
+-- Dungeon name, keystone level and affixes. Read-only: derives everything from
+-- RunState and the challenge-mode API.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -9,8 +8,7 @@ local Addon = ns.Addon
 local Dungeon = Addon:NewMauiModule("Dungeon", "dungeon")
 Dungeon.state = { demo = false }
 
--- Resolve the dungeon name from the active keystone map, falling back to the
--- instance name when the challenge map is not (yet) available.
+-- Falls back to the instance name while the challenge map is unavailable.
 local function getDungeonName(run)
     local mapID = run and run.mapID
     if not mapID and C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID then
@@ -23,7 +21,6 @@ local function getDungeonName(run)
     return (GetInstanceInfo()) or ""
 end
 
--- Resolve the active keystone level (from the run, or the active keystone).
 local function getKeystoneLevel(run)
     local level = run and run.keyLevel
     if not level and C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
@@ -32,7 +29,6 @@ local function getKeystoneLevel(run)
     return level
 end
 
--- Resolve the dungeon's icon texture (fileID) from the active keystone map.
 local function getDungeonIcon(run)
     local mapID = run and run.mapID
     if not mapID and C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID then
@@ -46,8 +42,7 @@ local function getDungeonIcon(run)
     return nil
 end
 
--- Build a comma-separated, localized affix list from the run's affix IDs (or the
--- active keystone's affixes as a fallback). Returns "" when none are known.
+-- Comma-separated and localized; "" when no affixes are known.
 local function getAffixText(run)
     local ids = run and run.affixes
     if (not ids or #ids == 0) and C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
@@ -66,8 +61,6 @@ local function getAffixText(run)
     end
     return table.concat(names, ", ")
 end
-
--- Lifecycle ------------------------------------------------------------------
 
 function Dungeon:OnEnable()
     self:RegisterMessage("MMT_RUN_STARTED", "OnRunStart")
@@ -89,8 +82,6 @@ function Dungeon:OnDisable()
     self.UI:Hide()
 end
 
--- Handlers -------------------------------------------------------------------
-
 function Dungeon:OnRunStart()
     self.state.demo = false
     self.UI:Show()
@@ -103,14 +94,11 @@ function Dungeon:OnRunEnd()
     end
 end
 
--- Re-read the dungeon name + affixes and update the display.
 function Dungeon:Refresh()
     if self.state.demo then return end
     local run = Addon.RunState:Get()
     self.UI:Update(getDungeonName(run), getAffixText(run), getDungeonIcon(run), getKeystoneLevel(run))
 end
-
--- Demo mode ------------------------------------------------------------------
 
 function Dungeon:SetDemo(state)
     self.state.demo = state
@@ -118,7 +106,6 @@ function Dungeon:SetDemo(state)
         local L = ns.L
         self.UI:Build()
         self.UI:Show()
-        -- Sample icon + level so the options can be positioned/sized outside a key.
         self.UI:Update(L["Sample dungeon"], L["Sample affixes"],
             "Interface\\ICONS\\Achievement_ChallengeMode_Gold", 18)
     elseif Addon.RunState:Get() then

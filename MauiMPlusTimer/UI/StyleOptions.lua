@@ -1,13 +1,9 @@
 -- UI/StyleOptions.lua
--- Reusable AceConfig option builders for per-element styling, plus the global
--- font page, colors page and HUD panel page. Per-element values are stored in
--- profile.ui.elements[key] and applied live; the global font baseline lives in
--- profile.ui.font. No data logic beyond reading/writing settings.
+-- Reusable AceConfig builders for per-element styling, plus the global font,
+-- colors and HUD panel pages.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
-
--- Shared lists ---------------------------------------------------------------
 
 local function fontList()
     local t = { [STANDARD_TEXT_FONT] = "Default" }
@@ -16,10 +12,8 @@ local function fontList()
     return t
 end
 
--- Statusbar / border lists for the LSM30 preview dropdowns. These widgets key
--- their list and stored value on the LibSharedMedia *name* (not the path), so the
--- values table maps name -> name. Bundled media (UI/Media.lua) is registered with
--- LibSharedMedia, so it shows up here automatically.
+-- The LSM30 preview dropdowns key on the LibSharedMedia name, not the path, so
+-- these map name -> name.
 local function textureList()
     local t = {}
     local LSM = LibStub("LibSharedMedia-3.0", true)
@@ -36,11 +30,8 @@ local function borderList()
     return t
 end
 
--- Resolve a stored media value to its LibSharedMedia name. New values are stored
--- as names by the LSM30 dropdowns, but legacy/preset data stored raw texture
--- paths; this maps such a path back to its registered name (without mutating the
--- saved value) so the dropdown shows the right selection. Falls back to `default`
--- when the value is empty or cannot be resolved.
+-- Maps a legacy raw path back to its registered name (without mutating the
+-- saved value) so the dropdown shows the right selection.
 local function mediaName(mtype, value, default)
     if not value or value == "" then return default end
     local LSM = LibStub("LibSharedMedia-3.0", true)
@@ -55,32 +46,28 @@ end
 
 local OUTLINES = { [""] = "None", OUTLINE = "Outline", THICKOUTLINE = "Thick" }
 
--- Helpers --------------------------------------------------------------------
-
 local function element(key)
     local e = Addon.db.profile.ui.elements
     e[key] = e[key] or {}
     return e[key]
 end
 
--- Read-only accessor for get/disabled handlers: never creates the element
--- table, so merely opening the options cannot write empty tables into the
--- SavedVariables. EMPTY must never be written to.
+-- For get/disabled handlers: never creates the table, so merely opening the
+-- options cannot write empty tables into SavedVariables. Never write to EMPTY.
 local EMPTY = {}
 local function elementRead(key)
     return Addon.db.profile.ui.elements[key] or EMPTY
 end
 
--- Public accessor for module-specific style fields. Auto-creates the element
--- table because option setters write through the returned reference.
+-- Auto-creates the element table; option setters write through this reference.
 function Addon:GetElementSetting(key)
     return element(key)
 end
 
 local function restyle(module)
-    Addon.Widgets:InvalidateStyle() -- styles may have changed; drop the cache
+    Addon.Widgets:InvalidateStyle()
     if module and module.UI and module.UI.Restyle then module.UI:Restyle() end
-    -- In demo mode re-run the module's display so dynamic colors refresh at once.
+    -- Re-feed demo values so dynamic colors refresh at once.
     if module and module.SetDemo and Addon.Demo:IsActive() and module:IsEnabled() then
         module:SetDemo(true)
     end
@@ -88,32 +75,26 @@ local function restyle(module)
 end
 Addon.StyleRestyle = restyle
 
--- Effective value (element override or resolved default).
+-- Element override or resolved default.
 local function eff(key, field)
     return Addon.Widgets.ResolveStyle(key)[field]
 end
 
--- A full-width spacer used to force a line break between option controls, so the
--- layout matches the intended grouping regardless of each widget's own width.
--- @param order number the AceConfig order at which the break sits.
+-- Full-width spacer that forces a line break between option controls.
 function Addon:OptLine(order)
     return { type = "description", name = "", width = "full", order = order }
 end
 
--- Global font page -----------------------------------------------------------
-
 function Addon:BuildGlobalFontOptions()
     local L = ns.L
-    -- Settings table for the global font baseline. Besides the three font fields
-    -- (font/fontFlags/fontSize) it also stores which of them the "Apply" button
-    -- overwrites: applyFont / applyFlags / applySize.
+    -- Holds font/fontFlags/fontSize plus the applyFont/applyFlags/applySize
+    -- flags that decide what the "Apply" button overwrites.
     local function fontCfg()
         Addon.db.profile.ui.font = Addon.db.profile.ui.font or {}
         return Addon.db.profile.ui.font
     end
-    -- Stage the selection into ui.font WITHOUT restyling. Nothing changes on
-    -- screen until the user clicks "Apply to all elements"; this avoids silently
-    -- overwriting elements that the user has individually customized.
+    -- Staged, not applied: nothing changes until "Apply to all elements", so
+    -- individually customized elements are never silently overwritten.
     local function fontSet(field)
         return function(_, v)
             fontCfg()[field] = v
@@ -136,15 +117,10 @@ function Addon:BuildGlobalFontOptions()
     local function applyToggle(field)
         return function(_, v) fontCfg()[field] = v end
     end
-    -- Force the selected global font properties onto every element, then
-    -- restyle. The values are written EXPLICITLY over existing per-element
-    -- values (never cleared to nil): AceDB backfills nil fields from the
-    -- defaults on the next login, which silently restored the factory fonts
-    -- after a /reload. Entries without the field already follow the global
-    -- baseline and stay untouched. Which properties are written is controlled
-    -- by the applyFont/applyFlags/applySize checkboxes. Destructive for the
-    -- affected per-element settings, which is why it is gated behind an
-    -- explicit button + confirmation popup.
+    -- Overwrites explicitly instead of clearing to nil: AceDB backfills nil
+    -- fields from the defaults on the next login, which silently restored the
+    -- factory fonts after a /reload. Fields that are absent already follow the
+    -- global baseline and stay untouched.
     local function applyToAll()
         local doFont, doFlags, doSize =
             applyEnabled("applyFont"), applyEnabled("applyFlags"), applyEnabled("applySize")
@@ -156,7 +132,6 @@ function Addon:BuildGlobalFontOptions()
         end
         Addon.MainWindow:Refresh()
     end
-    -- Disable the Apply button while no property is selected; nothing to apply.
     local function nothingSelected()
         return not (applyEnabled("applyFont") or applyEnabled("applyFlags")
             or applyEnabled("applySize"))
@@ -169,8 +144,6 @@ function Addon:BuildGlobalFontOptions()
         args = {
             note = { type = "description", order = 0,
                 name = L["Pick a font, then click Apply to overwrite the font of every element."] },
-            -- All three font controls live in one "Schrift" group; the destructive
-            -- Apply button sits below it.
             font = {
                 type = "group", inline = true, name = L["Fonts"], order = 1,
                 args = {
@@ -186,8 +159,6 @@ function Addon:BuildGlobalFontOptions()
                         set = fontSet("fontSize") },
                 },
             },
-            -- Checkboxes selecting which font properties the Apply button writes
-            -- onto every element. Each maps to one per-element override field.
             applyWhat = {
                 type = "group", inline = true, name = L["Apply to all elements"], order = 2,
                 args = {
@@ -214,10 +185,8 @@ function Addon:BuildGlobalFontOptions()
     }
 end
 
--- Colors page ----------------------------------------------------------------
-
--- A color control bound to element[key][field], refreshing every module so a
--- change is visible across the whole HUD at once.
+-- Bound to element[key][field]; refreshes every module so the change shows
+-- across the whole HUD at once.
 local function areaColor(key, field, name, order, default)
     return {
         type = "color", name = name, order = order, hasAlpha = true,
@@ -232,8 +201,7 @@ local function areaColor(key, field, name, order, default)
     }
 end
 
--- A section-color control (timerBar.sectionColors[level]); preserves the other
--- levels when writing one.
+-- timerBar.sectionColors[level]; writing one level preserves the others.
 local function sectionAreaColor(level, name, order)
     return {
         type = "color", name = name, order = order, hasAlpha = true,
@@ -255,7 +223,6 @@ local function sectionAreaColor(level, name, order)
     }
 end
 
--- Aggregated colors page: every element color in one place, grouped by area.
 -- Mirrors the controls on the module pages; both write the same settings.
 function Addon:BuildColorsOptions()
     local L = ns.L
@@ -287,7 +254,6 @@ function Addon:BuildColorsOptions()
                     affixes = areaColor(ns.E.dungeonAffixes, "textColor", L["Affixes"], 2),
                 },
             },
-            -- Timer is split into General (over-time color), Text and Bar groups.
             timer = {
                 type = "group", inline = true, name = L["Timer"], order = 10,
                 args = {
@@ -376,12 +342,8 @@ function Addon:BuildColorsOptions()
     }
 end
 
--- Background + border groups --------------------------------------------------
-
--- Inject a "# Background" group (show + color) and a "# Border" group (show,
--- texture, size, color) into an existing args table. The border group depends on
--- the background being enabled. `bg` returns the settings table; `apply` refreshes
--- the affected display. Used by the HUD panel page and the Dungeon module page.
+-- Injects a Background and a Border group into an existing args table; the
+-- border depends on the background. `bg` returns the settings table.
 function Addon:AddBackgroundGroups(args, bg, apply, order)
     local L = ns.L
     args.bgGroup = {
@@ -421,7 +383,6 @@ function Addon:AddBackgroundGroups(args, bg, apply, order)
     }
 end
 
--- HUD panel page (whole-window background + border + optical separators).
 function Addon:BuildWindowOptions()
     local L = ns.L
     local function bg()
@@ -438,16 +399,13 @@ function Addon:BuildWindowOptions()
     }
     Addon:AddBackgroundGroups(page.args, bg, apply, 1)
 
-    -- Optical separator lines between modules (rendered by
-    -- MainWindow:UpdateSeparators; stored in profile.ui.separators).
     local function sepCfg(i)
         local ui = Addon.db.profile.ui
         ui.separators = ui.separators or {}
         ui.separators[i] = ui.separators[i] or {}
         return ui.separators[i]
     end
-    -- Enabling/disabling a separator changes which entries the row layout has
-    -- to place, so the normalized-rows cache must be dropped as well.
+    -- Toggling a separator changes which entries the row layout has to place.
     local function sepApply()
         Addon.MainWindow:InvalidateRows()
         Addon.MainWindow:Layout()
@@ -457,8 +415,6 @@ function Addon:BuildWindowOptions()
         return {
             type = "group", inline = true, name = L["Separator line"] .. " " .. i, order = order,
             args = {
-                -- The separator's position is configured like any other block
-                -- under General -> Element order (it appears there once enabled).
                 enabled = {
                     type = "toggle", name = L["Enable"], order = 1,
                     get = function() return sepCfg(i).enabled == true end,
@@ -495,13 +451,8 @@ function Addon:BuildWindowOptions()
     return page
 end
 
--- Per-element builders -------------------------------------------------------
-
--- Build the shared text-style controls (font, outline, size, x/y offset and an
--- optional text color) as a flat args table, with line breaks between rows, so
--- the same layout can be embedded either as its own group (ElementTextOptions)
--- or merged into a larger group (e.g. the Affixes group with its own toggle).
--- @param base number order offset; controls occupy base+1 .. base+13.
+-- Flat args, so the same controls can be a group of their own or merged into a
+-- larger one. Occupies orders base+1 .. base+13.
 function Addon:ElementTextArgs(module, key, base, opts)
     base = base or 0
     opts = opts or {}
@@ -534,9 +485,8 @@ function Addon:ElementTextArgs(module, key, base, opts)
     return args
 end
 
--- Font, size, outline, x/y offset (and optionally text color) for an element,
--- wrapped in its own inline group. Modules may inject extra size controls (after
--- fontSize, orders 5..8) or extra colors (after textColor, orders 14..19).
+-- ElementTextArgs in its own inline group. Modules may inject extra size
+-- controls at orders 5..8 and extra colors at 14..19.
 function Addon:ElementTextOptions(module, key, order, opts)
     opts = opts or {}
     return {
@@ -545,10 +495,8 @@ function Addon:ElementTextOptions(module, key, order, opts)
     }
 end
 
--- Bar (texture, fill direction, width, height, optional color) plus a nested
--- Border group, for an element. opts.noColor omits the single bar color (used by
--- the Timer, whose fill is colored per section instead). The bar background color
--- is configured on the Colors page, not here.
+-- opts.noColor omits the bar color, for the Timer, whose fill is colored per
+-- section. The bar background color lives on the Colors page.
 function Addon:ElementBarOptions(module, key, order, opts)
     local L = ns.L
     opts = opts or {}
@@ -610,9 +558,8 @@ function Addon:ElementBarOptions(module, key, order, opts)
     }
 end
 
--- Reusable color option bound to a module-specific element field. `default` is
--- the fallback color shown when neither an override nor a theme value exists, so
--- the picker matches what the module renders by default.
+-- `default` is shown when neither an override nor a theme value exists, so the
+-- picker matches what the module renders.
 function Addon:ElementColorOption(module, key, field, name, order, default)
     return {
         type = "color", name = name, order = order, hasAlpha = true,
@@ -627,13 +574,8 @@ function Addon:ElementColorOption(module, key, field, name, order, default)
     }
 end
 
--- Icon picker (dropdown) for a module setting. The selectable textures come from
--- the central catalog (ns.Icons) for the given category; the value stored is the
--- texture path. Unset falls back to the category default so the dropdown always
--- shows a selection. opts.disabled / opts.desc / opts.width are passed through.
--- @param module table the owning module (uses module:GetSettings())
--- @param category string ns.Icons category ("done"|"pending"|"death"|"ready")
--- @param field string settings key holding the chosen texture path
+-- Icon picker over an ns.Icons category; stores the texture path in
+-- module settings under `field`, falling back to the category default.
 function Addon:IconSelectOption(module, category, field, name, order, opts)
     opts = opts or {}
     return {
@@ -646,11 +588,8 @@ function Addon:IconSelectOption(module, category, field, name, order, opts)
     }
 end
 
--- Color (tint) for a module's inline icon. Stored as {r,g,b} in module settings;
--- unset means no tint (the icon shows in its native colors). No alpha, since the
--- inline texture vertex color is RGB only.
--- @param module table the owning module (uses module:GetSettings())
--- @param field string settings key holding the {r,g,b} tint
+-- Tint for a module's inline icon, stored as {r,g,b}. No alpha: the inline
+-- texture vertex color is RGB only.
 function Addon:IconColorOption(module, field, name, order, opts)
     opts = opts or {}
     return {

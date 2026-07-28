@@ -5,8 +5,7 @@
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
 
--- Default values are deep-merged by AceDB for any missing key, so new fields
--- in future versions appear automatically on existing installs.
+-- AceDB deep-merges these, so new keys appear on existing installs.
 local defaults = {
     profile = {
         debug = false,
@@ -67,17 +66,12 @@ local defaults = {
             bestPrefix = "(", bestSuffix = ")", -- bracket characters around best times (either may be empty)
             font = {},           -- global font baseline (font, fontSize, fontFlags)
             elements = {},       -- per-element style overrides, keyed by elementKey
-            -- Up to two optional separator lines placed between modules. Each is
-            -- a block in the HUD stack; the position is configured like any
-            -- other block via the row layout (General -> Element order).
-            -- NOTE: no `after` key here - legacy anchors in the DEFAULTS would
-            -- be re-injected into profiles on every login and re-trigger the
-            -- one-time migration in MigrateProfile over and over.
+            -- No `after` key here: a legacy anchor in the DEFAULTS would be
+            -- re-injected on every login and re-trigger MigrateProfile forever.
             separators = {
                 { enabled = false, width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
                 { enabled = false, width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
             },
-            -- Optional HUD panel: background fill, border and a title bar.
             bg = {
                 show        = false,
                 color       = { 0, 0, 0, 0.6 },
@@ -89,33 +83,23 @@ local defaults = {
         },
         minimap = { hide = true }, -- minimap button hidden by default (optional)
     },
-    -- Per-character scope: the in-progress key, written continuously so it
-    -- survives a /reload. `false` means no active run.
+    -- Written continuously so a /reload mid-key loses nothing.
     char = {
-        activeRun = false,
+        activeRun = false, -- false = no active run
     },
-    -- Account-wide scope: reference data that is independent of the profile.
     global = {
         version     = 1,
         splits      = {},
         checkpoints = {},
-        -- Last addon version whose changelog was auto-shown (Modules/Changelog).
-        lastChangelogVersion = "",
-        -- Persisted geometry (width/height/top/left) of the standalone options
-        -- window; written by the AceGUI Frame status table (Core/Config.lua).
-        optionsWindow = {},
-        -- First-start setup wizard (Modules/Setup): `setupPending` is armed on
-        -- a fresh installation and cleared once the wizard was handled;
-        -- `setupDone` records that it ran (finished, skipped or closed).
-        setupPending = false,
-        setupDone    = false,
+        lastChangelogVersion = "", -- last version whose changelog was auto-shown
+        optionsWindow = {},        -- written by the AceGUI Frame status table
+        setupPending = false,      -- armed on a fresh install, cleared once handled
+        setupDone    = false,      -- wizard ran (finished, skipped or closed)
     },
 }
 
--- Curated "factory" preset for a fresh install / new profile. Generated from an
--- exported profile string (see Core/Profiles.lua) and deep-merged onto the
--- structural defaults below, so the structural defaults still backfill any key
--- the preset omits. Edit here to change the out-of-the-box configuration.
+-- Factory preset, deep-merged onto the structural defaults above (which still
+-- backfill any key it omits). Edit here to change the out-of-the-box config.
 local preset = {
     debug = false,
     minimap = {
@@ -233,10 +217,9 @@ local preset = {
         align = "center",
         bestPrefix = "",
         bestSuffix = "",
-        -- NOTE: ui.blockRows (the user-configurable row layout) is deliberately
-        -- NOT part of the defaults/preset: AceDB merges defaults index-wise
-        -- into saved arrays, which would corrupt user layouts. The factory
-        -- fallback lives in UI/MainWindow.lua (MODULE_BLOCKS).
+        -- ui.blockRows is deliberately absent: AceDB merges defaults index-wise
+        -- into saved arrays and would corrupt user layouts. Fallback lives in
+        -- UI/MainWindow.lua (MODULE_BLOCKS).
         bg = {
             border = true,
             borderColor = { 0, 0, 0, 1 },
@@ -422,16 +405,13 @@ local preset = {
 }
 Addon.Utils.CopyInto(defaults.profile, preset)
 
--- Create the database and wire up profile-change callbacks.
 function Addon:SetupDB()
     local AceDB = LibStub("AceDB-3.0")
-    -- Detect a fresh install BEFORE AceDB touches the SavedVariables: only a
-    -- brand-new installation (no stored data at all) arms the one-time setup
-    -- wizard, so existing users updating the addon are never bothered.
+    -- Must be read before AceDB touches SavedVariables; only a truly fresh
+    -- install arms the setup wizard, never an update.
     local freshInstall = (_G.MauiMPlusTimerDB == nil)
 
-    -- Third arg `true` -> use a single shared "Default" profile to start with.
-    self.db = AceDB:New("MauiMPlusTimerDB", defaults, true)
+    self.db = AceDB:New("MauiMPlusTimerDB", defaults, true) -- shared "Default" profile
 
     if freshInstall then
         self.db.global.setupPending = true
@@ -440,32 +420,24 @@ function Addon:SetupDB()
     self:MigrateDB()
     self:MigrateProfile()
 
-    -- When the active profile changes, tell every module to reload its settings.
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 end
 
--- Broadcast a profile change so modules can re-read db.profile.
 function Addon:OnProfileChanged()
     self:MigrateProfile() -- a switched/imported profile may carry legacy keys
-    if self.Widgets then self.Widgets:InvalidateStyle() end -- new profile -> new styles
-    if self.RefreshMinimapButton then self:RefreshMinimapButton() end -- new minimap state
+    if self.Widgets then self.Widgets:InvalidateStyle() end
+    if self.RefreshMinimapButton then self:RefreshMinimapButton() end
 
-    -- Match every module's enabled state to the new profile, so blocks the
-    -- previous profile showed but the new one disables do not linger. The
-    -- element order depends on those states, so drop the cached rows too.
-    -- (Previously this only sorted itself out after a /reload.)
+    -- Blocks the old profile showed must go; the row cache depends on those states.
     self:ApplyModuleStates()
     if self.MainWindow then self.MainWindow:InvalidateRows() end
 
-    -- Enabled modules restyle themselves from this message (LoadSettings); it is
-    -- deliberately NOT a full MainWindow:Refresh, whose per-module Restyle would
-    -- re-show blocks of modules the new profile disabled.
+    -- Not MainWindow:Refresh: its per-module Restyle would re-show blocks the
+    -- new profile disabled. Enabled modules restyle from LoadSettings instead.
     self:SendMessage("MMT_PROFILE_CHANGED")
 
-    -- Apply the new profile's demo state (on OR off) so hidden/shown matches,
-    -- then re-apply position/scale/width and relayout.
     if self.Demo then self.Demo:Apply() end
     if self.MainWindow then
         self.MainWindow:ApplyPosition()
@@ -473,13 +445,11 @@ function Addon:OnProfileChanged()
     end
 end
 
--- One-time migrations of removed options in the ACTIVE profile (idempotent;
--- runs at startup and after every profile switch/copy/reset/import).
+-- Idempotent: also runs after every profile switch, copy, reset and import.
 function Addon:MigrateProfile()
     local p = self.db.profile
 
-    -- Write a fresh single-block-per-row layout from a flat key list.
-    local function writeRows(keys)
+    local function writeRows(keys) -- one block per row, from a flat key list
         local rows = {}
         for i, key in ipairs(keys) do
             rows[i] = { left = key }
@@ -492,11 +462,8 @@ function Addon:MigrateProfile()
         p.ui.blockOrder = nil
     end
 
-    -- The Enemy Forces "Bar position" select became the free row ordering.
-    -- The default rows already place the bar below the objectives (the old
-    -- factory default), so only a saved "top" needs carrying over; the dead
-    -- key is dropped either way. The module's alignment option was removed
-    -- too (the main text has its own position setting now).
+    -- "Bar position" became the free row ordering. The default rows already
+    -- match the old default, so only a saved "top" needs carrying over.
     local forces = p.modules and p.modules.EnemyForces
     if forces then
         if forces.position ~= nil then
@@ -509,15 +476,13 @@ function Addon:MigrateProfile()
         forces.align = nil
     end
 
-    -- Separator lines lost their "after <element>" anchor; they are ordinary
-    -- row entries now. Rebuild the rows once from the legacy anchors so each
-    -- separator ends up right below its old anchor module.
+    -- Separators lost their "after <element>" anchor and are ordinary row
+    -- entries now; rebuild the rows once so each keeps its old position.
     local seps = p.ui.separators
     if seps and ((seps[1] and seps[1].after ~= nil)
         or (seps[2] and seps[2].after ~= nil)) then
-        -- Only separators that still carry a legacy anchor are recreated from
-        -- it; strip exactly those from the flattened base so they cannot end
-        -- up duplicated. A separator without an anchor keeps its current row.
+        -- Strip exactly the anchored ones from the base so they cannot end up
+        -- duplicated; an unanchored separator keeps its current row.
         local migrating = {}
         for i = 1, 2 do
             if seps[i] and seps[i].after ~= nil then
@@ -556,10 +521,9 @@ function Addon:MigrateProfile()
         end
     end
 
-    -- Repair row layouts written by earlier (pre-release) iterations: the
-    -- re-running legacy migration above accumulated duplicate keys and rows
-    -- beyond the configurable range. Only rewrites when actually damaged, so
-    -- intentional row gaps are preserved for healthy layouts.
+    -- Earlier pre-release iterations of the migration above accumulated
+    -- duplicates and overlong layouts. Only rewrite when actually damaged, so
+    -- intentional row gaps survive.
     local rows = p.ui.blockRows
     if type(rows) == "table" then
         local maxRows = (self.MainWindow and self.MainWindow.MAX_ROWS) or 10
@@ -595,16 +559,13 @@ function Addon:MigrateProfile()
         end
     end
 
-    -- The row layout may have changed above (or a different profile became
-    -- active): drop the cached normalized rows.
     if self.MainWindow and self.MainWindow.InvalidateRows then
         self.MainWindow:InvalidateRows()
     end
 end
 
--- Apply versioned migrations to the global scope.
+-- Versioned migrations of the global scope, keyed on g.version.
 function Addon:MigrateDB()
     local g = self.db.global
     g.version = g.version or 1
-    -- Future migration steps are added here, keyed on g.version.
 end

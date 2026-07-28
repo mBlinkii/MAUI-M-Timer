@@ -8,29 +8,23 @@ local Dungeon = Addon:GetModule("Dungeon")
 local UI = Addon:NewModuleUI()
 Dungeon.UI = UI
 
-local PANEL_PAD = 6 -- inner padding when the dungeon background/border is shown
+local PANEL_PAD = 6
 
--- Estimated line height for a text element (shared helper so the block grows
--- with the font and cannot overlap neighboring blocks).
 local function lineHeight(elementKey, fallback)
     return Addon.Widgets:LineHeight(elementKey, fallback)
 end
 
--- Build the "+<level>" tag via the shared helper, tinted with Blizzard's
--- keystone level rarity color when the module option is on.
 local function levelTag(level)
     return Addon.Utils.KeystoneLevelTag(level, Dungeon:GetSettings().levelColor)
 end
 
--- Inner padding when the optional background is enabled. The border only
--- exists together with the background, so the padding tracks bg.show alone.
+-- The border only exists together with the background, so bg.show alone
+-- decides the padding.
 local function panelPad()
     local bg = Dungeon:GetSettings().bg or {}
     return bg.show and PANEL_PAD or 0
 end
 
--- Apply the optional background + border to the dungeon block via the shared
--- Widgets:ApplyPanel helper (border requires the background).
 function UI:ApplyBackground()
     if not self.frame then return end
     Addon.Widgets:ApplyPanel(self.frame, Dungeon:GetSettings().bg)
@@ -46,8 +40,7 @@ function UI:Build()
     self.nameText = Addon.Widgets:CreateText(block, ns.E.dungeonName)
     self.affixText = Addon.Widgets:CreateText(block, ns.E.dungeonAffixes)
     self.icon = block:CreateTexture(nil, "ARTWORK")
-    -- Trim the built-in border baked into Blizzard icon textures (standard 8%
-    -- crop on every side). Set once here; it survives SetTexture swaps.
+    -- Trims the border baked into Blizzard icon textures; survives SetTexture.
     self.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     self.icon:Hide()
 
@@ -56,9 +49,7 @@ function UI:Build()
     Addon.MainWindow:AddBlock("dungeon", block, 5)
 end
 
--- Anchor the name at the top and the affix line beneath it, honoring per-element
--- offsets and the module alignment. The affix line and block height collapse
--- when the affix display is turned off.
+-- Name on top, affixes beneath; both collapse when affixes are off.
 function UI:LayoutTexts()
     if not self.frame then return end
     local s = Dungeon:GetSettings()
@@ -68,8 +59,7 @@ function UI:LayoutTexts()
     local affixH = lineHeight(ns.E.dungeonAffixes, 11)
     local pad = panelPad()
 
-    -- Optional map icon on the left or right edge. The text is inset on the
-    -- icon's side so it always sits next to (after) the icon.
+    -- The text is inset on the icon's side, so it always sits beside it.
     local showIcon = s.showIcon == true and self.iconTex ~= nil
     local iconSize = s.iconSize or 20
     local onRight = s.iconPos == "right"
@@ -92,9 +82,7 @@ function UI:LayoutTexts()
         end
     end
 
-    -- Anchor each line to a single point matching the alignment (like the timer
-    -- text) so a direct left<->right switch repositions reliably; the icon inset
-    -- keeps the text clear of the icon.
+    -- Single-point anchors, or a direct left<->right switch does not reposition.
     local function anchorLine(fs, key, baseY)
         local ox, oy = Addon.Widgets:GetOffset(key)
         fs:ClearAllPoints()
@@ -121,8 +109,7 @@ function UI:Update(name, affixes, icon, level)
     if not self.frame then return end
     self._last = { name = name, affixes = affixes, icon = icon, level = level }
     local nameStr = name or ""
-    -- Place the keystone level left or right of the name when enabled, with an
-    -- optional separator line ("|") between them ("||" renders as one "|").
+    -- "||" is the escape for a literal "|" in the separator.
     if level and Dungeon:GetSettings().showLevel ~= false then
         local sep = Dungeon:GetSettings().levelSep ~= false and " || " or " "
         if Dungeon:GetSettings().levelPos == "right" then
@@ -150,5 +137,3 @@ function UI:Restyle()
     end
     Addon.MainWindow:Layout()
 end
-
--- Show / Hide are provided by the shared UI base (Addon:NewModuleUI).

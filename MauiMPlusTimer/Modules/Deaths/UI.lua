@@ -1,7 +1,5 @@
 -- Modules/Deaths/UI.lua
--- HUD block showing the death count and the time penalty. A single-line text
--- block: Build/Restyle/Show/Hide come from the shared text-block base, so this
--- file only defines the displayed content (Update).
+-- One-line block with the death count and the time penalty.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -12,9 +10,8 @@ Deaths.UI = UI
 
 local DEFAULT_SKULL = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8"
 
--- The death-counter icon texture and tint are configurable (see Options). When a
--- tint is set the icon needs an explicit size, so it follows the text font size;
--- without a tint it stays auto-sized (0 = match the line height).
+-- A tint forces the long escape form, which needs an explicit size; without one
+-- 0 keeps the icon auto-sized to the line height.
 local function skull()
     local s = Deaths:GetSettings()
     local size = s.iconColor and math.floor(Addon.Widgets.ResolveStyle(ns.E.deathsText).fontSize or 16) or 0
@@ -28,7 +25,6 @@ function UI:Update(count, timeLost)
     if count <= 0 then
         self.text:SetText(skull() .. " 0")
     else
-        -- The time penalty uses its own configurable color.
         local penHex = Addon.Utils.ColorHex(
             Addon:GetElementSetting(ns.E.deathsText).penaltyColor or { 1, 0.38, 0.38, 1 })
         self.text:SetText(string.format(

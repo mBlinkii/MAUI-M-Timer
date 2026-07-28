@@ -1,6 +1,5 @@
 -- Core/Utilities.lua
--- Stateless helpers: pure functions plus thin read-only wrappers around the
--- WoW challenge-mode API. Holds no state of its own; no UI, no module logic.
+-- Stateless helpers and read-only wrappers around the challenge-mode API.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -9,7 +8,7 @@ local Utils = {}
 ns.Utils = Utils
 Addon.Utils = Utils
 
--- Format a duration in seconds as "m:ss" (or "h:mm:ss" past one hour).
+-- "m:ss", or "h:mm:ss" past one hour.
 function Utils.FormatTime(seconds)
     seconds = math.max(0, math.floor(seconds or 0))
     local h = math.floor(seconds / 3600)
@@ -21,16 +20,13 @@ function Utils.FormatTime(seconds)
     return string.format("%d:%02d", m, s)
 end
 
--- Name shortening ------------------------------------------------------------
-
--- Byte length of the UTF-8 sequence starting with byte `b` (1 for ASCII).
+-- Byte length of the UTF-8 sequence starting with byte `b`.
 local function utf8Step(b)
     return (b < 0x80 and 1) or (b < 0xE0 and 2) or (b < 0xF0 and 3) or 4
 end
 
--- UTF-8 aware truncation: cut `text` to at most `maxChars` characters without
--- splitting a multi-byte sequence (names contain umlauts and similar).
--- Returns the (possibly cut) text and whether it was actually cut.
+-- Cuts to `maxChars` characters without splitting a multi-byte sequence.
+-- Returns the text and whether it was cut.
 local function utf8Truncate(text, maxChars)
     local pos, chars, len = 1, 0, #text
     while pos <= len and chars < maxChars do
@@ -41,19 +37,15 @@ local function utf8Truncate(text, maxChars)
     return text:sub(1, pos - 1), true
 end
 
--- The first UTF-8 character of a word (initial for the abbreviation mode).
 local function utf8First(word)
     local b = word:byte(1)
     if not b then return word end
     return word:sub(1, utf8Step(b))
 end
 
--- Shorten a display name (e.g. objective/boss names) according to `mode`:
---   "truncate"  -> cut to `maxChars` characters, appending "…" when cut
---   "firstword" -> keep only the first word
---   "abbrev"    -> keep the first word, following words become initials ("S.")
--- Any other mode (or nil/"off") returns the name unchanged. Pure string logic;
--- callers apply this for DISPLAY only, stored names stay complete.
+-- mode: "truncate" (maxChars + ellipsis) | "firstword" | "abbrev" (following
+-- words become initials). Anything else returns the name unchanged. Display
+-- only -- stored names stay complete.
 function Utils.ShortenName(name, mode, maxChars)
     if type(name) ~= "string" or name == "" or not mode or mode == "off" then
         return name
@@ -77,23 +69,20 @@ function Utils.ShortenName(name, mode, maxChars)
     return name
 end
 
--- Current Mythic+ challenge elapsed time in seconds (world elapsed timer #1),
--- or nil when the API is unavailable. Use this raw form when the caller needs
--- to distinguish "no timer API" (nil) from "pre-run countdown" (0), e.g. to
--- fall back to a wall-clock estimate.
+-- Nil when the timer API is unavailable, so callers can tell that apart from
+-- the pre-run countdown (0) and fall back to a wall-clock estimate.
 function Utils.ChallengeElapsedRaw()
     if not GetWorldElapsedTime then return nil end
     local _, elapsed = GetWorldElapsedTime(1)
     return elapsed
 end
 
--- Like ChallengeElapsedRaw, but never nil (0 when unavailable). Shared by
--- modules that timestamp events (deaths, checkpoints, forces completion).
+-- Like ChallengeElapsedRaw, but 0 instead of nil.
 function Utils.ChallengeElapsed()
     return Utils.ChallengeElapsedRaw() or 0
 end
 
--- The active challenge map's time limit in seconds, or 0 if unavailable.
+-- Seconds, or 0 if unavailable.
 function Utils.GetChallengeTimeLimit()
     if not (C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID) then return 0 end
     local mapID = C_ChallengeMode.GetActiveChallengeMapID()
@@ -102,10 +91,7 @@ function Utils.GetChallengeTimeLimit()
     return timeLimit or 0
 end
 
--- Challenge map info helpers (shared by the Splits manager, the checkpoint
--- editor and the Dungeon module) ----------------------------------------------
-
--- Readable dungeon name for a challenge map id ("Map <id>" fallback).
+-- "Map <id>" fallback when the API has no name.
 function Utils.GetMapName(mapID)
     if C_ChallengeMode and C_ChallengeMode.GetMapUIInfo then
         local name = C_ChallengeMode.GetMapUIInfo(mapID)
@@ -114,7 +100,6 @@ function Utils.GetMapName(mapID)
     return "Map " .. tostring(mapID)
 end
 
--- The dungeon's icon texture (from the challenge-mode map info), or nil.
 function Utils.GetMapTexture(mapID)
     if C_ChallengeMode and C_ChallengeMode.GetMapUIInfo then
         local _, _, _, texture = C_ChallengeMode.GetMapUIInfo(mapID)
@@ -123,7 +108,7 @@ function Utils.GetMapTexture(mapID)
     return nil
 end
 
--- The dungeon's base time limit (seconds), or nil if unavailable.
+-- Base time limit in seconds, or nil.
 function Utils.GetMapTimeLimit(mapID)
     if C_ChallengeMode and C_ChallengeMode.GetMapUIInfo then
         local _, _, timeLimit = C_ChallengeMode.GetMapUIInfo(mapID)
@@ -132,9 +117,7 @@ function Utils.GetMapTimeLimit(mapID)
     return nil
 end
 
--- Build a "+<level>" keystone tag, optionally tinted with Blizzard's keystone
--- level rarity color. Returns the plain tag when colored is falsy or the color
--- API is unavailable.
+-- "+<level>", optionally tinted with Blizzard's keystone rarity color.
 function Utils.KeystoneLevelTag(level, colored)
     local tag = "+" .. level
     if colored and C_ChallengeMode and C_ChallengeMode.GetKeystoneLevelRarityColor then
@@ -148,9 +131,7 @@ function Utils.KeystoneLevelTag(level, colored)
     return tag
 end
 
--- Heroism/Bloodlust availability ----------------------------------------------
--- Exhaustion-style debuffs that block another Heroism/Bloodlust. Single source
--- for both the Cooldowns display and the Sound module's Heroism cue.
+-- Exhaustion-style debuffs that block another Heroism/Bloodlust.
 local LUST_DEBUFFS = {
     57724,  -- Sated (Bloodlust)
     57723,  -- Exhaustion (Heroism)
@@ -160,8 +141,7 @@ local LUST_DEBUFFS = {
     95809,  -- Insanity (Hunter pet Ancient Hysteria)
 }
 
--- Seconds remaining on the player's lust exhaustion debuff, or nil when no such
--- debuff is present (i.e. Heroism/Bloodlust is available again).
+-- Nil means no exhaustion debuff, i.e. lust is available again.
 function Utils.GetLustDebuffRemaining()
     if not (C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID) then return nil end
     for _, id in ipairs(LUST_DEBUFFS) do
@@ -173,7 +153,6 @@ function Utils.GetLustDebuffRemaining()
     return nil
 end
 
--- Deep-copy a table (used for cloning defaults).
 function Utils.CopyTable(src)
     if type(src) ~= "table" then return src end
     local dst = {}
@@ -183,8 +162,7 @@ function Utils.CopyTable(src)
     return dst
 end
 
--- Recursively copy values from `src` into `dst`, overwriting existing keys.
--- Used to merge the factory preset onto the structural defaults (trusted data).
+-- Trusted data only (factory preset); see CopyIntoTyped for imports.
 function Utils.CopyInto(dst, src)
     if type(dst) ~= "table" or type(src) ~= "table" then return dst end
     for k, v in pairs(src) do
@@ -197,12 +175,8 @@ function Utils.CopyInto(dst, src)
     return dst
 end
 
--- Type-safe variant of CopyInto for UNTRUSTED data (profile import strings):
--- when a key already exists in `dst`, the incoming value is only applied if its
--- type matches, so a corrupt import (e.g. a color stored as a string) can never
--- replace a table the UI later unpacks. Unknown keys are accepted as-is (they
--- have no effect on behaviour). Valid exports match types everywhere, so this
--- behaves identically to CopyInto for well-formed strings.
+-- CopyInto for untrusted imports: an existing key is only overwritten when the
+-- types match, so a corrupt value can never replace a table the UI unpacks.
 function Utils.CopyIntoTyped(dst, src)
     if type(dst) ~= "table" or type(src) ~= "table" then return dst end
     for k, v in pairs(src) do
@@ -212,15 +186,12 @@ function Utils.CopyIntoTyped(dst, src)
         elseif cur == nil or type(cur) == type(v) then
             dst[k] = (type(v) == "table") and Utils.CopyTable(v) or v
         end
-        -- Mismatched types are skipped silently (corrupt/foreign import data).
     end
     return dst
 end
 
--- Build an inline texture escape for FontStrings. The icon scales with the
--- line's font height (height/width 0) and gets an optional { r, g, b } vertex
--- tint (0..1 floats, defaults to white). Expects 64x64 textures (the bundled
--- label glyphs under Assets/Icons/Labels).
+-- Inline texture escape for FontStrings; 0/0 makes the icon scale with the
+-- line's font height. Expects 64x64 textures.
 function Utils.IconTag(path, color)
     local function byte(x)
         return math.floor(math.min(math.max(x or 1, 0), 1) * 255 + 0.5)
@@ -231,25 +202,19 @@ function Utils.IconTag(path, color)
     return string.format("|T%s:0:0:0:0:64:64:0:64:0:64:%d:%d:%d|t", path, r, g, b)
 end
 
--- Secure share-string codec ---------------------------------------------------
-
--- Every MAUI export string carries a readable prefix ("!MAUI:<kind>:<v>!") AND
--- an addon marker inside the serialized envelope. Import accepts only strings
--- that carry both with the expected kind, so foreign strings (e.g. exports of
--- other addons built on the same libraries), mismatched types (a checkpoint
--- string pasted into the profile import) and corrupted data are all rejected.
+-- Export strings carry a readable prefix ("!MAUI:<kind>:<v>!") AND this marker
+-- inside the envelope; import requires both, so foreign strings built on the
+-- same libraries, wrong kinds and corrupted data are all rejected.
 local SHARE_MARKER  = "MauiMPlusTimer"
 local SHARE_VERSION = 1
 
--- Optional libs (silent fetch); without them share strings are unavailable.
+-- Silent fetch; without them share strings are unavailable.
 local function shareLibs()
     return LibStub("LibSerialize", true), LibStub("LibDeflate", true)
 end
 
--- Encode a payload table into a tagged, shareable string.
--- @param kind    string  payload type tag, e.g. "profile" or "checkpoints".
--- @param payload table   the data to share.
--- @return the string, or nil plus an error message.
+-- kind: payload tag, e.g. "profile" or "checkpoints". Returns the string, or
+-- nil plus an error message.
 function Utils.EncodeShare(kind, payload)
     local LibSerialize, LibDeflate = shareLibs()
     if not (LibSerialize and LibDeflate) then
@@ -266,11 +231,7 @@ function Utils.EncodeShare(kind, payload)
         LibDeflate:EncodeForPrint(compressed))
 end
 
--- Decode a tagged share string, accepting only genuine MAUI strings of the
--- expected kind (see the format notes above).
--- @param kind string  the expected payload type tag.
--- @param str  string  the pasted share string.
--- @return the payload table, or nil plus an error message.
+-- Returns the payload table, or nil plus an error message.
 function Utils.DecodeShare(kind, str)
     local LibSerialize, LibDeflate = shareLibs()
     if not (LibSerialize and LibDeflate) then
@@ -280,8 +241,8 @@ function Utils.DecodeShare(kind, str)
         return nil, "empty import string"
     end
 
-    -- Tolerate whitespace/linebreaks picked up while copying; neither the
-    -- prefix nor the printable encoding contain legitimate whitespace.
+    -- Neither the prefix nor the printable encoding contains whitespace, so
+    -- anything picked up while copying can be dropped.
     str = str:gsub("%s+", "")
 
     local strKind, strVersion, body = str:match("^!MAUI:(%w+):(%d+)!(.+)$")
@@ -306,8 +267,8 @@ function Utils.DecodeShare(kind, str)
         return nil, "deserialization failed"
     end
 
-    -- Defense in depth: the prefix alone could be pasted onto foreign data,
-    -- so the envelope must independently prove it is ours and of this kind.
+    -- The prefix alone could be pasted onto foreign data, so the envelope has
+    -- to prove independently that it is ours and of this kind.
     if envelope.addon ~= SHARE_MARKER or envelope.kind ~= kind
         or type(envelope.payload) ~= "table" then
         return nil, "not a valid MAUI export"
@@ -316,17 +277,12 @@ function Utils.DecodeShare(kind, str)
     return envelope.payload
 end
 
--- Deepest table nesting SerializeTable will follow. Profile/checkpoint tables
--- are only a few levels deep; the guard protects against accidental cycles or
--- runaway structures (which would otherwise overflow the stack).
+-- Guards against cycles, which would otherwise overflow the stack.
 local SERIALIZE_MAX_DEPTH = 20
 
--- Serialize a table into readable Lua source (a table constructor). Used by
--- the plain-text profile export so a profile can be pasted directly into addon
--- code (e.g. the factory preset in Core/DB.lua). Supports string, number,
--- boolean and nested table values; other types are skipped. Keys are emitted
--- in a stable order (numeric ascending, then strings alphabetically). Nesting
--- deeper than SERIALIZE_MAX_DEPTH is cut off with a marker comment.
+-- Readable Lua table constructor for the plain-text profile export, so a
+-- profile can be pasted into addon code. Skips types other than string,
+-- number, boolean and table; key order is stable (numbers, then strings).
 function Utils.SerializeTable(tbl, indent)
     indent = indent or 0
     if indent >= SERIALIZE_MAX_DEPTH then
@@ -371,9 +327,8 @@ function Utils.SerializeTable(tbl, indent)
     return table.concat(lines, "\n")
 end
 
--- Convert an {r,g,b,a} color (0..1) into a WoW "AARRGGBB" hex escape body.
--- The byte helper and white fallback are module-local so no closure/table is
--- allocated per call (this runs once per colored text, every tick).
+-- {r,g,b,a} (0..1) to a WoW "AARRGGBB" escape body. Helper and fallback are
+-- file-local so nothing is allocated per call -- this runs on every tick.
 local WHITE = { 1, 1, 1, 1 }
 local function colorByte(v) return math.floor((v or 0) * 255 + 0.5) end
 function Utils.ColorHex(c)
@@ -382,16 +337,13 @@ function Utils.ColorHex(c)
         colorByte(c[4] or 1), colorByte(c[1]), colorByte(c[2]), colorByte(c[3]))
 end
 
--- Shared comparison colors ----------------------------------------------------
--- Resolved here (not in the UI layer) so the Core formatters below have no
--- upward dependency; UI/Widgets delegates its GetDeltaColor/GetBestColor to
--- these. Hoisted fallbacks so no table is allocated per call.
+-- Comparison colors live here, not in the UI layer, so the Core formatters
+-- below have no upward dependency; UI/Widgets delegates to these.
 local DELTA_AHEAD_FALLBACK  = { 0.20, 1.00, 0.60, 1 }
 local DELTA_BEHIND_FALLBACK = { 1.00, 0.38, 0.38, 1 }
 local BEST_FALLBACK         = { 0.55, 0.78, 1.00, 1 }
 
--- Shared +/- comparison color (green = ahead of best, red = behind). Central
--- override (profile.ui.elements.deltas.ahead/.behind) over the theme default.
+-- Green ahead of best, red behind; profile override wins over the theme.
 function Utils.GetDeltaColor(ahead)
     local theme = (Addon.GetTheme and Addon:GetTheme()) or nil
     local e = Addon.db and Addon.db.profile.ui.elements.deltas
@@ -401,17 +353,14 @@ function Utils.GetDeltaColor(ahead)
     return (e and e.behind) or (theme and theme.deltaBehind) or DELTA_BEHIND_FALLBACK
 end
 
--- Configurable color for stored best-run reference times (override on the
--- Colors page, otherwise the theme default).
+-- Color of stored best-run reference times.
 function Utils.GetBestColor()
     local e = Addon.db and Addon.db.profile.ui.elements.best
     local theme = (Addon.GetTheme and Addon:GetTheme()) or nil
     return (e and e.color) or (theme and theme.bestColor) or BEST_FALLBACK
 end
 
--- Format a +/- time delta as a colored string (ahead/negative vs behind/
--- positive). Colors come from the shared, configurable comparison pair
--- (Utils.GetDeltaColor). Returns "" for nil. Used for best-time comparisons.
+-- Colored +/- time delta; negative counts as ahead. "" for nil.
 function Utils.FormatDelta(delta)
     if not delta then return "" end
     local ahead = delta <= 0
@@ -420,15 +369,11 @@ function Utils.FormatDelta(delta)
     return string.format("|c%s%s%s|r", hex, sign, Utils.FormatTime(math.abs(delta)))
 end
 
--- Format a percentage delta as a colored string (positive/ahead = green,
--- negative/behind = red). Uses the shared comparison colors. Used by Checkpoints
--- (more forces than target = good).
+-- Colored percentage delta; positive counts as ahead (more forces than target).
 function Utils.FormatPctDelta(delta)
     if not delta then return "" end
-    -- Round to the displayed precision (0.1) FIRST, then derive sign/color. A
-    -- value a hair below the target (e.g. -0.04) would otherwise render as the
-    -- misleading "-0.0%" (looked like an unreached checkpoint); rounding it to
-    -- 0 makes it count as reached and show "+0.0%".
+    -- Round to the displayed precision before deriving sign and color, or a
+    -- value a hair below the target renders as a misleading "-0.0%".
     local rounded = math.floor(delta * 10 + 0.5) / 10
     if rounded == 0 then rounded = 0 end -- normalize a possible -0.0 to 0
     local ahead = rounded >= 0
@@ -437,12 +382,10 @@ function Utils.FormatPctDelta(delta)
     return string.format("|c%s%s%.1f%%|r", hex, sign, math.abs(rounded))
 end
 
--- Linearly interpolate between two numbers (used later by Checkpoints).
 function Utils.Lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Clamp a number into the [min, max] range.
 function Utils.Clamp(value, minValue, maxValue)
     if value < minValue then return minValue end
     if value > maxValue then return maxValue end

@@ -1,31 +1,22 @@
 -- Core/Config.lua
--- Builds the AceConfig options tree, registers it with the Blizzard settings
--- panel, and maps the /mauimpt slash command to GUI deeplinks. No data logic.
+-- Builds the AceConfig options tree and the /mauimpt slash command. No data logic.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
 
--- Custom top-level menu icons, bundled under Assets/Icons/Menu (extension-less so
--- WoW resolves the .tga). Generated to match the addon logo and tinted per colour
--- group. Module icons live in each module's own Options file.
+-- Extension-less paths; WoW resolves the bundled .tga.
 local MENU_ICON_DIR = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Menu\\"
 local ICON_GENERAL  = MENU_ICON_DIR .. "general"
 local ICON_MODULES  = MENU_ICON_DIR .. "modules"
 local ICON_PROFILES = MENU_ICON_DIR .. "profiles"
 
--- Logo texture (extension-less so WoW resolves the bundled .tga). icon_big is a
--- 512x512 master scaled down where it is displayed.
 local LOGO_TEXTURE = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_big"
 
--- Default (and reset) size of the standalone options window. Once the user
--- moves or resizes the window, their geometry is persisted account-wide in
--- db.global.optionsWindow and wins over these values (see Addon:OpenOptions).
+-- Fallback only: a persisted db.global.optionsWindow geometry wins over these.
 local OPTIONS_DEFAULT_WIDTH  = 900
 local OPTIONS_DEFAULT_HEIGHT = 650
 
--- Functional colour scheme for the top-level menu entries. Grouping the entries
--- by purpose (core appearance, modules, profiles, about) gives the tree a quick
--- visual hierarchy. Colours are WoW |c colour codes (AARRGGBB).
+-- WoW |c colour codes (AARRGGBB).
 local MENU_COLORS = {
     core      = "ffffd100", -- gold  : core / appearance pages
     modules   = "ff40c057", -- green : module pages
@@ -34,10 +25,8 @@ local MENU_COLORS = {
     about     = "ffb0b0b0", -- grey  : informational / about
 }
 
--- Single source of truth for the presentation of every top-level tree node:
--- display order, icon and the colour group above. Applied centrally in
--- BuildOptions so ordering, icons and colours stay consistent regardless of
--- which file registered the page.
+-- Presentation of every top-level node, applied in BuildOptions so pages
+-- registered elsewhere still get a consistent order, icon and colour.
 local MENU_NODES = {
     general    = { order = 1,   group = "core",     icon = ICON_GENERAL },
     window     = { order = 2,   group = "core",     icon = MENU_ICON_DIR .. "window" },
@@ -49,21 +38,14 @@ local MENU_NODES = {
     about      = { order = 100, group = "about",    icon = MENU_ICON_DIR .. "about" },
 }
 
--- Wrap a node name in a colour code. Idempotent: any previously applied wrap is
--- stripped first so repeated option-tree rebuilds never stack colour codes.
--- @param text  string  the (possibly already coloured) display name.
--- @param color string  an AARRGGBB colour code.
--- @return string the name wrapped in exactly one colour code.
+-- Strips an existing wrap first, so repeated tree rebuilds never stack codes.
 local function Colorize(text, color)
     text = tostring(text or "")
     text = text:gsub("^|c%x%x%x%x%x%x%x%x", ""):gsub("|r$", "")
     return "|c" .. color .. text .. "|r"
 end
 
--- Apply the MENU_NODES presentation (order, icon, colour) to the assembled
--- top-level args. Pages registered in other files are styled here so the menu
--- stays consistent from one place. Unlisted nodes are left untouched.
--- @param args table  options.args (the top-level tree nodes).
+-- Unlisted nodes are left untouched.
 local function ApplyMenuStyle(args)
     for key, def in pairs(MENU_NODES) do
         local node = args[key]
@@ -75,8 +57,7 @@ local function ApplyMenuStyle(args)
     end
 end
 
--- Localized display names of the orderable HUD blocks (module blocks plus the
--- two separator lines; keys match MainWindow's block keys).
+-- Keys match MainWindow's block keys.
 local function blockLabels()
     local L = ns.L
     return {
@@ -89,20 +70,14 @@ local function blockLabels()
     }
 end
 
--- Args for the "Element order" section on the General page: one dropdown pair
--- (left / right half) per HUD row. Assigning a block moves it out of its old
--- slot; clearing a slot re-adds the module on the lowest free row, so modules
--- can never get lost. Enabled separator lines appear as entries too and
--- always occupy a full row (the right dropdown is disabled next to one).
--- Rebuilt on every options refresh (BuildOptions is registered as a function).
+-- One dropdown pair (left/right half) per HUD row. Clearing a slot re-adds the
+-- module on the lowest free row, so a module can never get lost.
 function Addon:BuildBlockOrderArgs()
     local L = ns.L
     local MainWindow = Addon.MainWindow
     local labels = blockLabels()
 
-    -- Dropdown content: empty + modules; separators (while enabled on the HUD
-    -- panel page). Full-row blocks - timer, forces, objectives, separators -
-    -- can only go into the LEFT dropdown: they always occupy the whole row.
+    -- Full-row blocks only offered on the left: they occupy the whole row.
     local leftValues, rightValues = { none = "-" }, { none = "-" }
     local leftSorting, rightSorting = { "none" }, { "none" }
     for _, key in ipairs(MainWindow.MODULE_BLOCKS) do
@@ -134,9 +109,8 @@ function Addon:BuildBlockOrderArgs()
             type = "description", order = base, width = 0.25, fontSize = "medium",
             name = string.format("%d.", index),
         }
-        -- Full-width spacer AFTER each row (order base+3, added below) forces
-        -- the flow layout onto a new line, so the rows always stack vertically
-        -- no matter how wide the options window is.
+        -- Full-width spacer after each row forces the flow layout onto a new
+        -- line, so rows stack vertically at any options window width.
         args["row" .. index .. "Break"] = {
             type = "description", order = base + 3, width = "full", name = " ",
             fontSize = "small",
@@ -176,9 +150,8 @@ function Addon:BuildBlockOrderArgs()
     return args
 end
 
--- Build the root options table. Appearance pages and modules are added later via
--- Addon:RegisterModuleOptions(); the root statically defines General, the
--- Modules parent node and (at the end) Profiles.
+-- Root options table; appearance and module pages are merged in from
+-- Addon:RegisterModuleOptions().
 function Addon:BuildOptions()
     local L = ns.L
     local options = {
@@ -269,8 +242,6 @@ function Addon:BuildOptions()
                                 desc = L["Reopen the first-start setup wizard to pick a profile and load the recommended checkpoint targets."],
                                 order = 4,
                                 func = function()
-                                    -- Same entry point as the "/mauimpt setup"
-                                    -- slash command; the module owns its window.
                                     local m = Addon:GetModule("Setup", true)
                                     if m and m.UI then m.UI:Show() end
                                 end,
@@ -296,9 +267,6 @@ function Addon:BuildOptions()
         },
     }
 
-    -- Merge in registered option pages by category. "root" pages (HUD panel,
-    -- font, colors) sit at the top level next to General; "modules" pages are
-    -- nested under the Modules parent node defined above.
     local categories = self._optionCategories or {}
     for key, group in pairs(categories.root or {}) do
         options.args[key] = group
@@ -307,12 +275,8 @@ function Addon:BuildOptions()
         options.args.modules.args[key] = group
     end
 
-    -- Standard profile management page (switch/copy/reset/delete).
-    -- IMPORTANT: the table returned by AceDBOptions shares its `args` across
-    -- EVERY addon that uses the library (tbl.args = optionsTable in the lib),
-    -- so it must never be modified - adding entries there would inject them
-    -- into other addons' profile pages (e.g. ElvUI). Build an own group that
-    -- only references the shared entries and add the share page to that.
+    -- AceDBOptions shares its `args` table across every addon using the library,
+    -- so it must never be modified. Reference the entries from an own group.
     local dbOptions = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
     local profiles = {
         type = "group",
@@ -326,20 +290,14 @@ function Addon:BuildOptions()
     for key, option in pairs(dbOptions.args) do
         profiles.args[key] = option -- read-only reference, never modified
     end
-    -- Nest profile sharing (import/export) as its own page under the profile
-    -- node, the same way modules are nested under the Modules node.
     profiles.args.share = self:BuildShareOptions()
     options.args.profiles = profiles
 
-    -- Apply the consistent order/icon/colour scheme to the top-level entries.
     ApplyMenuStyle(options.args)
     return options
 end
 
--- Import/Export page for the current profile, shown as a sub-page under the
--- profile node. The serialization lives in Core/Profiles.lua; this only wires
--- the UI. The export string is generated on demand (Export button) so the field
--- stays empty until the user asks for it.
+-- UI only; the serialization lives in Core/Profiles.lua.
 function Addon:BuildShareOptions()
     local L = ns.L
     return {
@@ -414,8 +372,7 @@ function Addon:BuildShareOptions()
     }
 end
 
--- About page: addon name, version, author, the slash commands and project info.
--- All values are read from the .toc metadata so they stay in sync with releases.
+-- Values come from the .toc metadata so they stay in sync with releases.
 function Addon:BuildAboutOptions()
     local L = ns.L
     local function meta(field)
@@ -428,8 +385,7 @@ function Addon:BuildAboutOptions()
         order = 100,
         icon = "Interface\\ICONS\\INV_Misc_QuestionMark",
         args = {
-            -- Logo and title in one description: the AceGUI Label widget renders
-            -- the image to the left of the text when the row is wide enough.
+            -- AceGUI's Label renders the image left of the text on a wide row.
             title = {
                 type = "description", order = 1, width = "full",
                 fontSize = "large", name = "MAUI M+ Timer",
@@ -472,22 +428,18 @@ function Addon:SetupConfig()
     local AceConfig = LibStub("AceConfig-3.0")
     self.AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
-    -- Register the global font page (baseline for all elements).
     if self.BuildGlobalFontOptions then
         self:RegisterModuleOptions("globalfont", self:BuildGlobalFontOptions(), "root")
     end
 
-    -- Register the aggregated colors page (all element colors by area).
     if self.BuildColorsOptions then
         self:RegisterModuleOptions("colors", self:BuildColorsOptions(), "root")
     end
 
-    -- Register the HUD panel page (background, border, title).
     if self.BuildWindowOptions then
         self:RegisterModuleOptions("window", self:BuildWindowOptions(), "root")
     end
 
-    -- About page (name, version, author, commands, project info).
     if self.BuildAboutOptions then
         self:RegisterModuleOptions("about", self:BuildAboutOptions(), "root")
     end
@@ -496,11 +448,8 @@ function Addon:SetupConfig()
     self.AceConfigDialog:SetDefaultSize(ADDON_NAME, OPTIONS_DEFAULT_WIDTH, OPTIONS_DEFAULT_HEIGHT)
     self.optionsFrame = self.AceConfigDialog:AddToBlizOptions(ADDON_NAME, "MAUI M+ Timer")
 
-    -- AceConfigDialog re-runs :Open for an already-open frame on every options
-    -- refresh (NotifyChange after a setting change) and rebinds ITS internal
-    -- status table - which carries only the default size - to the frame each
-    -- time. That reset the window geometry on the first change after a reload.
-    -- Rebinding our persisted table after EVERY Open keeps the geometry stable.
+    -- AceConfigDialog re-runs :Open on every NotifyChange and rebinds its own
+    -- default-size status table, resetting the geometry. Rebind ours after each.
     hooksecurefunc(self.AceConfigDialog, "Open", function(_, appName)
         if appName == ADDON_NAME then
             Addon:ApplyOptionsWindowStatus()
@@ -510,21 +459,14 @@ function Addon:SetupConfig()
     self:RegisterChatCommand("mauimpt", "HandleSlash")
 end
 
--- Open the standalone options window. The geometry binding and the reset
--- control are attached by the Open hook installed in SetupConfig, so they are
--- applied on every open path (slash command, minimap button, compartment,
--- changelog auto-show) AND on every internal refresh re-open.
+-- Geometry binding and reset control come from the Open hook in SetupConfig.
 function Addon:OpenOptions()
     if not self.AceConfigDialog then return end
     self.AceConfigDialog:Open(ADDON_NAME)
 end
 
--- Bind the persisted window geometry to the open options frame and attach the
--- size-reset control. The AceGUI Frame writes its geometry (width/height/
--- top/left) into its status table whenever the user finishes moving or
--- resizing; pointing it at a SavedVariables table persists the geometry
--- across sessions. While the table is empty (first use / after a reset) the
--- default size from SetDefaultSize stays in effect.
+-- The AceGUI Frame writes its geometry into its status table after every move
+-- or resize, so pointing that at SavedVariables persists it across sessions.
 function Addon:ApplyOptionsWindowStatus()
     local widget = self.AceConfigDialog and self.AceConfigDialog.OpenFrames[ADDON_NAME]
     if not widget then return end
@@ -534,9 +476,6 @@ function Addon:ApplyOptionsWindowStatus()
     self:EnsureOptionsResetButton(widget)
 end
 
--- Toggle the standalone options window: close it when it is open, otherwise
--- open it. Used by the minimap button and the addon compartment entry, so a
--- second click on either dismisses the window again.
 function Addon:ToggleOptions()
     if not self.AceConfigDialog then return end
     if self.AceConfigDialog.OpenFrames[ADDON_NAME] then
@@ -546,8 +485,7 @@ function Addon:ToggleOptions()
     end
 end
 
--- Reset the options window to its default size, re-center it and clear the
--- persisted geometry (so the default also applies to future sessions).
+-- Also clears the persisted geometry so the default survives the session.
 function Addon:ResetOptionsWindowSize()
     wipe(self.db.global.optionsWindow)
     local widget = self.AceConfigDialog and self.AceConfigDialog.OpenFrames[ADDON_NAME]
@@ -558,10 +496,8 @@ function Addon:ResetOptionsWindowSize()
     widget.frame:SetPoint("CENTER")
 end
 
--- Attach the small "reset window size" control to the bottom-left edge of the
--- options window (on the status bar, left of the resize handles). One shared
--- button is reparented on every open; its OnShow guard hides it when AceGUI
--- recycles the host frame for a different dialog (possibly another addon's).
+-- One shared button, reparented on every open; the OnShow guard hides it when
+-- AceGUI recycles the host frame for another dialog (possibly another addon's).
 function Addon:EnsureOptionsResetButton(widget)
     local L = ns.L
     local btn = self._optionsResetButton
@@ -581,8 +517,6 @@ function Addon:EnsureOptionsResetButton(widget)
         btn:SetScript("OnLeave", function()
             GameTooltip:Hide()
         end)
-        -- Hide the button whenever its host frame is shown for anything that
-        -- is not our own options window (AceGUI widget recycling).
         btn:SetScript("OnShow", function(s)
             local open = Addon.AceConfigDialog
                 and Addon.AceConfigDialog.OpenFrames[ADDON_NAME]
@@ -593,28 +527,21 @@ function Addon:EnsureOptionsResetButton(widget)
 
     btn:SetParent(widget.frame)
     btn:ClearAllPoints()
-    -- Vertically centered on the AceGUI Frame's status bar (which starts
-    -- ~15px above the frame's bottom edge and is ~24px tall).
+    -- Centered on the AceGUI status bar (~15px above the bottom, ~24px tall).
     btn:SetPoint("BOTTOMLEFT", widget.frame, "BOTTOMLEFT", 20, 19)
     btn:SetFrameLevel(widget.frame:GetFrameLevel() + 10)
     btn:Show()
 end
 
--- Allow modules (and core appearance pages) to attach their own options group
--- to the tree. category "modules" (default) nests the page under the Modules
--- parent node; category "root" keeps it at the top level next to General.
--- Safe to call before SetupConfig finishes; the tree is rebuilt on demand.
--- @param key      string  unique page key used by the slash-command deeplinks.
--- @param group    table   the AceConfig options group for the page.
--- @param category string  "modules" (default) or "root".
+-- Attach an options group to the tree. category "modules" (default) nests it
+-- under the Modules node, "root" keeps it top level. Safe before SetupConfig.
 function Addon:RegisterModuleOptions(key, group, category)
     category = category or "modules"
     self._optionCategories = self._optionCategories or {}
     self._optionCategories[category] = self._optionCategories[category] or {}
     self._optionCategories[category][key] = group
 
-    -- Remember where each page lives so /mauimpt <page> can deeplink into the
-    -- (possibly nested) tree node.
+    -- Path per page so /mauimpt <page> can deeplink into a nested node.
     self._optionPath = self._optionPath or {}
     if category == "modules" then
         self._optionPath[key:lower()] = { "modules", key }
@@ -623,8 +550,7 @@ function Addon:RegisterModuleOptions(key, group, category)
     end
 end
 
--- Reusable enable/disable toggle for a module. Reads the saved state (falling
--- back to the module's enabledByDefault) and toggles the module live.
+-- Falls back to the module's enabledByDefault when nothing is saved.
 function Addon:ModuleEnableOption(module, order)
     local L = ns.L
     local default = module.enabledByDefault ~= false
@@ -644,7 +570,6 @@ function Addon:ModuleEnableOption(module, order)
     }
 end
 
--- Reusable per-module alignment option ("inherit" follows the global setting).
 function Addon:ModuleAlignOption(module, order)
     local L = ns.L
     return {
@@ -664,18 +589,14 @@ function Addon:ModuleAlignOption(module, order)
         end,
         set = function(_, v)
             module:GetSettings().align = v
-            -- Refresh restyles every module and, in demo mode, re-feeds sample
-            -- data, so the alignment change (including content that depends on
-            -- the alignment, e.g. mirrored rows) is reflected immediately.
+            -- Refresh, not Restyle: mirrored rows depend on the alignment.
             Addon.MainWindow:Refresh()
         end,
     }
 end
 
--- Enable/disable EVERY module to match the active profile's saved state. Modules
--- only reload their own settings on a profile change (MMT_PROFILE_CHANGED); they
--- do not toggle their AceAddon enabled state, so without this a module the new
--- profile disables would keep its block on screen until a /reload. Idempotent.
+-- Modules only reload settings on MMT_PROFILE_CHANGED, they never toggle their
+-- own AceAddon state, so a profile switch needs this to hide disabled blocks.
 function Addon:ApplyModuleStates()
     for name, module in self:IterateModules() do
         if type(module.GetSettings) == "function" then
@@ -692,23 +613,17 @@ function Addon:ApplyModuleStates()
     end
 end
 
--- Enable/disable a module and keep the display in sync. In demo mode the module
--- is re-fed sample data so it appears/disappears at once instead of only after
--- a /reload while previewing.
 function Addon:ToggleModule(name, enabled)
     if enabled then self:EnableModule(name) else self:DisableModule(name) end
     if self.Demo and self.Demo:IsActive() then
         local m = self:GetModule(name, true)
         if enabled and m and m.SetDemo and m:IsEnabled() then
-            m:SetDemo(true)
+            m:SetDemo(true) -- re-feed sample data so the block appears at once
         end
     end
-    -- Let other modules react to a dependency's state change (e.g. the Objectives
-    -- list hides its split times when the Splits module is disabled).
+    -- Dependants react to this (e.g. Objectives hides splits when Splits is off).
     self:SendMessage("MMT_MODULE_TOGGLED", name, enabled)
-    -- A module's enabled state is part of the element-order active set now, so
-    -- drop the cached rows before re-laying out (the cache keys on blockRows
-    -- alone and would otherwise keep the just-toggled module in/out of the list).
+    -- The row cache keys on blockRows alone, so it misses the enabled change.
     self.MainWindow:InvalidateRows()
     self.MainWindow:Layout()
 end
@@ -742,8 +657,6 @@ function Addon:HandleSlash(input)
 
     self:OpenOptions()
 
-    -- Deeplink to a sub page when one exists (e.g. /mauimpt profiles or, for a
-    -- module page now nested under the Modules node, /mauimpt timer).
     if input ~= "" then
         local path = self._optionPath and self._optionPath[input]
         pcall(function()

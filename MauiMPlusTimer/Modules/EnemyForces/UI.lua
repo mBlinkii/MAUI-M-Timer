@@ -1,6 +1,5 @@
 -- Modules/EnemyForces/UI.lua
--- HUD block for Enemy Forces: a progress bar with the percentage and remaining
--- count centered on it. Anchored below the timer in the shared MainWindow.
+-- HUD block for Enemy Forces: progress bar plus percentage and remaining count.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -9,45 +8,34 @@ local Forces = Addon:GetModule("EnemyForces")
 local UI = Addon:NewModuleUI()
 Forces.UI = UI
 
-local DEFAULT_SEGMENT_GAP = 2 -- pixels between split segments (fallback)
+local DEFAULT_SEGMENT_GAP = 2 -- pixels between split segments
 
--- Fixed sample checkpoints shown in demo mode (read-only).
-local DEMO_PERCENTS = { 30, 55, 80 }
+local DEMO_PERCENTS = { 30, 55, 80 } -- read-only
+local NO_PERCENTS = {}               -- read-only
 
--- Shared empty result for "no checkpoints" (read-only).
-local NO_PERCENTS = {}
-
--- Hide a pooled segment bar (the countdown labels live on the checkpoint
--- markers, not on the segments; see LayoutMarkers).
 local function hideSegment(seg)
     seg:Hide()
 end
 
--- Whether the checkpoint split-bar mode is active.
 local function isSplit()
     return Forces:GetSettings().splitBar == true
 end
 
--- Whether the checkpoint "% needed" countdown labels are enabled. They are
--- shown on the split segments, or - with the split bar disabled - at the
--- checkpoint markers of the single bar.
+-- Checkpoint "% needed" labels: on the split segments, or at the single bar's
+-- checkpoint markers.
 local function countdownOn()
     return Forces:GetSettings().segmentCountdown == true
 end
 
--- Apply bar height/width/color from the per-element style. The single bar is
--- always geometry-positioned (it also anchors the percentage text and is shown
--- in normal mode); in checkpoint split mode it is hidden and the segment bars
--- are laid out in its place.
+-- The single bar is always positioned, even in split mode where it is hidden:
+-- it still anchors the percentage text.
 function UI:LayoutBar()
     if not self.bar then return end
     local s = Addon.Widgets.ResolveStyle(ns.E.forcesBar)
     local h = s.height or 16
 
-    -- Vertical space claimed by texts positioned above/below the bar: the main
-    -- percentage text (textPos) and, in split mode, the segment countdown
-    -- (countdownPos). The bar is shifted by the difference so those texts stay
-    -- inside the block and cannot overlap neighboring blocks.
+    -- Space claimed by texts above/below the bar. Shifting the bar by the
+    -- difference keeps them inside the block, off the neighbouring ones.
     local textShown = Forces:GetSettings().showText ~= false
     local textMode = Addon:GetElementSetting(ns.E.forcesText).textPos or "center"
     local textExtra = textShown and (Addon.Widgets:LineHeight(ns.E.forcesText) + 2) or 0
@@ -60,8 +48,7 @@ function UI:LayoutBar()
             bottomExtra = math.max(bottomExtra, segExtra)
         elseif segMode ~= "barLeft" and segMode ~= "barRight"
             and segMode ~= "center" then
-            -- above/left/right all sit on top of the bar (timer semantics);
-            -- the in-bar modes claim no extra space.
+            -- above/left/right sit on top; the in-bar modes claim nothing.
             topExtra = math.max(topExtra, segExtra)
         end
     end
@@ -79,9 +66,8 @@ function UI:LayoutBar()
     if s.barColor then self.bar:SetStatusBarColor(unpack(s.barColor)) end
     self.bar:SetReverseFill(Addon:GetElementSetting(ns.E.forcesBar).reverse == true)
 
-    -- Block height: bar plus the outside texts; with the text in the bar, the
-    -- taller of bar and text (so a large font cannot overflow into the
-    -- neighboring blocks).
+    -- With the text inside the bar, take the taller of the two, so a large font
+    -- cannot overflow into the neighbouring blocks.
     local coreH = (textShown and textMode == "center")
         and math.max(h, Addon.Widgets:LineHeight(ns.E.forcesText)) or h
     self.frame:SetHeight(coreH + topExtra + bottomExtra)
@@ -97,10 +83,8 @@ function UI:LayoutBar()
     end
 end
 
--- Checkpoint target percentages (0..100, ascending) for the current dungeon, or
--- a fixed sample set in demo mode so the split/markers can be styled outside a
--- key. Shared by the markers and the split segments. The returned table is
--- shared/cached and must not be modified.
+-- Ascending 0..100, or demo samples outside a key. The result is shared and
+-- must not be modified.
 function UI:CheckpointPercents()
     local run = Addon.RunState:Get()
     local Checkpoints = Addon:GetModule("Checkpoints", true)
@@ -112,10 +96,8 @@ function UI:CheckpointPercents()
     return NO_PERCENTS
 end
 
--- Split boundaries as fractions (0..1). Each checkpoint below 100% becomes a cut;
--- the trailing 100% target is intentionally ignored (it is the bar's own end).
--- Returns a list of { lo, hi } segment slices spanning 0..1, so N usable
--- checkpoints yield N+1 segments.
+-- { lo, hi } slices spanning 0..1. Each checkpoint below 100% becomes a cut, so
+-- N usable checkpoints yield N+1 segments; a 100% target is the bar's own end.
 function UI:SegmentDefs()
     local defs = {}
     local prev = 0
@@ -132,10 +114,9 @@ function UI:SegmentDefs()
     return defs
 end
 
--- A cheap signature of the split geometry inputs (bar width, dungeon, checkpoint
--- store generation) so Update only rebuilds the segment frames when they actually
--- change, not on every criteria tick. The generation counter stands in for the
--- checkpoint set itself, avoiding any per-tick table/string churn.
+-- Cheap signature of the split geometry, so Update only rebuilds the segments
+-- on a real change. The generation counter stands in for the checkpoint set
+-- itself, which avoids per-tick table churn.
 function UI:SplitSignature()
     local w = (self.bar and self.bar:GetWidth()) or 0
     local run = Addon.RunState:Get()
@@ -146,8 +127,7 @@ function UI:SplitSignature()
     return string.format("%d|%d|%d", math.floor(w + 0.5), mapID, gen)
 end
 
--- Create segment bars on demand up to `count`, pooling and hiding any extras
--- (and their countdown labels).
+-- Pools; extras beyond `count` are hidden, not destroyed.
 function UI:EnsureSegments(count)
     self.segBars = self.segBars or {}
     for i = 1, count do
@@ -160,10 +140,8 @@ function UI:EnsureSegments(count)
     end
 end
 
--- Lay out the checkpoint segments across the bar span with proportional widths
--- and a configurable gap, mirroring the timer's split bar. Segment colors follow
--- the bar's fill color; the fill fraction is applied per tick in UpdateSegments.
--- When the bar fills right-to-left the whole arrangement is mirrored.
+-- Proportional widths across the bar span, mirrored on a reversed fill. The
+-- fill fraction itself is applied per tick in UpdateSegments.
 function UI:LayoutSegments(style, h, vShift)
     vShift = vShift or 0
     local defs = self:SegmentDefs()
@@ -181,23 +159,19 @@ function UI:LayoutSegments(style, h, vShift)
     local reverse = Addon:GetElementSetting(ns.E.forcesBar).reverse == true
     local color = style.barColor or { 0.85, 0.20, 0.20, 1 }
 
-    -- Checkpoint boundaries (gap centers) in bar-relative coordinates: the
-    -- countdown labels anchor there, exactly like the timer bar's divider
-    -- labels (see LayoutMarkers). 0% and 100% targets never produce a cut,
-    -- so the bar's own ends stay free of dividers and markers.
+    -- Gap centers in bar-relative coordinates; the countdown labels anchor
+    -- there. 0% and 100% never produce a cut, so the bar ends stay clean.
     local boundaryX, boundaryPct, boundaryMid = {}, {}, {}
     local lastSectionMid -- center of the final segment (100% countdown)
 
-    local x = 0 -- cumulative used width (px) from the left of the bar span
+    local x = 0 -- cumulative used width from the left of the bar span
     for i, seg in ipairs(self.segBars) do
         local def = defs[i]
         if def then
             local w = avail * (def.hi - def.lo)
-            -- Mirror each segment's left edge around the bar span when reversed.
             local leftX = reverse and (startX + total - x - w) or (startX + x)
             seg:ClearAllPoints()
             seg:SetSize(math.max(1, w), h)
-            -- Anchor by LEFT, vertically shifted exactly like the single bar.
             seg:SetPoint("LEFT", self.frame, "LEFT", leftX, vShift)
             seg:SetReverseFill(reverse)
             seg:SetStatusBarColor(color[1], color[2], color[3], color[4] or 1)
@@ -224,12 +198,10 @@ function UI:LayoutSegments(style, h, vShift)
     self._boundaryMid, self._lastSectionMid = boundaryMid, lastSectionMid
 end
 
--- Anchor the main percentage text relative to the bar span: above/below the
--- bar, or inside it centered / at the left/right bar edge. The bar frame
--- stays a valid anchor in split mode (hidden frames keep their geometry).
+-- The bar frame stays a valid anchor in split mode: hidden frames keep their
+-- geometry.
 function UI:LayoutMainText()
     if not (self.text and self.bar) then return end
-    -- The whole text is optional (module option "showText").
     if Forces:GetSettings().showText == false then
         self.text:Hide()
         return
@@ -251,16 +223,14 @@ function UI:LayoutMainText()
     elseif mode == "barRight" then
         fs:SetJustifyH("RIGHT")
         fs:SetPoint("RIGHT", self.bar, "RIGHT", -2 + x, y)
-    else -- center (default)
+    else -- center
         fs:SetJustifyH("CENTER")
         fs:SetPoint("CENTER", self.bar, "CENTER", x, y)
     end
 end
 
--- Fill each segment relative to its own checkpoint slice from the current forces
--- percentage (0..1). A slice below the current percent is full, the active slice
--- is partial, later slices are empty. The countdown labels are handled by
--- LayoutMarkers (they anchor at the checkpoint boundaries, not the segments).
+-- Each segment fills relative to its own checkpoint slice. The countdown labels
+-- belong to LayoutMarkers: they anchor at the boundaries, not the segments.
 function UI:UpdateSegments(percent)
     if not (self.segBars and self._segDefs) then return end
     percent = percent or 0
@@ -284,15 +254,12 @@ function UI:Build()
     block:SetSize(Addon.MainWindow:GetWidth(), 16)
 
     local bar = Addon.Widgets:CreateBar(block, ns.E.forcesBar)
-    -- Dedicated overlay above every bar/border frame. It is parented to the block
-    -- (NOT the bar) so it survives split mode, where the single bar is hidden and
-    -- the segment bars take over. Its frame level sits above the bar border frame
-    -- (Widgets:ApplyBorder puts the border on a child at bar level + 1) and above
-    -- the segment bars and their borders, so the percentage text is never covered.
+    -- Parented to the block, not the bar, so it survives split mode where the
+    -- single bar is hidden. The frame level clears the bar's border child and
+    -- the segment bars, so the percentage text is never covered.
     local overlay = CreateFrame("Frame", nil, block)
     overlay:SetAllPoints(block)
     overlay:SetFrameLevel(bar:GetFrameLevel() + 10)
-    -- Text on the overlay OVERLAY layer so it stays above the fill and border.
     local text = Addon.Widgets:CreateText(overlay, ns.E.forcesText, "OVERLAY")
 
     self.frame, self.bar, self.text, self.overlay = block, bar, text, overlay
@@ -300,24 +267,15 @@ function UI:Build()
     self:LayoutBar()
     self:LayoutMainText()
 
-    -- Reposition checkpoint markers whenever the bar resizes (e.g. width change).
     bar:SetScript("OnSizeChanged", function() UI:LayoutMarkers() end)
     self:LayoutMarkers()
 
     block:Hide()
-    -- Effective position comes from the user-configurable block order
-    -- (MainWindow:GetBlockRows); the value here is only the fallback.
     Addon.MainWindow:AddBlock("forces", block, 20)
 end
 
--- Anchor a checkpoint countdown label relative to its marker/boundary line,
--- with the timer bar's position modes plus an in-bar centered one:
---   above / below       -> outside the bar, centered on the line
---   left / right        -> outside the bar (top), to one side of the line
---   barLeft / barRight  -> inside the bar, to one side of the line
--- The "center" mode (inside the bar, centered in the SECTION leading up to
--- the checkpoint) is handled in LayoutMarkers, as it anchors to the bar
--- rather than to the line.
+-- Same modes as the timer's dividers. The extra "center" mode anchors to the
+-- bar instead of the line, so LayoutMarkers handles that one.
 local function anchorCountdownLabel(lbl, line, mode, lx, ly)
     lbl:ClearAllPoints()
     if mode == "below" then
@@ -330,18 +288,14 @@ local function anchorCountdownLabel(lbl, line, mode, lx, ly)
         lbl:SetPoint("RIGHT", line, "LEFT", -2 + lx, ly)
     elseif mode == "barRight" then
         lbl:SetPoint("LEFT", line, "RIGHT", 2 + lx, ly)
-    else -- above (default)
+    else -- above
         lbl:SetPoint("BOTTOM", line, "TOP", lx, 2 + ly)
     end
 end
 
--- Vertical checkpoint markers plus the "% needed" countdown labels, behaving
--- exactly like the timer bar's dividers: in single-bar mode the markers sit
--- at the checkpoint percentages (and anchor the labels even while the marker
--- display itself is off); in split mode they sit invisibly at the segment-gap
--- centers computed by LayoutSegments and only anchor the labels. By default
--- only the nearest upcoming checkpoint shows its countdown; an option shows
--- all of them at once.
+-- Markers sit at the checkpoint percentages, or invisibly at the segment-gap
+-- centers in split mode. They are positioned even while hidden, because they
+-- anchor the countdown labels.
 function UI:LayoutMarkers()
     if not self.bar then return end
     self.markers = self.markers or {}
@@ -360,30 +314,23 @@ function UI:LayoutMarkers()
     local width = self.bar:GetWidth()
     if not width or width <= 0 then width = Addon.MainWindow:GetWidth() end
     local mc = Addon.Widgets.ResolveStyle(ns.E.forcesBar).markerColor or { 1, 0.82, 0, 0.9 }
-    -- Mirror marker positions when the bar fills right-to-left.
     local reverse = Addon:GetElementSetting(ns.E.forcesBar).reverse == true
     local mode = Addon:GetElementSetting(ns.E.forcesSegment).countdownPos or "above"
     local lx, ly = Addon.Widgets:GetOffset(ns.E.forcesSegment)
     local showAll = Forces:GetSettings().segmentCountdownAll == true
-    -- Optionally suppress the first segment's countdown label so it cannot
-    -- overlap the main percentage text (e.g. text at the left, countdown
-    -- centered in the first section).
+    -- Escape hatch against the first label overlapping the main text.
     local hideFirst = Forces:GetSettings().segmentHideFirst == true
 
-    -- A marker disappears once its target percentage has been reached. In demo
-    -- mode nothing is "reached", so all markers stay visible for positioning.
+    -- Nothing counts as reached in demo mode, so every marker stays visible
+    -- for positioning.
     local livePct = (self._percent or 0) * 100
     local reached = Addon.Demo:IsActive() and -1 or livePct
 
-    -- Position/target source: split mode uses the gap-center boundaries
-    -- recorded by LayoutSegments; single-bar mode the raw percentages.
     local percents = self:CheckpointPercents()
     local boundaryX = split and self._boundaryX
     local boundaryPct = split and self._boundaryPct
     local count = split and (boundaryPct and #boundaryPct or 0) or #percents
 
-    -- The nearest upcoming checkpoint is the only one with a countdown,
-    -- unless the show-all option is on (timer semantics).
     local nearest
     for i = 1, count do
         local pct = split and boundaryPct[i] or percents[i]
@@ -397,8 +344,7 @@ function UI:LayoutMarkers()
     local prevPct = 0 -- section start for the "in bar, centered" mode
     for i = 1, count do
         local pct = split and boundaryPct[i] or percents[i]
-        -- 0% and 100% targets are skipped entirely: the bar's own ends carry
-        -- no divider, marker or countdown (split cuts exclude them already).
+        -- The bar's own ends carry no marker or countdown.
         if pct > 0 and pct < 100 then
             used = used + 1
             local m = self.markers[used]
@@ -407,9 +353,6 @@ function UI:LayoutMarkers()
                 self.markers[used] = m
             end
 
-            -- Bar-relative x: precomputed gap center in split mode, percentage
-            -- position otherwise. Positioned even while hidden - the texture
-            -- anchors the countdown label (hidden regions keep their geometry).
             local bx
             if split then
                 bx = boundaryX[i]
@@ -433,10 +376,8 @@ function UI:LayoutMarkers()
                     m.cdLabel = lbl
                 end
                 if mode == "center" then
-                    -- Centered IN the section leading up to this checkpoint
-                    -- (not on the divider line): segment midpoint in split
-                    -- mode, midpoint between the previous and this checkpoint
-                    -- on the single bar.
+                    -- Centered in the section leading up to this checkpoint,
+                    -- not on the line.
                     local cx
                     if split then
                         cx = (self._boundaryMid and self._boundaryMid[i]) or bx
@@ -465,9 +406,7 @@ function UI:LayoutMarkers()
         end
     end
 
-    -- Label-only 100% countdown for the final section (the timer's "+limit"
-    -- counterpart): the last stretch always counts down to forces completion,
-    -- but never draws a marker line at the bar's end.
+    -- Label-only 100% countdown for the final stretch; no line at the bar's end.
     if showCountdown then
         used = used + 1
         local m = self.markers[used]
@@ -517,21 +456,18 @@ function UI:LayoutMarkers()
     end
 end
 
--- current/total absolute counts, percent in 0..1. On completion, completionTime
--- (seconds) and delta (vs best, seconds) are also shown. bestForces is the stored
--- best forces-completion time, shown behind the text when the option is on.
+-- current/total are absolute counts, percent is 0..1. completionTime and delta
+-- only arrive on completion; bestForces is the stored best.
 function UI:Update(current, total, percent, completionTime, delta, bestForces)
     if not self.frame then return end
     total = total or 0
     current = current or 0
 
-    -- Remember the live percentage so reached checkpoint markers can disappear
-    -- and the split segments know their fill.
+    -- Kept for the markers and the segment fill.
     self._percent = percent or (total > 0 and current / total) or 0
 
     if isSplit() then
-        -- Rebuild the segment geometry only when the checkpoint set or bar width
-        -- changes (not every criteria tick), then apply the per-segment fill.
+        -- Geometry only on a real change, not on every criteria tick.
         local sig = self:SplitSignature()
         if sig ~= self._segSig then
             self._segSig = sig
@@ -544,14 +480,12 @@ function UI:Update(current, total, percent, completionTime, delta, bestForces)
         self.bar:SetValue(current)
     end
 
-    -- "Percentage only" strips everything but the percentage from the main text:
-    -- no remaining count, no best time, and no completion time/delta on 100%.
+    -- Strips count, best time and the completion time/delta from the main text.
     local percentOnly = Forces:GetSettings().percentOnly == true
 
     local str
     if total > 0 and current >= total and not percentOnly then
-        -- Texture icon (a font check glyph renders as a missing-glyph box) plus
-        -- the completion time and the +/- delta versus the best run.
+        -- Texture icon; a font check glyph renders as a missing-glyph box.
         local timeStr = completionTime
             and ("  |cffcccccc" .. Addon.Utils.FormatTime(completionTime) .. "|r") or ""
         local deltaStr = delta and ("  " .. Addon.Utils.FormatDelta(delta)) or ""
@@ -559,7 +493,6 @@ function UI:Update(current, total, percent, completionTime, delta, bestForces)
     else
         local pct = string.format("%.2f%%", (percent or 0) * 100)
         if percentOnly or Forces:GetSettings().showCount == false then
-            -- Percentage only (the remaining absolute count is hidden).
             str = pct
         else
             local remaining = math.max(0, total - current)
@@ -592,13 +525,9 @@ function UI:Restyle()
             end
         end
     end
-    -- Force the next Update to rebuild the split geometry (width/gap/checkpoints
-    -- may have changed) instead of relying on the cached signature.
-    self._segSig = nil
+    self._segSig = nil -- width, gap or checkpoints may have changed
     self:LayoutBar()
     self:LayoutMainText()
     self:LayoutMarkers()
     if isSplit() then self:UpdateSegments(self._percent) end
 end
-
--- Show / Hide are provided by the shared UI base (Addon:NewModuleUI).

@@ -1,12 +1,7 @@
 -- UI/RunCard.lua
--- A small private AceGUI container widget: a bordered "card" whose border colour
--- can be set at runtime. Used by the Splits manager to flag stored runs as timed
--- (green) or over time (red).
---
--- It is registered under a unique widget type ("MMTRunCard") so it has its own
--- AceGUI object pool. Recolouring the border therefore never leaks into the
--- shared pools used by stock widgets (InlineGroup/SimpleGroup), which is why a
--- dedicated widget is used instead of recolouring an InlineGroup border.
+-- Private AceGUI container with a runtime-colourable border, used by the Splits
+-- manager. Its own widget type gives it its own object pool, so recolouring
+-- cannot leak into the pools shared by InlineGroup/SimpleGroup.
 
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 if not AceGUI then return end
@@ -17,13 +12,10 @@ if (AceGUI:GetWidgetVersion(Type) or 0) >= Version then return end
 local pairs, unpack = pairs, unpack
 local CreateFrame, UIParent = CreateFrame, UIParent
 
--- Neutral default border (used until SetBorderColor overrides it, and restored
--- on acquire so a pooled card never keeps a previous run's colour).
+-- Restored on acquire, so a pooled card never keeps a previous run's colour.
 local DEFAULT_BORDER = { 0.4, 0.4, 0.4, 1 }
 
--- Vertical gap (px) left below each card so stacked cards in a List layout show
--- a small visual separation between their borders.
-local GAP = 2
+local GAP = 2 -- px below each card, so stacked borders stay separated
 
 local backdrop = {
     bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -39,7 +31,7 @@ local methods = {
         self:SetBorderColor() -- reset to neutral
     end,
 
-    -- Set the card's border colour. Called with no args resets to neutral.
+    -- No args resets to neutral.
     ["SetBorderColor"] = function(self, r, g, b, a)
         if not r then r, g, b, a = unpack(DEFAULT_BORDER) end
         self.border:SetBackdropBorderColor(r, g, b, a or 1)
@@ -78,7 +70,6 @@ local function Constructor()
     border:SetBackdropColor(0.08, 0.08, 0.08, 0.55)
     border:SetBackdropBorderColor(unpack(DEFAULT_BORDER))
 
-    -- Container content area (AceGUI lays the card's children out in here).
     local content = CreateFrame("Frame", nil, border)
     content:SetPoint("TOPLEFT", 8, -8)
     content:SetPoint("BOTTOMRIGHT", -8, 8)

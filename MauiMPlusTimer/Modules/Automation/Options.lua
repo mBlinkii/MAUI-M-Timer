@@ -1,6 +1,5 @@
 -- Modules/Automation/Options.lua
--- AceConfig options group for the Automation module: two independent toggles,
--- both disabled while the module itself is off.
+-- AceConfig options group for the Automation module.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
