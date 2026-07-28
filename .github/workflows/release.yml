@@ -28,6 +28,10 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "zipname=MauiMPlusTimer-v${VERSION}-${DATE}" >> "$GITHUB_OUTPUT"
 
+          # Keep the shipped .toc in sync with the tag, even if the committed
+          # "## Version:" line wasn't bumped before tagging.
+          sed -i "s/^## Version:.*/## Version: ${VERSION}/" "$TOC"
+
           # Convert "120005,..." Interface values to "12.0.5,..." for CurseForge.
           VERSIONS=""
           IFS=',' read -ra ARR <<< "$IFACE"
@@ -42,11 +46,11 @@ jobs:
         run: |
           VERSION="${{ steps.meta.outputs.version }}"
           # Copy this version's section body from CHANGELOG.md: everything
-          # between its "## [x.y.z]" heading and the next "## [" heading.
-          # Matching only on "## [x.y.z]" keeps suffixes like "- Unreleased"
-          # or the release date working.
+          # between its "## [ver. x.y.z]" heading and the next "## [" heading.
+          # Matching on "## [ver. x.y.z]" keeps the date suffix working
+          # regardless of its exact format.
           awk -v ver="$VERSION" '
-            /^## \[/ { insec = (index($0, "## [" ver "]") == 1); next }
+            /^## \[/ { insec = (index($0, "## [ver. " ver "]") == 1); next }
             insec { print }
           ' CHANGELOG.md > RELEASE_NOTES.md
 
@@ -56,7 +60,7 @@ jobs:
           # Every release must ship its changelog on GitHub/CurseForge/Wago,
           # so a missing section is a hard error, not a silent fallback.
           if [ ! -s RELEASE_NOTES.md ]; then
-            echo "::error::No section for version ${VERSION} found in CHANGELOG.md - add it before tagging." >&2
+            echo "::error::No section for version ${VERSION} found in CHANGELOG.md (expected a '## [ver. ${VERSION}] - ...' heading) - add it before tagging." >&2
             exit 1
           fi
 
