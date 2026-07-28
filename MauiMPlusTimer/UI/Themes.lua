@@ -26,6 +26,7 @@ local Themes = {
         -- Light, so the dividers stay visible over both the colored fill and the
         -- dark empty background.
         sectionDividerColor = { 1, 1, 1, 0.65 },
+        edgeColor = { 1, 1, 1, 1 },
 
         deltaAhead  = { 0.20, 1.00, 0.60, 1 },
         deltaBehind = { 1.00, 0.38, 0.38, 1 },

@@ -1,4 +1,4 @@
-## Interface: 120005
+## Interface: 120007
 ## Title: |cfff0f0f0Ma|r|cff29a8f0U|r|cfff09020I|r |cff8b40f0M|r|cfff040a0+|r |cfff0f0f0Timer|r
 ## Notes: Modular Mythic+ timer for World of Warcraft (Midnight)
 ## Author: Blinkii

@@ -157,6 +157,13 @@ L["Border"] = true
 L["Border offset"] = true
 L["Show border"] = true
 L["Border texture"] = true
+L["Edge line"] = true
+L["Show edge line"] = true
+L["Edge line color"] = true
+L["Edge line width"] = true
+L["Edge line height"] = true
+L["Draw a line at the moving edge of the fill."] = true
+L["0 = use the bar height."] = true
 L["Background"] = true
 L["Show background"] = true
 L["Element order"] = true

@@ -260,6 +260,55 @@ function Widgets:ApplyPanel(frame, bg)
     end
 end
 
+local DEFAULT_EDGE_COLOR = { 1, 1, 1, 1 }
+
+-- Only while the fill is actually moving: at either end the line sits on the
+-- bar's own edge, where it reads as a stray border rather than a marker.
+local function updateEdgeShown(bar)
+    if not bar.edge then return end
+    local min, max = bar:GetMinMaxValues()
+    local value = bar:GetValue() or 0
+    bar.edge:SetShown(bar._edgeOn == true
+        and value > (min or 0) and value < (max or 0))
+end
+
+-- Thin line at the moving edge of the fill. Anchored to the fill texture itself,
+-- so it follows every SetValue without a ticker of its own.
+function Widgets:ApplyBarEdge(bar, style)
+    local edge = bar.edge
+    if not edge then return end
+
+    bar._edgeOn = style.edgeOn == true
+    if not bar._edgeOn then
+        edge:Hide()
+        return
+    end
+
+    local c = style.edgeColor or DEFAULT_EDGE_COLOR
+    edge:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
+
+    -- Centered on the edge, so the line straddles it instead of sitting inside
+    -- the fill; mirrored with the fill direction.
+    local w = math.max(1, style.edgeWidth or 2)
+    local side = style.reverse and "LEFT" or "RIGHT"
+    local dx = style.reverse and -(w / 2) or (w / 2)
+    local fill = bar:GetStatusBarTexture()
+    local h = style.edgeHeight or 0
+
+    edge:SetWidth(w)
+    edge:ClearAllPoints()
+    if h > 0 then
+        -- Fixed height, centered on the bar; a single point leaves the height
+        -- to SetHeight instead of letting the fill stretch it.
+        edge:SetHeight(h)
+        edge:SetPoint("CENTER", fill, side, dx, 0)
+    else
+        edge:SetPoint("TOP" .. side, fill, "TOP" .. side, dx, 0)
+        edge:SetPoint("BOTTOM" .. side, fill, "BOTTOM" .. side, dx, 0)
+    end
+    updateEdgeShown(bar)
+end
+
 -- Not the fill color; that one is dynamic.
 function Widgets:ApplyBarStyle(bar, elementKey)
     local style = resolveStyle(elementKey)
@@ -269,6 +318,7 @@ function Widgets:ApplyBarStyle(bar, elementKey)
         bar.bg:SetVertexColor(unpack(style.bgColor))
     end
     self:ApplyBorder(bar, style)
+    self:ApplyBarEdge(bar, style)
     return style
 end
 
@@ -280,6 +330,12 @@ function Widgets:CreateBar(parent, elementKey)
     local bg = bar:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(bar)
     bar.bg = bg
+
+    bar.edge = bar:CreateTexture(nil, "OVERLAY")
+    bar.edge:Hide()
+    -- SetValue is the only thing that moves the fill, so the visibility check
+    -- rides along with it instead of polling.
+    hooksecurefunc(bar, "SetValue", updateEdgeShown)
 
     self:ApplyBarStyle(bar, elementKey)
     return bar
