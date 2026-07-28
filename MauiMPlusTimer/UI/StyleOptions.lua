@@ -541,6 +541,46 @@ function Addon:ElementBarOptions(module, key, order, opts)
                     set = function(_, r, g, b, a) element(key).edgeColor = { r, g, b, a }; restyle(module) end },
             },
         },
+        gradient = {
+            type = "group", inline = true, name = L["Gradient"], order = 16,
+            args = {
+                enabled = { type = "toggle", name = L["Show gradient"], order = 1,
+                    desc = L["Fade the fill from the bar color to a scaled version of it."],
+                    get = function() return elementRead(key).gradientOn == true end,
+                    set = function(_, v) element(key).gradientOn = v; restyle(module) end },
+                swap = { type = "toggle", name = L["Swap colors"], order = 2,
+                    desc = L["Run the fade from the end color back to the bar color."],
+                    disabled = function() return not elementRead(key).gradientOn end,
+                    get = function() return elementRead(key).gradientSwap == true end,
+                    set = function(_, v) element(key).gradientSwap = v; restyle(module) end },
+                nl = Addon:OptLine(3),
+                mult = { type = "range", name = L["Color multiplier"], order = 4,
+                    min = 0.1, max = 2, step = 0.05, isPercent = false,
+                    desc = L["Below 1 darkens the second color, above 1 brightens it."],
+                    disabled = function()
+                        local e = elementRead(key)
+                        return not e.gradientOn or e.gradientCustom == true
+                    end,
+                    get = function() return elementRead(key).gradientMult or 0.5 end,
+                    set = function(_, v) element(key).gradientMult = v; restyle(module) end },
+                nlCustom = Addon:OptLine(5),
+                custom = { type = "toggle", name = L["Custom end color"], order = 6,
+                    desc = L["Use a fixed end color instead of the multiplied bar color."],
+                    disabled = function() return not elementRead(key).gradientOn end,
+                    get = function() return elementRead(key).gradientCustom == true end,
+                    set = function(_, v) element(key).gradientCustom = v; restyle(module) end },
+                color = { type = "color", name = L["End color"], order = 7, hasAlpha = true,
+                    disabled = function()
+                        local e = elementRead(key)
+                        return not (e.gradientOn and e.gradientCustom)
+                    end,
+                    get = function()
+                        local c = elementRead(key).gradientColor or { 1, 1, 1, 1 }
+                        return c[1], c[2], c[3], c[4] or 1
+                    end,
+                    set = function(_, r, g, b, a) element(key).gradientColor = { r, g, b, a }; restyle(module) end },
+            },
+        },
         border = {
             type = "group", inline = true, name = L["Border"], order = 20,
             args = {

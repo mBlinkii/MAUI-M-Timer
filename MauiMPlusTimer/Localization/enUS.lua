@@ -164,6 +164,16 @@ L["Edge line width"] = true
 L["Edge line height"] = true
 L["Draw a line at the moving edge of the fill."] = true
 L["0 = use the bar height."] = true
+L["Gradient"] = true
+L["Show gradient"] = true
+L["Color multiplier"] = true
+L["Fade the fill from the bar color to a scaled version of it."] = true
+L["Below 1 darkens the second color, above 1 brightens it."] = true
+L["Swap colors"] = true
+L["Run the fade from the end color back to the bar color."] = true
+L["Custom end color"] = true
+L["End color"] = true
+L["Use a fixed end color instead of the multiplied bar color."] = true
 L["Background"] = true
 L["Show background"] = true
 L["Element order"] = true

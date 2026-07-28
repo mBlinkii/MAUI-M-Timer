@@ -174,6 +174,11 @@ function UI:LayoutSegments(style, h, vShift)
             seg:SetSize(math.max(1, w), h)
             seg:SetPoint("LEFT", self.frame, "LEFT", leftX, vShift)
             seg:SetReverseFill(reverse)
+            -- Screen-space slice, so the gradient runs across the whole bar
+            -- rather than restarting in every segment.
+            local lo, hi = def.lo, def.hi
+            if reverse then lo, hi = 1 - hi, 1 - lo end
+            Addon.Widgets:SetBarGradientRange(seg, lo, hi)
             seg:SetStatusBarColor(color[1], color[2], color[3], color[4] or 1)
             seg:Show()
             if i < #defs then

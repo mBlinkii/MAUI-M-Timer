@@ -99,6 +99,11 @@ function UI:LayoutSegments(style, h, bottomExtra)
         seg:SetSize(math.max(1, w), h)
         seg:SetPoint("BOTTOMLEFT", self.barFrame, "BOTTOMLEFT", leftX, bottomExtra)
         seg:SetReverseFill(reverse)
+        -- Screen-space slice, so the gradient runs across the whole bar rather
+        -- than restarting in every segment.
+        local lo, hi = SEGMENTS[i].lo, SEGMENTS[i].hi
+        if reverse then lo, hi = 1 - hi, 1 - lo end
+        Addon.Widgets:SetBarGradientRange(seg, lo, hi)
         seg:Show()
         if i < #self.segBars then
             local b = startX + x + w + gap / 2

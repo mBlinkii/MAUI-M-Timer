@@ -261,6 +261,72 @@ function Widgets:ApplyPanel(frame, bg)
 end
 
 local DEFAULT_EDGE_COLOR = { 1, 1, 1, 1 }
+local DEFAULT_GRADIENT_MULT = 0.5
+local DEFAULT_GRADIENT_COLOR = { 1, 1, 1, 1 }
+
+local function lerp(from, to, t)
+    return from + (to - from) * t
+end
+
+-- Repaints the fill as a gradient from the bar's own color to that color scaled
+-- by the multiplier, so the second stop follows every color change on its own -
+-- the Timer recolors per bonus section, and nothing should have to know that.
+-- The two ColorMixins are cached per bar because this runs on every tick.
+local function updateGradient(bar, r, g, b, a)
+    if not bar._gradientOn then return end
+    local fill = bar:GetStatusBarTexture()
+    if not (fill and fill.SetGradient) then return end
+    a = a or 1
+
+    -- Far end of the fade across the whole bar: a fixed color when one is set,
+    -- otherwise the bar color scaled by the multiplier.
+    local er, eg, eb, ea
+    local custom = bar._gradientColor
+    if custom then
+        er, eg, eb, ea = custom[1], custom[2], custom[3], custom[4] or a
+    else
+        local m = bar._gradientMult or DEFAULT_GRADIENT_MULT
+        er, eg, eb, ea =
+            math.min(r * m, 1), math.min(g * m, 1), math.min(b * m, 1), a
+    end
+
+    -- Slice of the overall fade this bar covers, so neighbouring segments meet
+    -- on the same color. Swapping mirrors the run instead of flipping the stops
+    -- per bar, which would break that at every segment boundary.
+    local t0, t1 = bar._gradT0 or 0, bar._gradT1 or 1
+    if bar._gradientSwap then t0, t1 = 1 - t0, 1 - t1 end
+
+    bar._gradFrom = bar._gradFrom or CreateColor(1, 1, 1, 1)
+    bar._gradTo = bar._gradTo or CreateColor(1, 1, 1, 1)
+    bar._gradFrom:SetRGBA(
+        lerp(r, er, t0), lerp(g, eg, t0), lerp(b, eb, t0), lerp(a, ea, t0))
+    bar._gradTo:SetRGBA(
+        lerp(r, er, t1), lerp(g, eg, t1), lerp(b, eb, t1), lerp(a, ea, t1))
+    fill:SetGradient("HORIZONTAL", bar._gradFrom, bar._gradTo)
+end
+
+-- Which part of the overall fade a split segment covers, as screen-space
+-- fractions of the full bar (left to right). Set by the split layouts; a bar
+-- that never calls this simply spans the whole range.
+function Widgets:SetBarGradientRange(bar, t0, t1)
+    bar._gradT0, bar._gradT1 = t0, t1
+    if bar._gradientOn then
+        bar:SetStatusBarColor(bar:GetStatusBarColor())
+    end
+end
+
+-- Turning the gradient off needs no reset of its own: re-issuing the current
+-- color writes a plain vertex color, which is what clears a gradient.
+function Widgets:ApplyBarGradient(bar, style)
+    bar._gradientOn = style.gradientOn == true
+    bar._gradientMult = style.gradientMult or DEFAULT_GRADIENT_MULT
+    bar._gradientSwap = style.gradientSwap == true
+    -- nil unless the custom end color is switched on; the multiplier path keys
+    -- on its absence.
+    bar._gradientColor = (style.gradientCustom == true)
+        and (style.gradientColor or DEFAULT_GRADIENT_COLOR) or nil
+    bar:SetStatusBarColor(bar:GetStatusBarColor())
+end
 
 -- Only while the fill is actually moving: at either end the line sits on the
 -- bar's own edge, where it reads as a stray border rather than a marker.
@@ -319,6 +385,7 @@ function Widgets:ApplyBarStyle(bar, elementKey)
     end
     self:ApplyBorder(bar, style)
     self:ApplyBarEdge(bar, style)
+    self:ApplyBarGradient(bar, style)
     return style
 end
 
@@ -336,6 +403,7 @@ function Widgets:CreateBar(parent, elementKey)
     -- SetValue is the only thing that moves the fill, so the visibility check
     -- rides along with it instead of polling.
     hooksecurefunc(bar, "SetValue", updateEdgeShown)
+    hooksecurefunc(bar, "SetStatusBarColor", updateGradient)
 
     self:ApplyBarStyle(bar, elementKey)
     return bar
