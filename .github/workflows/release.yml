@@ -212,14 +212,13 @@ jobs:
         env:
           IS_TEST: ${{ steps.meta.outputs.is_test }}
           VERSION: ${{ steps.meta.outputs.version }}
-          # Both secrets are passed separately and picked in the shell; a GitHub
-          # expression would silently fall back to the live webhook whenever the
-          # test secret is empty.
           RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          # Optional. Without it a test run posts to the release webhook, which
+          # the "[TEST]" title marks as a dry run.
           TEST_WEBHOOK: ${{ secrets.DISCORD_TEST_WEBHOOK }}
         run: |
           if [ "$IS_TEST" = "true" ]; then
-            WEBHOOK="$TEST_WEBHOOK"
+            WEBHOOK="${TEST_WEBHOOK:-$RELEASE_WEBHOOK}"
             TITLE="[TEST] MAUI M+ Timer v${VERSION}"
           else
             WEBHOOK="$RELEASE_WEBHOOK"
