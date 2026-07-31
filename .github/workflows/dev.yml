@@ -5,14 +5,17 @@ name: Dev Build
 # triggers on "v*" tags.
 on:
   push:
+    # ADAPT 1: default branch
     branches:
       - main
+    # ADAPT 2: everything in this repo that is not addon code
     paths-ignore:
       - "README.md"
       - "CHANGELOG.md"
       - "LICENSE"
       - "libs_report.md"
       - "preview/**"
+      - "media/**"
       - ".vscode/**"
       - ".github/workflows/release.yml"
   workflow_dispatch:
@@ -30,7 +33,7 @@ jobs:
   dev:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -38,6 +41,7 @@ jobs:
         id: meta
         run: |
           set -e
+          # ADAPT 3: addon folder and .toc path
           TOC="MauiMPlusTimer/MauiMPlusTimer.toc"
           VERSION=$(grep -oP '^## Version:\s*\K.+' "$TOC" | tr -d '\r ')
           SHORT="${GITHUB_SHA::7}"
@@ -51,6 +55,7 @@ jobs:
       - name: Install Subversion
         run: sudo apt-get update -qq && sudo apt-get install -y -qq subversion
 
+      # ADAPT 4: library set - must stay identical to release.yml.
       # Libs/ is not tracked, so the dev build fetches the same set as release.yml.
       - name: Fetch Ace3 + helper libraries into Libs/
         run: |
@@ -77,13 +82,14 @@ jobs:
           git clone --depth 1 https://github.com/SafeteeWoW/LibDeflate.git "$LIBS/LibDeflate"
           rm -rf "$LIBS/LibDeflate/.git"
 
-      # Constant file name - otherwise the download URL changes on every run.
+      # ADAPT 5: zip name - constant, otherwise the download URL changes per run.
       - name: Build zip
         run: |
           rm -f MauiMPlusTimer/.pkgmeta
           # Zip from the repo root so "MauiMPlusTimer/" is the top-level entry.
           zip -r "MauiMPlusTimer-dev.zip" "MauiMPlusTimer" -x "MauiMPlusTimer/.git*" "*/.svn/*"
 
+      # ADAPT 6: addon name and repo URL in the notice below
       - name: Write release notes
         run: |
           cat > DEV_NOTES.md <<'HEADER'
@@ -105,7 +111,7 @@ jobs:
       # Tag and prerelease are re-set on every run; the asset keeps its name so
       # the download URL stays stable.
       - name: Publish prerelease
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: dev
           target_commitish: ${{ github.sha }}

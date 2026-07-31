@@ -13,7 +13,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Read version, interface, and date
         id: meta
@@ -22,9 +22,19 @@ jobs:
           # Version comes from the git tag that triggered this run, so the
           # release/zip/CurseForge version always matches what was tagged,
           # even if the .toc's own "## Version:" line lags behind.
-          VERSION="${GITHUB_REF_NAME#v}"
+          REF="${GITHUB_REF_NAME}"
+
+          # Tags ending in "-test" (e.g. v1.4.0-test) are dry runs: draft
+          # prerelease, no CurseForge/Wago upload, Discord to the test webhook.
+          IS_TEST=false
+          case "$REF" in
+            *-test) IS_TEST=true; REF="${REF%-test}" ;;
+          esac
+
+          VERSION="${REF#v}"
           IFACE=$(grep -oP '^## Interface:\s*\K.+' "$TOC" | tr -d '\r ')
           DATE=$(date +%Y-%m-%d)
+          echo "is_test=${IS_TEST}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "zipname=MauiMPlusTimer-v${VERSION}-${DATE}" >> "$GITHUB_OUTPUT"
 
@@ -129,15 +139,21 @@ jobs:
           zip -r "${{ steps.meta.outputs.zipname }}.zip" "MauiMPlusTimer" -x "MauiMPlusTimer/.git*"
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          name: Ver. ${{ steps.meta.outputs.version }}
+          name: ${{ steps.meta.outputs.is_test == 'true' && '(TEST) ' || '' }}Ver. ${{ steps.meta.outputs.version }}
           files: ${{ steps.meta.outputs.zipname }}.zip
           # Release notes come from CHANGELOG.md (see the notes step above)
           # instead of auto-generated commit lists.
           body_path: RELEASE_NOTES.md
+          # A test run must never surface as the latest download: draft keeps it
+          # out of the public release list, make_latest out of the "Latest" slot.
+          draft: ${{ steps.meta.outputs.is_test == 'true' }}
+          prerelease: ${{ steps.meta.outputs.is_test == 'true' }}
+          make_latest: ${{ steps.meta.outputs.is_test == 'true' && 'false' || 'true' }}
 
       - name: Upload to CurseForge
+        if: steps.meta.outputs.is_test != 'true'
         uses: itsmeow/curseforge-upload@v3
         with:
           token: ${{ secrets.CF_API_TOKEN }}
@@ -151,6 +167,7 @@ jobs:
           changelog_type: html
 
       - name: Upload to Wago Addons
+        if: steps.meta.outputs.is_test != 'true'
         run: |
           GAME_VERSION=$(echo "${{ steps.meta.outputs.game_versions }}" | cut -d',' -f1)
           # Build the metadata JSON with jq (correct escaping of the multi-line
@@ -185,3 +202,60 @@ jobs:
             echo "Wago upload failed." >&2
             exit 1
           fi
+
+      # Last step on purpose: Discord only announces what was actually uploaded.
+      # The workflow triggers on "v*" tags only, so the rolling "dev" prerelease
+      # and re-created releases can never reach this - no prerelease check needed
+      # (github.event.release does not exist for a push trigger).
+      - name: Announce release on Discord
+        continue-on-error: true
+        env:
+          IS_TEST: ${{ steps.meta.outputs.is_test }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          # Both secrets are passed separately and picked in the shell; a GitHub
+          # expression would silently fall back to the live webhook whenever the
+          # test secret is empty.
+          RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          TEST_WEBHOOK: ${{ secrets.DISCORD_TEST_WEBHOOK }}
+        run: |
+          if [ "$IS_TEST" = "true" ]; then
+            WEBHOOK="$TEST_WEBHOOK"
+            TITLE="[TEST] MAUI M+ Timer v${VERSION}"
+          else
+            WEBHOOK="$RELEASE_WEBHOOK"
+            TITLE="MAUI M+ Timer v${VERSION}"
+          fi
+
+          if [ -z "$WEBHOOK" ]; then
+            echo "::notice::No Discord webhook secret configured - skipping."
+            exit 0
+          fi
+
+          # Discord caps an embed description at 4096 characters. iconv -c drops
+          # the partial multi-byte character head -c can leave behind, which
+          # would otherwise make jq fail on the emoji headings in CHANGELOG.md.
+          head -c 3800 RELEASE_NOTES.md | iconv -f UTF-8 -t UTF-8 -c > DISCORD_NOTES.md
+
+          # The changelog enters the payload via --rawfile only. Interpolating it
+          # into the shell string would break the JSON on its quotes/backticks.
+          jq -n \
+            --arg title "$TITLE" \
+            --arg url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}" \
+            --rawfile description DISCORD_NOTES.md \
+            '{embeds: [{
+               title: $title,
+               url: $url,
+               description: $description,
+               color: 15745184,
+               thumbnail: {url: "https://raw.githubusercontent.com/mBlinkii/MAUI-M-Timer/main/media/icon.png"}
+             }]}' \
+            > discord_payload.json
+
+          # --data-binary, not -d: -d strips newlines from the JSON file.
+          HTTP_CODE=$(curl -s -o discord_response.txt -w "%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            --data-binary @discord_payload.json \
+            "$WEBHOOK") || true
+
+          echo "HTTP status: ${HTTP_CODE:-000}"
+          cat discord_response.txt 2>/dev/null || true
