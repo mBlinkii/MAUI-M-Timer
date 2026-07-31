@@ -1,0 +1,116 @@
+name: Dev Build
+
+# Rolling development build. Runs on every push to main and overwrites the
+# prerelease under the fixed tag "dev". release.yml is untouched - it only
+# triggers on "v*" tags.
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "README.md"
+      - "CHANGELOG.md"
+      - "LICENSE"
+      - "libs_report.md"
+      - "preview/**"
+      - ".vscode/**"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Parallel pushes must not overwrite each other; a running job is cancelled
+# as soon as a newer one starts.
+concurrency:
+  group: dev-build
+  cancel-in-progress: true
+
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version and commit info
+        id: meta
+        run: |
+          set -e
+          TOC="MauiMPlusTimer/MauiMPlusTimer.toc"
+          VERSION=$(grep -oP '^## Version:\s*\K.+' "$TOC" | tr -d '\r ')
+          SHORT="${GITHUB_SHA::7}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHORT}" >> "$GITHUB_OUTPUT"
+
+          # Stamp the shipped .toc so the build is identifiable as non-release
+          # in-game.
+          sed -i "s/^## Version:.*/## Version: ${VERSION}-dev-${SHORT}/" "$TOC"
+
+      - name: Install Subversion
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq subversion
+
+      # Libs/ is not tracked, so the dev build fetches the same set as release.yml.
+      - name: Fetch Ace3 + helper libraries into Libs/
+        run: |
+          set -e
+          LIBS="MauiMPlusTimer/Libs"
+          mkdir -p "$LIBS"
+
+          svn export --force https://repos.curseforge.com/wow/libstub/trunk "$LIBS/LibStub"
+          svn export --force https://repos.curseforge.com/wow/callbackhandler/trunk/CallbackHandler-1.0 "$LIBS/CallbackHandler-1.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceAddon-3.0 "$LIBS/AceAddon-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceEvent-3.0 "$LIBS/AceEvent-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceConsole-3.0 "$LIBS/AceConsole-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceTimer-3.0 "$LIBS/AceTimer-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceDB-3.0 "$LIBS/AceDB-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceDBOptions-3.0 "$LIBS/AceDBOptions-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0 "$LIBS/AceGUI-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0 "$LIBS/AceConfig-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceLocale-3.0 "$LIBS/AceLocale-3.0"
+          svn export --force https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0 "$LIBS/LibSharedMedia-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk "$LIBS/AceGUI-3.0-SharedMediaWidgets"
+
+          git clone --depth 1 https://github.com/rossnichols/LibSerialize.git "$LIBS/LibSerialize"
+          rm -rf "$LIBS/LibSerialize/.git"
+          git clone --depth 1 https://github.com/SafeteeWoW/LibDeflate.git "$LIBS/LibDeflate"
+          rm -rf "$LIBS/LibDeflate/.git"
+
+      # Constant file name - otherwise the download URL changes on every run.
+      - name: Build zip
+        run: |
+          rm -f MauiMPlusTimer/.pkgmeta
+          # Zip from the repo root so "MauiMPlusTimer/" is the top-level entry.
+          zip -r "MauiMPlusTimer-dev.zip" "MauiMPlusTimer" -x "MauiMPlusTimer/.git*" "*/.svn/*"
+
+      - name: Write release notes
+        run: |
+          cat > DEV_NOTES.md <<'HEADER'
+          > ⚠️ **Untested development build.** Built automatically on every push to `main` and not verified in-game. For a stable version please use the latest [Release](https://github.com/mBlinkii/MAUI-M-Timer/releases/latest).
+
+          HEADER
+          {
+            echo "**Version:** ${{ steps.meta.outputs.version }}-dev-${{ steps.meta.outputs.sha }}"
+            echo "**Commit:** ${GITHUB_SHA}"
+            echo "**Built:** $(date -u '+%d.%m.%Y %H:%M UTC')"
+            echo
+            echo '## Latest commit'
+            echo
+            echo '```'
+            git log -1 --pretty=%B
+            echo '```'
+          } >> DEV_NOTES.md
+
+      # Tag and prerelease are re-set on every run; the asset keeps its name so
+      # the download URL stays stable.
+      - name: Publish prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev
+          target_commitish: ${{ github.sha }}
+          name: MAUI M+ Timer Development Build
+          body_path: DEV_NOTES.md
+          files: MauiMPlusTimer-dev.zip
+          prerelease: true
+          make_latest: false
