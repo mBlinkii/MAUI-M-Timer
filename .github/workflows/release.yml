@@ -18,10 +18,10 @@ jobs:
       - name: Read version, interface, and date
         id: meta
         run: |
-          TOC="MauiMPlusTimer/MauiMPlusTimer.toc"
-          # Version comes from the git tag that triggered this run, so the
-          # release/zip/CurseForge version always matches what was tagged,
-          # even if the .toc's own "## Version:" line lags behind.
+          ADDON="MauiMPlusTimer"
+          TOC="$ADDON/$ADDON.toc"
+          # Version comes from the git tag that triggered this run; the committed
+          # .toc only carries "git-build" as a placeholder.
           REF="${GITHUB_REF_NAME}"
 
           # Tags ending in "-test" (e.g. v1.4.0-test) are dry runs: draft
@@ -38,9 +38,10 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "zipname=MauiMPlusTimer-v${VERSION}-${DATE}" >> "$GITHUB_OUTPUT"
 
-          # Keep the shipped .toc in sync with the tag, even if the committed
-          # "## Version:" line wasn't bumped before tagging.
-          sed -i "s/^## Version:.*/## Version: ${VERSION}/" "$TOC"
+          # Stamp the tag version into every addon .toc; Libs/ is third-party
+          # code and keeps its own versions.
+          find "$ADDON" -name '*.toc' -not -path "$ADDON/Libs/*" \
+            -exec sed -i "s|^## Version:.*|## Version: ${VERSION}|" {} +
 
           # Convert "120005,..." Interface values to "12.0.5,..." for CurseForge.
           VERSIONS=""

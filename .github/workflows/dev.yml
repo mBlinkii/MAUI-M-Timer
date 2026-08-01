@@ -41,16 +41,18 @@ jobs:
         id: meta
         run: |
           set -e
-          # ADAPT 3: addon folder and .toc path
-          TOC="MauiMPlusTimer/MauiMPlusTimer.toc"
-          VERSION=$(grep -oP '^## Version:\s*\K.+' "$TOC" | tr -d '\r ')
-          SHORT="${GITHUB_SHA::7}"
+          # ADAPT 3: addon folder
+          ADDON="MauiMPlusTimer"
+          # The committed .toc only carries "git-build", so the base version is
+          # the last release tag. "-test" dry-run tags must not count.
+          BASE=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-test' 2>/dev/null || echo "v0.0.0")
+          VERSION="${BASE#v}-dev-${GITHUB_SHA::7}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "sha=${SHORT}" >> "$GITHUB_OUTPUT"
 
-          # Stamp the shipped .toc so the build is identifiable as non-release
-          # in-game.
-          sed -i "s/^## Version:.*/## Version: ${VERSION}-dev-${SHORT}/" "$TOC"
+          # Stamp every addon .toc so the build is identifiable as non-release
+          # in-game; Libs/ is third-party code.
+          find "$ADDON" -name '*.toc' -not -path "$ADDON/Libs/*" \
+            -exec sed -i "s|^## Version:.*|## Version: ${VERSION}|" {} +
 
       - name: Install Subversion
         run: sudo apt-get update -qq && sudo apt-get install -y -qq subversion
@@ -97,7 +99,7 @@ jobs:
 
           HEADER
           {
-            echo "**Version:** ${{ steps.meta.outputs.version }}-dev-${{ steps.meta.outputs.sha }}"
+            echo "**Version:** ${{ steps.meta.outputs.version }}"
             echo "**Commit:** ${GITHUB_SHA}"
             echo "**Built:** $(date -u '+%d.%m.%Y %H:%M UTC')"
             echo
