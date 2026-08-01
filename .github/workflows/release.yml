@@ -225,6 +225,13 @@ jobs:
             TITLE="MAUI M+ Timer v${VERSION}"
           fi
 
+          # A test run uploads to neither portal and its GitHub release is a
+          # draft, so the download links would all be dead - omit them.
+          DOWNLOADS=""
+          if [ "$IS_TEST" != "true" ]; then
+            DOWNLOADS="[CurseForge](https://www.curseforge.com/wow/addons/maui-m-timer) • [Wago](https://addons.wago.io/addons/maui-m-timer) • [GitHub](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME})"
+          fi
+
           if [ -z "$WEBHOOK" ]; then
             echo "::notice::No Discord webhook secret configured - skipping."
             exit 0
@@ -240,13 +247,15 @@ jobs:
           jq -n \
             --arg title "$TITLE" \
             --arg url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}" \
+            --arg downloads "$DOWNLOADS" \
             --rawfile description DISCORD_NOTES.md \
             '{embeds: [{
                title: $title,
                url: $url,
                description: $description,
                color: 15745184,
-               thumbnail: {url: "https://raw.githubusercontent.com/mBlinkii/MAUI-M-Timer/main/media/icon.png"}
+               thumbnail: {url: "https://raw.githubusercontent.com/mBlinkii/MAUI-M-Timer/main/media/icon.png"},
+               fields: (if $downloads == "" then [] else [{name: "Download", value: $downloads}] end)
              }]}' \
             > discord_payload.json
 
