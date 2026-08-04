@@ -12,6 +12,8 @@ local ICON_PROFILES = MENU_ICON_DIR .. "profiles"
 
 local LOGO_TEXTURE = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_big"
 
+local DISCORD_URL = "https://discord.gg/ZScRCUyqjY"
+
 -- Fallback only: a persisted db.global.optionsWindow geometry wins over these.
 local OPTIONS_DEFAULT_WIDTH  = 900
 local OPTIONS_DEFAULT_HEIGHT = 650
@@ -410,6 +412,12 @@ function Addon:BuildAboutOptions()
                         name = "|cffffd200" .. L["Category"] .. ":|r " .. meta("X-Category") },
                     license = { type = "description", order = 2,
                         name = "|cffffd200" .. L["License"] .. ":|r " .. meta("X-License") },
+                    -- WoW cannot open browser links, so the URL sits in an
+                    -- edit box the user can select and copy; set is a no-op.
+                    discord = { type = "input", order = 3, width = "double",
+                        name = L["Discord"],
+                        get = function() return DISCORD_URL end,
+                        set = function() end },
                 },
             },
             credits = {

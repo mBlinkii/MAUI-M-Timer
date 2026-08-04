@@ -4,6 +4,8 @@ A modular Mythic+ timer addon for World of Warcraft **Retail (Midnight, 12.0.x)*
 
 Everything is configurable through a single central options window (no chat-based config), and every module can be enabled or disabled independently.
 
+Questions, feedback or bug reports? Join the [Discord](https://discord.gg/ZScRCUyqjY).
+
 ## Preview
 
 <p align="center">
