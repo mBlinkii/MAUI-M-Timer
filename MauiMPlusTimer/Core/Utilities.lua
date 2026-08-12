@@ -117,6 +117,44 @@ function Utils.GetMapTimeLimit(mapID)
     return nil
 end
 
+local function sortMapsByName(list)
+    table.sort(list, function(a, b) return Utils.GetMapName(a) < Utils.GetMapName(b) end)
+end
+
+-- Current season's challenge maps, sorted by name. Needs the map cache, so a
+-- RequestMapInfo has to have happened (Addon:OnEnable); falls back to the
+-- active key while the cache is still empty.
+function Utils.GetSeasonMaps()
+    local list = {}
+    if C_ChallengeMode and C_ChallengeMode.GetMapTable then
+        for _, mapID in ipairs(C_ChallengeMode.GetMapTable() or {}) do
+            list[#list + 1] = mapID
+        end
+    end
+    if #list == 0 and C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID then
+        local active = C_ChallengeMode.GetActiveChallengeMapID()
+        if active then list[1] = active end
+    end
+    sortMapsByName(list)
+    return list
+end
+
+-- Of the given stored map IDs, the ones the current season no longer contains,
+-- sorted by name. Empty while the map cache is not populated, so stored data is
+-- never flagged as outdated by accident.
+function Utils.GetOutdatedMaps(storedIDs)
+    local season = Utils.GetSeasonMaps()
+    if #season == 0 then return {} end
+    local inSeason = {}
+    for _, mapID in ipairs(season) do inSeason[mapID] = true end
+    local list = {}
+    for _, mapID in ipairs(storedIDs or {}) do
+        if not inSeason[mapID] then list[#list + 1] = mapID end
+    end
+    sortMapsByName(list)
+    return list
+end
+
 -- "+<level>", optionally tinted with Blizzard's keystone rarity color.
 function Utils.KeystoneLevelTag(level, colored)
     local tag = "+" .. level

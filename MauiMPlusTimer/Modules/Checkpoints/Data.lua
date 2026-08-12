@@ -42,6 +42,13 @@ function Data.GetOrCreate(mapID)
     return s[mapID]
 end
 
+-- Map IDs that have a stored record, in no particular order.
+function Data.GetDungeons()
+    local list = {}
+    for mapID in pairs(store()) do list[#list + 1] = mapID end
+    return list
+end
+
 function Data.GetSectionTarget(mapID, sectionIndex)
     local e = store()[mapID]
     if not e or not e.bySection then return nil end

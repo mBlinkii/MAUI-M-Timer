@@ -35,6 +35,11 @@ function Addon:OnEnable()
     if self.RunState then
         self.RunState:Restore()
     end
+
+    -- Warms the challenge map cache; GetMapTable stays empty without it.
+    if C_ChallengeMode and C_ChallengeMode.RequestMapInfo then
+        C_ChallengeMode.RequestMapInfo()
+    end
     self:Info("MAUI M+ Timer ready. Type /mauimpt to open options.")
 
     -- Here rather than in OnInitialize: chat is only ready at PLAYER_LOGIN.

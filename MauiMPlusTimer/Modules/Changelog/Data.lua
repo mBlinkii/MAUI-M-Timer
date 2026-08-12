@@ -26,7 +26,13 @@ Data.entries = {
             "[System]: A gradient on a split bar runs continuously across all segments instead of restarting in each one.",
         },
         updates = {
+            "[Splits]: Dungeons from earlier seasons move into an \"Outdated\" group in the \"Manage times\" window, which offers a button to delete all of their stored times at once.",
+            "[Checkpoints]: Configured dungeons from earlier seasons move into an \"Outdated\" group in the checkpoint editor, keeping the main list to the current season.",
             "[Changelog]: Entries carry a scope label that is highlighted on the changelog page, matching the format of CHANGELOG.md.",
+        },
+        fixes = {
+            "[Splits]: The \"Manage times\" window lists the current season's dungeons sorted by name, instead of only the ones with stored runs in map-ID order.",
+            "[System]: The challenge map cache is requested at login, so the dungeon lists are no longer empty right after a fresh start.",
         },
     },
     {

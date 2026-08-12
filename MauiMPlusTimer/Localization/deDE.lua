@@ -334,6 +334,14 @@ L["Delete this level"] = "Diese Stufe löschen"
 L["Delete dungeon"] = "Dungeon löschen"
 L["Removes all stored times for this dungeon (every key level). Cannot be undone."] = "Löscht alle gespeicherten Zeiten dieses Dungeons (jede Stufe). Kann nicht rückgängig gemacht werden."
 L["Removes only this run."] = "Löscht nur diesen einen Run."
+L["Outdated"] = "Veraltet"
+L["Dungeons from earlier seasons that still have stored data."] =
+    "Dungeons aus früheren Seasons, für die noch Daten gespeichert sind."
+L["Delete outdated data"] = "Veraltete Daten löschen"
+L["Removes all stored times of dungeons outside the current season. Cannot be undone."] =
+    "Löscht alle gespeicherten Zeiten von Dungeons außerhalb der aktuellen Season. Kann nicht rückgängig gemacht werden."
+L["Removed the stored times of %d outdated dungeon(s)."] =
+    "Gespeicherte Zeiten von %d veralteten Dungeon(s) gelöscht."
 L["Run vs best"] = "Lauf vs Bestzeit"
 L["Checkpoints"] = "Checkpoints"
 L["Time"] = "Zeit"

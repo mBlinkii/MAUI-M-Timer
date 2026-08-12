@@ -321,6 +321,13 @@ L["Delete dungeon"] = "删除地下城"
 L["Removes all stored times for this dungeon (every key level). Cannot be undone."] =
     "删除此地下城所有已保存的时间（每个钥石等级）。无法撤销。"
 L["Removes only this run."] = "仅删除此次记录。"
+L["Outdated"] = "已过期"
+L["Dungeons from earlier seasons that still have stored data."] =
+    "来自以往赛季、仍保存有数据的地下城。"
+L["Delete outdated data"] = "删除过期数据"
+L["Removes all stored times of dungeons outside the current season. Cannot be undone."] =
+    "删除所有不属于当前赛季的地下城的已保存时间。无法撤销。"
+L["Removed the stored times of %d outdated dungeon(s)."] = "已删除 %d 个过期地下城的保存时间。"
 L["Run vs best"] = "本次 vs 最佳"
 L["Checkpoints"] = "检查点"
 L["Time"] = "时间"

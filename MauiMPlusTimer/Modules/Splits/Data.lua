@@ -168,10 +168,10 @@ function Data.Wipe()
 end
 
 -- Sorted mapIDs that have data, for the Manager tree.
+-- Map IDs that have stored runs, in no particular order.
 function Data.GetDungeons()
     local list = {}
     for mapID in pairs(store()) do list[#list + 1] = mapID end
-    table.sort(list)
     return list
 end
 

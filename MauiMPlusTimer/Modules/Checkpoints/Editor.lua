@@ -10,40 +10,52 @@ local AceGUI = LibStub("AceGUI-3.0")
 local Editor = {}
 Checkpoints.Editor = Editor
 
-local SHARE = "__share__" -- sentinel tree value for the Import / Export page
+local SHARE = "__share__"       -- sentinel tree value for the Import / Export page
+local OUTDATED = "__outdated__" -- sentinel tree value for the previous seasons' group
 
 local Utils = Addon.Utils
 
--- Current season's maps, plus the active key and anything already configured.
-local function dungeonList()
-    local list, order = {}, {}
-    local seen = {}
-    local function add(mapID)
-        if mapID and not seen[mapID] then
-            seen[mapID] = true
-            list[mapID] = Utils.GetMapName(mapID)
-            order[#order + 1] = mapID
-        end
+-- Current season's maps, plus the active key should the cache miss it.
+local function seasonList()
+    local list = Utils.GetSeasonMaps()
+    local active = C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID
+        and C_ChallengeMode.GetActiveChallengeMapID()
+    if not active then return list end
+    for _, mapID in ipairs(list) do
+        if mapID == active then return list end
     end
-    if C_ChallengeMode and C_ChallengeMode.GetMapTable then
-        for _, mapID in ipairs(C_ChallengeMode.GetMapTable() or {}) do add(mapID) end
-    end
-    if C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID then
-        add(C_ChallengeMode.GetActiveChallengeMapID())
-    end
-    for mapID in pairs(Addon.db.global.checkpoints or {}) do add(mapID) end
-    table.sort(order, function(a, b) return (list[a] or "") < (list[b] or "") end)
-    return list, order
+    list[#list + 1] = active
+    return list
 end
 
--- One node per dungeon, with Import/Export pinned to the bottom.
+local function dungeonNode(mapID)
+    return {
+        value = tostring(mapID),
+        text = Utils.GetMapName(mapID),
+        icon = Utils.GetMapTexture(mapID),
+    }
+end
+
+-- One node per dungeon of the current season, configured dungeons from earlier
+-- seasons grouped below, Import/Export pinned to the bottom.
 local function buildTree()
     local L = ns.L
     local tree = {}
-    local list, order = dungeonList()
-    for _, mapID in ipairs(order) do
-        tree[#tree + 1] = { value = tostring(mapID), text = list[mapID], icon = Utils.GetMapTexture(mapID) }
+    for _, mapID in ipairs(seasonList()) do
+        tree[#tree + 1] = dungeonNode(mapID)
     end
+
+    local old = Utils.GetOutdatedMaps(Checkpoints.Data.GetDungeons())
+    if #old > 0 then
+        local children = {}
+        for _, mapID in ipairs(old) do children[#children + 1] = dungeonNode(mapID) end
+        tree[#tree + 1] = {
+            value = OUTDATED,
+            text = "|cff888888" .. L["Outdated"] .. "|r",
+            children = children,
+        }
+    end
+
     tree[#tree + 1] = {
         value = SHARE,
         text = "|cff40c057" .. L["Import / Export"] .. "|r",
@@ -269,12 +281,26 @@ function Editor:ShowShare(container)
     scroll:AddChild(importBtn)
 end
 
+-- Plain hint; the group itself holds no data.
+function Editor:ShowOutdated(container)
+    container:ReleaseChildren()
+
+    local label = AceGUI:Create("Label")
+    label:SetFullWidth(true)
+    label:SetText(ns.L["Dungeons from earlier seasons that still have stored data."])
+    container:AddChild(label)
+end
+
 -- Dispatch the right pane based on the selected tree node.
 function Editor:ShowDetail(container, path)
-    if path == SHARE then
+    -- Last segment: outdated dungeons sit below their group node.
+    local key = path:match("[^\001]+$")
+    if key == SHARE then
         self:ShowShare(container)
+    elseif key == OUTDATED then
+        self:ShowOutdated(container)
     else
-        self:ShowDungeon(container, tonumber(path))
+        self:ShowDungeon(container, tonumber(key))
     end
 end
 

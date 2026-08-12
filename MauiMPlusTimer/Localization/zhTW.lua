@@ -321,6 +321,13 @@ L["Delete dungeon"] = "刪除地城"
 L["Removes all stored times for this dungeon (every key level). Cannot be undone."] =
     "刪除此地城所有已儲存的時間（每個鑰石等級）。無法復原。"
 L["Removes only this run."] = "僅刪除此次紀錄。"
+L["Outdated"] = "已過期"
+L["Dungeons from earlier seasons that still have stored data."] =
+    "來自以往賽季、仍儲存有資料的地城。"
+L["Delete outdated data"] = "刪除過期資料"
+L["Removes all stored times of dungeons outside the current season. Cannot be undone."] =
+    "刪除所有不屬於目前賽季的地城的已儲存時間。無法復原。"
+L["Removed the stored times of %d outdated dungeon(s)."] = "已刪除 %d 個過期地城的儲存時間。"
 L["Run vs best"] = "本次 vs 最佳"
 L["Checkpoints"] = "檢查點"
 L["Time"] = "時間"

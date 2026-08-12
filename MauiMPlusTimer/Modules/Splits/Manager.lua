@@ -12,15 +12,33 @@ Splits.Manager = Manager
 
 local Utils = Addon.Utils
 
--- Flat: selecting a dungeon shows all its runs as cards, so key levels need no
--- expandable children of their own.
+local OUTDATED = "__outdated__" -- sentinel tree value for the previous seasons' group
+
+local function dungeonNode(mapID)
+    return {
+        value = tostring(mapID),
+        text = Utils.GetMapName(mapID),
+        icon = Utils.GetMapTexture(mapID),
+    }
+end
+
+-- Current season at the top level, everything else grouped as outdated; flat
+-- per dungeon, because selecting one shows all its runs as cards.
 local function buildTree()
+    local L = ns.L
     local tree = {}
-    for _, mapID in ipairs(Splits.Data.GetDungeons()) do
+    for _, mapID in ipairs(Utils.GetSeasonMaps()) do
+        tree[#tree + 1] = dungeonNode(mapID)
+    end
+
+    local old = Utils.GetOutdatedMaps(Splits.Data.GetDungeons())
+    if #old > 0 then
+        local children = {}
+        for _, mapID in ipairs(old) do children[#children + 1] = dungeonNode(mapID) end
         tree[#tree + 1] = {
-            value = tostring(mapID),
-            text = Utils.GetMapName(mapID),
-            icon = Utils.GetMapTexture(mapID),
+            value = OUTDATED,
+            text = "|cff888888" .. L["Outdated"] .. "|r",
+            children = children,
         }
     end
     return tree
@@ -82,12 +100,54 @@ local function addRunCard(scroll, mapID, level, run, best, limit)
     card:AddChild(del)
 end
 
+-- Overview of the outdated group, with a one-click cleanup.
+function Manager:ShowOutdated(container)
+    local L = ns.L
+
+    local scroll = AceGUI:Create("ScrollFrame")
+    scroll:SetLayout("List")
+    scroll:SetFullWidth(true)
+    scroll:SetFullHeight(true)
+    container:AddChild(scroll)
+
+    local head = AceGUI:Create("Label")
+    head:SetFullWidth(true)
+    head:SetText("|cffffffff" .. L["Outdated"] .. "|r\n"
+        .. L["Dungeons from earlier seasons that still have stored data."] .. "\n")
+    scroll:AddChild(head)
+
+    local del = AceGUI:Create("Button")
+    del:SetText(L["Delete outdated data"])
+    del:SetFullWidth(true)
+    del:SetCallback("OnClick", function()
+        local old = Utils.GetOutdatedMaps(Splits.Data.GetDungeons())
+        for _, mapID in ipairs(old) do Splits.Data.DeleteDungeon(mapID) end
+        Addon:Info(L["Removed the stored times of %d outdated dungeon(s)."], #old)
+        Manager:Refresh()
+    end)
+    del:SetCallback("OnEnter", function(widget)
+        GameTooltip:SetOwner(widget.frame, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(L["Delete outdated data"])
+        GameTooltip:AddLine(L["Removes all stored times of dungeons outside the current season. Cannot be undone."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    del:SetCallback("OnLeave", function() GameTooltip:Hide() end)
+    scroll:AddChild(del)
+end
+
 -- One coloured card per stored run.
 function Manager:ShowDetail(container, path)
     container:ReleaseChildren()
     local L = ns.L
 
-    local mapID = tonumber((strsplit("\001", path)))
+    -- Last segment: outdated dungeons sit below their group node.
+    local key = path:match("[^\001]+$")
+    if key == OUTDATED then
+        self:ShowOutdated(container)
+        return
+    end
+
+    local mapID = tonumber(key)
     if not mapID then return end
 
     local scroll = AceGUI:Create("ScrollFrame")

@@ -1,7 +1,12 @@
 # Changelog - MAUI M+ Timer
 
 ## [ver. 1.4.0] - 28.07.2026
+### 🐛 FIX
+- FIX - [Splits]: The "Manage times" window lists the current season's dungeons sorted by name, instead of only the ones with stored runs in map-ID order.
+- FIX - [System]: The challenge map cache is requested at login, so the dungeon lists are no longer empty right after a fresh start.
 ### 🔧 UPDATE
+- UPDATE - [Splits]: Dungeons from earlier seasons move into an "Outdated" group in the "Manage times" window, which offers a button to delete all of their stored times at once.
+- UPDATE - [Checkpoints]: Configured dungeons from earlier seasons move into an "Outdated" group in the checkpoint editor, keeping the main list to the current season.
 - UPDATE - [Changelog]: Entries carry a scope label that is highlighted on the changelog page, matching the format of CHANGELOG.md.
 ### ✨ NEW
 - NEW - [System]: The timer and forces bars can show an edge line at the moving end of the fill, with its own width, height and color.
