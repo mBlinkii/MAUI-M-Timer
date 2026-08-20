@@ -1,5 +1,9 @@
 # Changelog - MAUI M+ Timer
 
+## [ver. 1.5.0] - 20.08.2026
+### 🔧 UPDATE
+- UPDATE - [Checkpoints]: The recommended checkpoint targets cover the current season's eight dungeons and no longer ship the previous season's.
+
 ## [ver. 1.4.0] - 28.07.2026
 ### 🐛 FIX
 - FIX - [Splits]: The "Manage times" window lists the current season's dungeons sorted by name, instead of only the ones with stored runs in map-ID order.

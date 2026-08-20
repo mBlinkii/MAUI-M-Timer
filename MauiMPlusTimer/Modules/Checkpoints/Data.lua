@@ -228,63 +228,63 @@ end
 
 -- Shipped defaults, keyed by mapID; edit here to update them.
 local AUTHOR_PRESET = {
-    [161] = {
+    [249] = {
         bySection = {
-            { bossIndex = 1, targetPct = 28.05 },
-            { bossIndex = 2, targetPct = 52.2 },
-            { bossIndex = 3, targetPct = 60.09 },
+            { bossIndex = 1, targetPct = 27.63 },
+            { bossIndex = 2, targetPct = 74.18 },
+            { bossIndex = 3, targetPct = 99.34 },
             { bossIndex = 4, targetPct = 100 },
         },
     },
-    [239] = {
+    [250] = {
         bySection = {
-            { bossIndex = 1, targetPct = 20.4 },
-            { bossIndex = 2, targetPct = 60.7 },
-            { bossIndex = 3, targetPct = 100 },
-        },
-        ponr = { { pct = 82.2 } },
-    },
-    [402] = {
-        bySection = {
-            { bossIndex = 1, targetPct = 21.5 },
-            { bossIndex = 2, targetPct = 42.1 },
-            { bossIndex = 3, targetPct = 77.1 },
+            { bossIndex = 1, targetPct = 24.81 },
+            { bossIndex = 2, targetPct = 60.4 },
+            { bossIndex = 3, targetPct = 81.66 },
             { bossIndex = 4, targetPct = 100 },
         },
     },
-    [556] = {
+    [399] = {
         bySection = {
-            { bossIndex = 1, targetPct = 57.3 },
-            { bossIndex = 2, targetPct = 78.6 },
+            { bossIndex = 1, targetPct = 37.43 },
+            { bossIndex = 2, targetPct = 77.58 },
             { bossIndex = 3, targetPct = 100 },
         },
     },
-    [557] = {
+    [584] = {
         bySection = {
-            { bossIndex = 1, targetPct = 45.1 },
-            { bossIndex = 2, targetPct = 70.5 },
-            { bossIndex = 3, targetPct = 100 },
-        },
-    },
-    [558] = {
-        bySection = {
-            { bossIndex = 1, targetPct = 28.1 },
-            { bossIndex = 2, targetPct = 50.05 },
-            { bossIndex = 3, targetPct = 83 },
+            { bossIndex = 1, targetPct = 41.07 },
+            { bossIndex = 2, targetPct = 60 },
+            { bossIndex = 3, targetPct = 80.15 },
             { bossIndex = 4, targetPct = 100 },
         },
     },
-    [559] = {
+    [585] = {
         bySection = {
-            { bossIndex = 1, targetPct = 28.5 },
-            { bossIndex = 2, targetPct = 73.3 },
+            { bossIndex = 1, targetPct = 36.72 },
+            { bossIndex = 2, targetPct = 62.2 },
             { bossIndex = 3, targetPct = 100 },
         },
     },
-    [560] = {
+    [586] = {
         bySection = {
-            { bossIndex = 1, targetPct = 45.9 },
-            { bossIndex = 2, targetPct = 88.8 },
+            { bossIndex = 1, targetPct = 29.77 },
+            { bossIndex = 2, targetPct = 73.53 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [587] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 29.47 },
+            { bossIndex = 2, targetPct = 33.44 },
+            { bossIndex = 3, targetPct = 75.27 },
+            { bossIndex = 4, targetPct = 100 },
+        },
+    },
+    [588] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 44.06 },
+            { bossIndex = 2, targetPct = 66.34 },
             { bossIndex = 3, targetPct = 100 },
         },
     },

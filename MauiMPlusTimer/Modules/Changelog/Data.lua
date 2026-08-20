@@ -18,6 +18,13 @@ Changelog.Data = Data
 -- "->" and "-", and straight double quotes are escaped.
 Data.entries = {
     {
+        version = "1.5.0",
+        date = "20.08.2026",
+        updates = {
+            "[Checkpoints]: The recommended checkpoint targets cover the current season's eight dungeons and no longer ship the previous season's.",
+        },
+    },
+    {
         version = "1.4.0",
         date = "28.07.2026",
         new = {
