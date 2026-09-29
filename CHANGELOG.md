@@ -8,7 +8,7 @@
 - UPDATE - [Checkpoints]: A pasted import string is replaced by its details, showing the dungeons it contains, how many of them are already configured, the exporting character, the addon version and the export date, and the import asks before it overwrites configured dungeons.
 - UPDATE - [Profiles]: A generated export string is selected right away, ready to copy.
 ### ✨ NEW
-- NEW - [Options]: A new settings window in the addon's own design, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; switch between it and the classic dialog with /mauimpt renderer.
+- NEW - [Options]: A new settings window in the addon's own design replaces the classic dialog, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; /mauimpt renderer switches back to the classic dialog.
 - NEW - [Options]: The font, opacity and accent color of the settings window can be set under General -> Interface, with the accent following the class color, the default or a custom color.
 - NEW - [System]: The settings window and the HUD draw text with the Slug font renderer, which keeps small text sharp; it can be switched off under General -> Interface.
 

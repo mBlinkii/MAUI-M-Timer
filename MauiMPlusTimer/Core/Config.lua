@@ -515,7 +515,7 @@ function Addon:SetupConfig()
 end
 
 -- "maui" is the own settings window in UI/Options, "ace" the AceConfig dialog.
--- Switched with /mauimpt renderer until the new window reaches parity.
+-- The classic dialog stays reachable with /mauimpt renderer.
 function Addon:UseOwnOptions()
     return self.db and self.db.global.optionsRenderer == "maui"
 end
@@ -714,12 +714,6 @@ function Addon:HandleSlash(input)
 
     if input == "demo" then
         Addon.Demo:Toggle()
-        return
-    end
-
-    -- Development harness for the new settings controls.
-    if input == "controls" then
-        Addon.OptionPreview:Toggle()
         return
     end
 

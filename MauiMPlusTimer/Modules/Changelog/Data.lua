@@ -21,7 +21,7 @@ Data.entries = {
         version = "1.6.0",
         date = "TBD",
         new = {
-            "[Options]: A new settings window in the addon's own design, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; switch between it and the classic dialog with /mauimpt renderer.",
+            "[Options]: A new settings window in the addon's own design replaces the classic dialog, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; /mauimpt renderer switches back to the classic dialog.",
             "[Options]: The font, opacity and accent color of the settings window can be set under General -> Interface, with the accent following the class color, the default or a custom color.",
             "[System]: The settings window and the HUD draw text with the Slug font renderer, which keeps small text sharp; it can be switched off under General -> Interface.",
         },

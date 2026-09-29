@@ -14,5 +14,4 @@
     <Script file="Options\Window.lua"/>
     <Script file="Options\Panel.lua"/>
     <Script file="Options\Render.lua"/>
-    <Script file="Options\Preview.lua"/>
 </Ui>
