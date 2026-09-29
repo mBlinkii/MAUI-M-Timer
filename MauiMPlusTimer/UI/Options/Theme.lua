@@ -42,10 +42,6 @@ OT.color = {
     faint      = { 0.420, 0.447, 0.502, 1.00 },
 
     accent     = { 0.161, 0.659, 0.941, 1.00 },
-    -- Sits on top of the accent (the switch knob, a check mark). White reads
-    -- best on the usual deep class colours; this is the fallback for the pale
-    -- ones, see OT:KnobColor.
-    onAccent   = { 0.055, 0.063, 0.078, 1.00 },
     on         = { 0.251, 0.753, 0.341, 1.00 },
     warn       = { 0.941, 0.565, 0.125, 1.00 },
     danger     = { 0.941, 0.290, 0.290, 1.00 },
@@ -214,18 +210,6 @@ local function windowAlpha()
     local alpha = cfg and cfg.alpha
     if type(alpha) ~= "number" then return 1 end
     return min(1, max(0.3, alpha))
-end
-
--- What sits on the accent: white, which is what a switch should look like,
--- unless the accent itself is pale. A Priest's class colour is pure white and
--- a white knob on it would simply disappear.
-function OT:KnobColor()
-    local r, g, b = self:AccentColor()
-    if 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.62 then
-        local c = self.color.onAccent
-        return c[1], c[2], c[3], 1
-    end
-    return 1, 1, 1, 1
 end
 
 -- Everything that marks a live or chosen element is painted from the accent.

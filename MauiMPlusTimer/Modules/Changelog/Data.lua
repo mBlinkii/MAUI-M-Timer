@@ -19,7 +19,7 @@ Changelog.Data = Data
 Data.entries = {
     {
         version = "1.6.0",
-        date = "TBD",
+        date = "29.09.2026",
         new = {
             "[Options]: A new settings window in the addon's own design replaces the classic dialog, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; /mauimpt renderer switches back to the classic dialog.",
             "[Options]: The font, opacity and accent color of the settings window can be set under General -> Interface, with the accent following the class color, the default or a custom color.",
@@ -37,6 +37,7 @@ Data.entries = {
             "[Cooldowns]: The battle res and Bloodlust icons no longer show Blizzard's rounded icon border and turn grey instead of dark while unavailable.",
             "[HUD]: The border of the HUD and dungeon backgrounds defaults to a flat 1-pixel line instead of the rounded tooltip border.",
             "[Options]: Dungeon icons in the \"Manage times\" window and the checkpoint editor no longer show Blizzard's rounded icon border.",
+            "[Checkpoints]: The recommended checkpoint targets are updated and now cover sixteen dungeons, including those of earlier seasons, two of them with a point of no return.",
         },
     },
     {

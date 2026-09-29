@@ -1,6 +1,6 @@
 # Changelog - MAUI M+ Timer
 
-## [ver. 1.6.0] - TBD
+## [ver. 1.6.0] - 29.09.2026
 ### 🔧 UPDATE
 - UPDATE - [Splits]: The "Manage times" window has a new design, with a summary banner for the selected dungeon, stored runs as cards with a time bar, and the delete action pinned to the bottom.
 - UPDATE - [Checkpoints]: The checkpoint editor has the same new design as the "Manage times" window.
@@ -13,6 +13,7 @@
 - UPDATE - [Cooldowns]: The battle res and Bloodlust icons no longer show Blizzard's rounded icon border and turn grey instead of dark while unavailable.
 - UPDATE - [HUD]: The border of the HUD and dungeon backgrounds defaults to a flat 1-pixel line instead of the rounded tooltip border.
 - UPDATE - [Options]: Dungeon icons in the "Manage times" window and the checkpoint editor no longer show Blizzard's rounded icon border.
+- UPDATE - [Checkpoints]: The recommended checkpoint targets are updated and now cover sixteen dungeons, including those of earlier seasons, two of them with a point of no return.
 ### ✨ NEW
 - NEW - [Options]: A new settings window in the addon's own design replaces the classic dialog, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; /mauimpt renderer switches back to the classic dialog.
 - NEW - [Options]: The font, opacity and accent color of the settings window can be set under General -> Interface, with the accent following the class color, the default or a custom color.

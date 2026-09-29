@@ -242,11 +242,29 @@ end
 
 -- Shipped defaults, keyed by mapID; edit here to update them.
 local AUTHOR_PRESET = {
+    [161] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 28.05 },
+            { bossIndex = 2, targetPct = 52.2 },
+            { bossIndex = 3, targetPct = 60.09 },
+            { bossIndex = 4, targetPct = 100 },
+        },
+    },
+    [239] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 20.4 },
+            { bossIndex = 2, targetPct = 60.7 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+        ponr = {
+            { pct = 82.2 },
+        },
+    },
     [249] = {
         bySection = {
-            { bossIndex = 1, targetPct = 27.63 },
-            { bossIndex = 2, targetPct = 74.18 },
-            { bossIndex = 3, targetPct = 99.34 },
+            { bossIndex = 1, targetPct = 23.68 },
+            { bossIndex = 2, targetPct = 70.23 },
+            { bossIndex = 3, targetPct = 96.55 },
             { bossIndex = 4, targetPct = 100 },
         },
     },
@@ -262,6 +280,50 @@ local AUTHOR_PRESET = {
         bySection = {
             { bossIndex = 1, targetPct = 37.43 },
             { bossIndex = 2, targetPct = 77.58 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [402] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 21.5 },
+            { bossIndex = 2, targetPct = 42.1 },
+            { bossIndex = 3, targetPct = 77.1 },
+            { bossIndex = 4, targetPct = 100 },
+        },
+    },
+    [556] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 57.3 },
+            { bossIndex = 2, targetPct = 78.6 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [557] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 45.1 },
+            { bossIndex = 2, targetPct = 70.5 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [558] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 28.1 },
+            { bossIndex = 2, targetPct = 50.05 },
+            { bossIndex = 3, targetPct = 83 },
+            { bossIndex = 4, targetPct = 100 },
+        },
+    },
+    [559] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 28.5 },
+            { bossIndex = 2, targetPct = 73.3 },
+            { bossIndex = 3, targetPct = 100 },
+        },
+    },
+    [560] = {
+        bySection = {
+            { bossIndex = 1, targetPct = 45.9 },
+            { bossIndex = 2, targetPct = 88.8 },
             { bossIndex = 3, targetPct = 100 },
         },
     },
@@ -282,24 +344,27 @@ local AUTHOR_PRESET = {
     },
     [586] = {
         bySection = {
-            { bossIndex = 1, targetPct = 29.77 },
-            { bossIndex = 2, targetPct = 73.53 },
+            { bossIndex = 1, targetPct = 34.71 },
+            { bossIndex = 2, targetPct = 74.35 },
             { bossIndex = 3, targetPct = 100 },
         },
     },
     [587] = {
         bySection = {
-            { bossIndex = 1, targetPct = 29.47 },
-            { bossIndex = 2, targetPct = 33.44 },
-            { bossIndex = 3, targetPct = 75.27 },
+            { bossIndex = 1, targetPct = 34.81 },
+            { bossIndex = 2, targetPct = 38.78 },
+            { bossIndex = 3, targetPct = 66.26 },
             { bossIndex = 4, targetPct = 100 },
         },
     },
     [588] = {
         bySection = {
-            { bossIndex = 1, targetPct = 44.06 },
-            { bossIndex = 2, targetPct = 66.34 },
+            { bossIndex = 1, targetPct = 41.74 },
+            { bossIndex = 2, targetPct = 65.24 },
             { bossIndex = 3, targetPct = 100 },
+        },
+        ponr = {
+            { pct = 90.09 },
         },
     },
 }

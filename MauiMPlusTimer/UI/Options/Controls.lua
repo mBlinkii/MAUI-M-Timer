@@ -473,11 +473,21 @@ function Controls:CreateToggle(parent)
     glow:Hide()
     c.hover = glow
 
-    local knob = f:CreateTexture(nil, "ARTWORK")
+    local knob = f:CreateTexture(nil, "ARTWORK", nil, 1)
     knob:SetSize(KNOB, KNOB)
     knob:SetTexture(OT.DOT)
     knob:SetTexCoord(unpack(OT.DOT_FILLED))
     c.knob = knob
+
+    -- The knob stays white on every accent; this soft rim keeps it readable on
+    -- the pale ones, down to a Priest's white.
+    local rim = f:CreateTexture(nil, "ARTWORK")
+    rim:SetSize(KNOB + 2, KNOB + 2)
+    rim:SetPoint("CENTER", knob, "CENTER")
+    rim:SetTexture(OT.DOT)
+    rim:SetTexCoord(unpack(OT.DOT_FILLED))
+    rim:SetVertexColor(0, 0, 0, 0.35)
+    c.rim = rim
 
     c.label = OT:Text(f, "normal", "text")
     c.label:SetPoint("LEFT", track, "RIGHT", OT.space.sm, 0)
@@ -523,7 +533,7 @@ function Toggle:Refresh()
     if disabled then
         self.knob:SetVertexColor(OT:Unpack("faint"))
     elseif on then
-        self.knob:SetVertexColor(OT:KnobColor())
+        self.knob:SetVertexColor(1, 1, 1, 1)
     else
         self.knob:SetVertexColor(OT:Unpack("muted"))
     end
