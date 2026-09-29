@@ -61,6 +61,17 @@ function Widgets:GetBestColor()
     return Addon.Utils.GetBestColor()
 end
 
+-- A length or offset in `region`'s coordinates rounded to whole screen pixels,
+-- so thin lines and gaps render at the same width at any HUD scale.
+function Widgets:Snap(region, value, minPixels)
+    return PixelUtil.GetNearestPixelSize(value, region:GetEffectiveScale(), minPixels)
+end
+
+-- Inline icons follow the element's font size rather than a fixed pixel size.
+function Widgets:IconSize(elementKey)
+    return math.floor((resolveStyle(elementKey).fontSize or 14) + 0.5)
+end
+
 -- size 0 matches the surrounding text height. A color forces the long
 -- vertex-color form, which needs an explicit size, so 0 becomes 16 there.
 function Widgets:IconEscape(path, default, size, color)
@@ -199,7 +210,8 @@ function Widgets:CreateText(parent, elementKey, layer)
     return fs
 end
 
-local DEFAULT_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border"
+-- Flat, like the bars: the rounded tooltip edge clashes with the square HUD.
+local DEFAULT_BORDER = "Interface\\Buttons\\WHITE8X8"
 local DEFAULT_BAR = "Interface\\TargetingFrame\\UI-StatusBar"
 
 -- Settings store a LibSharedMedia name, but legacy and preset data stored raw
@@ -255,7 +267,7 @@ function Widgets:ApplyPanel(frame, bg)
         backdrop = { bgFile = "Interface\\Buttons\\WHITE8X8" }
         if showBorder then
             backdrop.edgeFile = mediaPath("border", bg.borderTexture, DEFAULT_BORDER)
-            backdrop.edgeSize = bg.borderSize or 12
+            backdrop.edgeSize = bg.borderSize or 1
         end
     end
     frame:SetBackdrop(backdrop) -- nil clears any previous panel

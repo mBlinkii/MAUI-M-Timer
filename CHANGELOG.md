@@ -7,6 +7,12 @@
 - UPDATE - [Profiles]: A pasted import string is replaced by its details, showing the profile name, the exporting character, the addon version and the export date, and the import asks before it overwrites an existing profile.
 - UPDATE - [Checkpoints]: A pasted import string is replaced by its details, showing the dungeons it contains, how many of them are already configured, the exporting character, the addon version and the export date, and the import asks before it overwrites configured dungeons.
 - UPDATE - [Profiles]: A generated export string is selected right away, ready to copy.
+- UPDATE - [HUD]: Split-bar gaps, section dividers and checkpoint markers snap to whole screen pixels, so every gap has the same width and thin lines stay sharp at any HUD scale.
+- UPDATE - [HUD]: Icons inside HUD texts, such as the boss status icons, the battle res and Bloodlust icons and the forces check mark, follow the font size instead of a fixed size.
+- UPDATE - [HUD]: Long boss and dungeon names are shortened with "..." instead of running into the time column or past the edge of the HUD.
+- UPDATE - [Cooldowns]: The battle res and Bloodlust icons no longer show Blizzard's rounded icon border and turn grey instead of dark while unavailable.
+- UPDATE - [HUD]: The border of the HUD and dungeon backgrounds defaults to a flat 1-pixel line instead of the rounded tooltip border.
+- UPDATE - [Options]: Dungeon icons in the "Manage times" window and the checkpoint editor no longer show Blizzard's rounded icon border.
 ### ✨ NEW
 - NEW - [Options]: A new settings window in the addon's own design replaces the classic dialog, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; /mauimpt renderer switches back to the classic dialog.
 - NEW - [Options]: The font, opacity and accent color of the settings window can be set under General -> Interface, with the accent following the class color, the default or a custom color.

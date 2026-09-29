@@ -419,7 +419,7 @@ function Window:BuildNav()
         local module = isModule and moduleFor(entry.key)
         local on = not module or module:IsEnabled()
 
-        row.icon:SetTexture(entry.node.icon)
+        Controls.SetIcon(row.icon, entry.node.icon)
         row.icon:SetShown(not isModule and entry.node.icon ~= nil)
         row.dot:SetShown(isModule)
         if isModule then

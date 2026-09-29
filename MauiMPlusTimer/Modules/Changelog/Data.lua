@@ -31,6 +31,12 @@ Data.entries = {
             "[Profiles]: A pasted import string is replaced by its details, showing the profile name, the exporting character, the addon version and the export date, and the import asks before it overwrites an existing profile.",
             "[Checkpoints]: A pasted import string is replaced by its details, showing the dungeons it contains, how many of them are already configured, the exporting character, the addon version and the export date, and the import asks before it overwrites configured dungeons.",
             "[Profiles]: A generated export string is selected right away, ready to copy.",
+            "[HUD]: Split-bar gaps, section dividers and checkpoint markers snap to whole screen pixels, so every gap has the same width and thin lines stay sharp at any HUD scale.",
+            "[HUD]: Icons inside HUD texts, such as the boss status icons, the battle res and Bloodlust icons and the forces check mark, follow the font size instead of a fixed size.",
+            "[HUD]: Long boss and dungeon names are shortened with \"...\" instead of running into the time column or past the edge of the HUD.",
+            "[Cooldowns]: The battle res and Bloodlust icons no longer show Blizzard's rounded icon border and turn grey instead of dark while unavailable.",
+            "[HUD]: The border of the HUD and dungeon backgrounds defaults to a flat 1-pixel line instead of the rounded tooltip border.",
+            "[Options]: Dungeon icons in the \"Manage times\" window and the checkpoint editor no longer show Blizzard's rounded icon border.",
         },
     },
     {

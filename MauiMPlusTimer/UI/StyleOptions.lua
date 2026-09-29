@@ -21,8 +21,6 @@ local function textureList()
     return t
 end
 
-local DEFAULT_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border"
-
 local function borderList()
     local t = {}
     local LSM = LibStub("LibSharedMedia-3.0", true)
@@ -472,11 +470,11 @@ function Addon:AddBackgroundGroups(args, bg, apply, order)
             nl = Addon:OptLine(2),
             texture = { type = "select", name = L["Border texture"], order = 3, values = borderList, dialogControl = "LSM30_Border",
                 disabled = function() return not (bg().show and bg().border) end,
-                get = function() return mediaName("border", bg().borderTexture, "Blizzard Tooltip") end,
+                get = function() return mediaName("border", bg().borderTexture, "Solid") end,
                 set = function(_, v) bg().borderTexture = v; apply() end },
             size = { type = "range", name = L["Border size"], order = 4, min = 1, max = 32, step = 1,
                 disabled = function() return not (bg().show and bg().border) end,
-                get = function() return bg().borderSize or 12 end,
+                get = function() return bg().borderSize or 1 end,
                 set = function(_, v) bg().borderSize = v; apply() end },
             color = { type = "color", name = L["Border color"], order = 5, hasAlpha = true,
                 disabled = function() return not (bg().show and bg().border) end,
@@ -697,11 +695,11 @@ function Addon:ElementBarOptions(module, key, order, opts)
                 nl = Addon:OptLine(2),
                 texture = { type = "select", name = L["Border texture"], order = 3, values = borderList, dialogControl = "LSM30_Border",
                     disabled = function() return not elementRead(key).borderOn end,
-                    get = function() return mediaName("border", eff(key, "borderTexture"), "Blizzard Tooltip") end,
+                    get = function() return mediaName("border", eff(key, "borderTexture"), "Solid") end,
                     set = function(_, v) element(key).borderTexture = v; restyle(module) end },
                 size = { type = "range", name = L["Border size"], order = 4, min = 1, max = 16, step = 1,
                     disabled = function() return not elementRead(key).borderOn end,
-                    get = function() return elementRead(key).borderSize or 12 end,
+                    get = function() return elementRead(key).borderSize or 1 end,
                     set = function(_, v) element(key).borderSize = v; restyle(module) end },
                 offset = { type = "range", name = L["Border offset"], order = 5, min = -8, max = 16, step = 1,
                     disabled = function() return not elementRead(key).borderOn end,

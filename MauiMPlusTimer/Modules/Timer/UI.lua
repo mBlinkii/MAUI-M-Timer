@@ -85,15 +85,20 @@ function UI:LayoutSegments(style, h, bottomExtra)
     if not frameW or frameW <= 0 then frameW = Addon.MainWindow:GetWidth() end
     local total = (style.width and style.width > 0) and style.width or frameW
     if not total or total <= 0 then total = Addon.MainWindow:GetWidth() end
+    -- Whole pixels throughout, with the last segment taking the remainder, so
+    -- every gap renders at the same width.
+    local frame = self.barFrame
     local gap = Timer:GetSettings().splitGap or SEGMENT_GAP
-    local startX = (frameW - total) / 2
+    gap = Addon.Widgets:Snap(frame, gap, gap > 0 and 1 or nil)
+    local startX = Addon.Widgets:Snap(frame, (frameW - total) / 2)
     local avail = total - gap * (#SEGMENTS - 1)
     local reverse = Addon:GetElementSetting(ns.E.timerBar).reverse == true
     -- Frame-local x of each gap center; the countdown labels anchor to these.
     self._boundaryX = {}
     local x = 0
     for i, seg in ipairs(self.segBars) do
-        local w = avail * (SEGMENTS[i].hi - SEGMENTS[i].lo)
+        local w = (i == #self.segBars) and (avail - (x - gap * (i - 1)))
+            or Addon.Widgets:Snap(frame, avail * (SEGMENTS[i].hi - SEGMENTS[i].lo))
         local leftX = reverse and (startX + total - x - w) or (startX + x)
         seg:ClearAllPoints()
         seg:SetSize(math.max(1, w), h)
@@ -258,11 +263,11 @@ function UI:LayoutDividers()
     local barStyle = Addon.Widgets.ResolveStyle(ns.E.timerBar)
     local fillElapsed = barStyle.barFill ~= "remaining"
     local dc = barStyle.sectionDividerColor or { 1, 1, 1, 0.65 }
-    local dw = barStyle.dividerWidth or 1
+    local dw = Addon.Widgets:Snap(self.barFrame, barStyle.dividerWidth or 1, 1)
     local h = barStyle.height or 14
 
     local barW = (barStyle.width and barStyle.width > 0) and barStyle.width or frameW
-    local barLeft = (frameW - barW) / 2
+    local barLeft = Addon.Widgets:Snap(self.barFrame, (frameW - barW) / 2)
 
     local ls = Addon.Widgets.ResolveStyle(ns.E.timerSection)
     local mode = ls.countdownPos or "above"
@@ -277,7 +282,7 @@ function UI:LayoutDividers()
             -- end edge, mirrored when the fill is reversed.
             local base = fillElapsed and line._threshold or (1 - line._threshold)
             local frac = reverse and (1 - base) or base
-            x = barLeft + barW * frac
+            x = Addon.Widgets:Snap(self.barFrame, barLeft + barW * frac)
         end
 
         line:ClearAllPoints()

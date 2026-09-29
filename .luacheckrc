@@ -51,7 +51,7 @@ read_globals = {
 
     -- Frames / UI
     "CreateFrame", "UIParent", "GameTooltip", "UISpecialFrames",
-    "GetPhysicalScreenSize", "ColorPickerFrame",
+    "GetPhysicalScreenSize", "ColorPickerFrame", "PixelUtil",
     "GameFontNormal", "GameFontHighlight", "GameFontNormalLarge",
     "hooksecurefunc", "issecure", "securecall", "geterrorhandler",
     "PlaySound", "PlaySoundFile", "StopSound",

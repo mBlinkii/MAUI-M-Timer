@@ -1861,6 +1861,19 @@ function Controls.Settle(owner, scroll, height, verifying)
     owner.lastHeight = height
 end
 
+-- Blizzard icons (file IDs, Interface\Icons) carry a rounded border that is cut
+-- off; the addon's own glyphs are drawn edge to edge and stay whole.
+function Controls.SetIcon(texture, icon)
+    texture:SetTexture(icon)
+    local blizzard = type(icon) == "number"
+        or (type(icon) == "string" and icon:lower():find("^interface[\\/]icons[\\/]") ~= nil)
+    if blizzard then
+        texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    else
+        texture:SetTexCoord(0, 1, 0, 1)
+    end
+end
+
 function Controls.ListRow(parent)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(OT.size.row)

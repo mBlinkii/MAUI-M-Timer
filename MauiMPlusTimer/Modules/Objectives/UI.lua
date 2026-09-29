@@ -84,6 +84,9 @@ function UI:Update(bosses)
     local timeHex = Addon.Utils.ColorHex(e.timeColor or { 0.80, 0.80, 0.80, 1 })
 
     local s = Objectives:GetSettings()
+    local iconSize = Addon.Widgets:IconSize(ns.E.objectiveText)
+    local width = self.frame:GetWidth()
+    if not width or width <= 0 then width = Addon.MainWindow:GetWidth() end
     local showDone = s.showDoneIcon ~= false
     local showPending = s.showPendingIcon ~= false
     local showBest = Addon.db.profile.ui.showBest == true
@@ -98,9 +101,9 @@ function UI:Update(bosses)
 
         local iconGlyph = ""
         if boss.done then
-            if showDone then iconGlyph = Addon.Widgets:IconEscape(s.doneIcon, DEFAULT_DONE, 12, s.doneIconColor) end
+            if showDone then iconGlyph = Addon.Widgets:IconEscape(s.doneIcon, DEFAULT_DONE, iconSize, s.doneIconColor) end
         elseif showPending then
-            iconGlyph = Addon.Widgets:IconEscape(s.pendingIcon, DEFAULT_PENDING, 12, s.pendingIconColor)
+            iconGlyph = Addon.Widgets:IconEscape(s.pendingIcon, DEFAULT_PENDING, iconSize, s.pendingIconColor)
         end
         local displayName = Addon.Utils.ShortenName(boss.name or "?", shortenMode, shortenLen)
         local coloredName = "|c" .. (boss.done and doneHex or openHex) .. displayName .. "|r"
@@ -129,14 +132,19 @@ function UI:Update(bosses)
         local deltaStr = boss.delta and ("  " .. Addon.Utils.FormatDelta(boss.delta)) or ""
         timeStr = timeStr .. deltaStr
 
+        -- The name gets what the time column leaves, so a long one ends in "..."
+        -- instead of running into the time.
         if mode == "CENTER" then
+            row.name:SetWidth(math.max(20, width - math.abs(x)))
             row.name:SetText(timeStr ~= "" and (nameStr .. "   " .. timeStr) or nameStr)
             row.time:SetText("")
             row.time:Hide()
         else
-            row.name:SetText(nameStr)
             row.time:SetText(timeStr)
             row.time:Show()
+            local timeW = timeStr ~= "" and (math.ceil(row.time:GetStringWidth()) + 8) or 0
+            row.name:SetWidth(math.max(20, width - math.abs(x) - timeW))
+            row.name:SetText(nameStr)
         end
         row.name:Show()
     end

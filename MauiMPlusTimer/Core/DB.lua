@@ -23,8 +23,8 @@ local defaults = {
                 showIcon = false, iconPos = "left", iconSize = 20, -- optional map icon
                 bg = {
                     show = false, color = { 0, 0, 0, 0.5 },
-                    border = false, borderTexture = "Interface\\Tooltips\\UI-Tooltip-Border",
-                    borderSize = 12, borderColor = { 0, 0, 0, 1 },
+                    border = false, borderTexture = "Solid",
+                    borderSize = 1, borderColor = { 0, 0, 0, 1 },
                 },
             },
             EnemyForces = { enabled = true, showMarkers = false }, -- checkpoint markers on the bar
@@ -83,8 +83,8 @@ local defaults = {
                 show        = false,
                 color       = { 0, 0, 0, 0.6 },
                 border      = false,
-                borderTexture = "Interface\\Tooltips\\UI-Tooltip-Border",
-                borderSize  = 12,
+                borderTexture = "Solid",
+                borderSize  = 1,
                 borderColor = { 0, 0, 0, 1 },
             },
         },

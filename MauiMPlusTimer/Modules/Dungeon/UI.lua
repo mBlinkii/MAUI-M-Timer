@@ -45,8 +45,19 @@ function UI:Build()
     self.icon:Hide()
 
     self:LayoutTexts()
+    -- A split row halves the block after LayoutTexts ran.
+    block:SetScript("OnSizeChanged", function() UI:FitTexts() end)
     block:Hide()
     Addon.MainWindow:AddBlock("dungeon", block, 5)
+end
+
+-- Both lines get the width beside the icon, so a long name ends in "..."
+-- instead of running past the HUD.
+function UI:FitTexts()
+    if not self.frame then return end
+    local avail = math.max(20, self.frame:GetWidth() - (self._textInset or 0))
+    self.nameText:SetWidth(avail)
+    self.affixText:SetWidth(avail)
 end
 
 -- Name on top, affixes beneath; both collapse when affixes are off.
@@ -97,6 +108,8 @@ function UI:LayoutTexts()
     end
     anchorLine(self.nameText, ns.E.dungeonName, -pad)
     anchorLine(self.affixText, ns.E.dungeonAffixes, -pad - nameH)
+    self._textInset = pad * 2 + insetL + insetR
+    self:FitTexts()
 
     if showAffixes then self.affixText:Show() else self.affixText:Hide() end
     local textH = showAffixes and (nameH + affixH) or nameH

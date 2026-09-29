@@ -98,7 +98,7 @@ function Panel:BuildList()
             row:SetPoint("TOPLEFT", self.list, "TOPLEFT", 0, -y)
             row:SetPoint("TOPRIGHT", self.list, "TOPRIGHT", 0, -y)
 
-            row.icon:SetTexture(entry.icon)
+            Controls.SetIcon(row.icon, entry.icon)
             row.icon:SetShown(entry.icon ~= nil and entry.color == nil)
             row.dot:SetShown(entry.color ~= nil)
             if entry.color then

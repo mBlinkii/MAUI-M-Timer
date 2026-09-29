@@ -153,8 +153,11 @@ function UI:LayoutSegments(style, h, vShift)
     local total = (style.width and style.width > 0) and style.width or frameW
     if not total or total <= 0 then total = Addon.MainWindow:GetWidth() end
 
+    -- Whole pixels throughout, with the last segment taking the remainder, so
+    -- every gap renders at the same width.
     local gap = Forces:GetSettings().splitGap or DEFAULT_SEGMENT_GAP
-    local startX = (frameW - total) / 2
+    gap = Addon.Widgets:Snap(self.frame, gap, gap > 0 and 1 or nil)
+    local startX = Addon.Widgets:Snap(self.frame, (frameW - total) / 2)
     local avail = total - gap * math.max(0, #defs - 1)
     local reverse = Addon:GetElementSetting(ns.E.forcesBar).reverse == true
     local color = style.barColor or { 0.85, 0.20, 0.20, 1 }
@@ -168,7 +171,8 @@ function UI:LayoutSegments(style, h, vShift)
     for i, seg in ipairs(self.segBars) do
         local def = defs[i]
         if def then
-            local w = avail * (def.hi - def.lo)
+            local w = (i == #defs) and (avail - (x - gap * (i - 1)))
+                or Addon.Widgets:Snap(self.frame, avail * (def.hi - def.lo))
             local leftX = reverse and (startX + total - x - w) or (startX + x)
             seg:ClearAllPoints()
             seg:SetSize(math.max(1, w), h)
@@ -319,6 +323,8 @@ function UI:LayoutMarkers()
     local width = self.bar:GetWidth()
     if not width or width <= 0 then width = Addon.MainWindow:GetWidth() end
     local mc = Addon.Widgets.ResolveStyle(ns.E.forcesBar).markerColor or { 1, 0.82, 0, 0.9 }
+    -- Even pixel count: the marker is centered on its x.
+    local markerW = Addon.Widgets:Snap(self.bar, 1, 1) * 2
     local reverse = Addon:GetElementSetting(ns.E.forcesBar).reverse == true
     local mode = Addon:GetElementSetting(ns.E.forcesSegment).countdownPos or "above"
     local lx, ly = Addon.Widgets:GetOffset(ns.E.forcesSegment)
@@ -366,8 +372,9 @@ function UI:LayoutMarkers()
                 if reverse then frac = 1 - frac end
                 bx = width * frac
             end
+            bx = Addon.Widgets:Snap(self.bar, bx)
             m:ClearAllPoints()
-            m:SetWidth(2)
+            m:SetWidth(markerW)
             m:SetPoint("TOP", self.bar, "TOPLEFT", bx, 0)
             m:SetPoint("BOTTOM", self.bar, "BOTTOMLEFT", bx, 0)
             m:SetColorTexture(mc[1], mc[2], mc[3], mc[4] or 1)
@@ -421,7 +428,7 @@ function UI:LayoutMarkers()
         end
         local bx = reverse and 0 or width
         m:ClearAllPoints()
-        m:SetWidth(2)
+        m:SetWidth(markerW)
         m:SetPoint("TOP", self.bar, "TOPLEFT", bx, 0)
         m:SetPoint("BOTTOM", self.bar, "BOTTOMLEFT", bx, 0)
         m:Hide()
@@ -494,7 +501,8 @@ function UI:Update(current, total, percent, completionTime, delta, bestForces)
         local timeStr = completionTime
             and ("  |cffcccccc" .. Addon.Utils.FormatTime(completionTime) .. "|r") or ""
         local deltaStr = delta and ("  " .. Addon.Utils.FormatDelta(delta)) or ""
-        str = "|cff33ff99100%|r |TInterface\\RaidFrame\\ReadyCheck-Ready:12|t" .. timeStr .. deltaStr
+        str = "|cff33ff99100%|r |TInterface\\RaidFrame\\ReadyCheck-Ready:"
+            .. Addon.Widgets:IconSize(ns.E.forcesText) .. "|t" .. timeStr .. deltaStr
     else
         local pct = string.format("%.2f%%", (percent or 0) * 100)
         if percentOnly or Forces:GetSettings().showCount == false then

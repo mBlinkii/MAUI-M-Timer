@@ -13,6 +13,14 @@ local PANEL_PAD = 8 -- inner padding when the background/border/title is shown
 -- is the only frame of a full-width row; entryRight is false there.
 local entryLeft, entryRight = {}, {}
 
+-- What the last Layout placed, to skip unchanged ones without building strings.
+local lastLeft, lastRight, lastLeftH, lastRightH = {}, {}, {}, {}
+local lastCount, lastPad, lastSpacing, lastWidth
+
+local function roundedHeight(frame)
+    return frame and math.floor((frame:GetHeight() or 0) + 0.5) or 0
+end
+
 -- Created lazily on first use.
 function MainWindow:Get()
     if self.frame then return self.frame end
@@ -44,9 +52,13 @@ end
 function MainWindow:ApplyPosition()
     if not self.frame then return end
     local ui = Addon.db.profile.ui
-    self.frame:ClearAllPoints()
-    self.frame:SetPoint(ui.point or "CENTER", UIParent, ui.point or "CENTER", ui.x or 0, ui.y or 0)
-    self.frame:SetScale(ui.scale or 1)
+    local f = self.frame
+    -- Scale first: the offsets are in the frame's scaled units and are snapped
+    -- to whole pixels so every child lands on the pixel grid.
+    f:SetScale(ui.scale or 1)
+    f:ClearAllPoints()
+    f:SetPoint(ui.point or "CENTER", UIParent, ui.point or "CENTER",
+        Addon.Widgets:Snap(f, ui.x or 0), Addon.Widgets:Snap(f, ui.y or 0))
 end
 
 function MainWindow:SavePosition()
@@ -465,10 +477,11 @@ function MainWindow:Layout()
 
     self:UpdateSeparators()
 
-    local width = self:GetWidth()
-    local pad = self:PanelInsets()
-    local spacing = Addon.db.profile.ui.spacing or 2
-    local half = (width - SPLIT_GAP) / 2
+    local function snap(v) return Addon.Widgets:Snap(hud, v) end
+    local width = snap(self:GetWidth())
+    local pad = snap(self:PanelInsets())
+    local spacing = snap(Addon.db.profile.ui.spacing or 2)
+    local half = snap((width - SPLIT_GAP) / 2)
 
     -- A split row whose second block is hidden collapses to full width.
     local count = 0
@@ -502,17 +515,18 @@ function MainWindow:Layout()
     -- Modules call Layout on nearly every tick, almost always with unchanged
     -- sizes. Re-anchoring the HUD each time made the display jitter, so bail
     -- out unless something structural changed.
-    local sig = pad .. "/" .. spacing .. "/" .. width
+    local changed = count ~= lastCount or pad ~= lastPad
+        or spacing ~= lastSpacing or width ~= lastWidth
     for i = 1, count do
-        sig = sig .. "|" .. tostring(entryLeft[i])
-            .. ":" .. math.floor((entryLeft[i]:GetHeight() or 0) + 0.5)
-        if entryRight[i] then
-            sig = sig .. "+" .. tostring(entryRight[i])
-                .. ":" .. math.floor((entryRight[i]:GetHeight() or 0) + 0.5)
+        local lf, rf = entryLeft[i], entryRight[i]
+        local lh, rh = roundedHeight(lf), roundedHeight(rf)
+        if lastLeft[i] ~= lf or lastRight[i] ~= rf or lastLeftH[i] ~= lh or lastRightH[i] ~= rh then
+            changed = true
         end
+        lastLeft[i], lastRight[i], lastLeftH[i], lastRightH[i] = lf, rf, lh, rh
     end
-    if sig == self._layoutSig then return end
-    self._layoutSig = sig
+    lastCount, lastPad, lastSpacing, lastWidth = count, pad, spacing, width
+    if not changed then return end
 
     local y = pad
     for i = 1, count do
@@ -522,15 +536,17 @@ function MainWindow:Layout()
             lf:SetPoint("TOPLEFT", hud, "TOPLEFT", pad, -y)
             rf:ClearAllPoints()
             rf:SetPoint("TOPRIGHT", hud, "TOPRIGHT", -pad, -y)
-            y = y + math.max(lf:GetHeight(), rf:GetHeight()) + spacing
+            y = y + snap(math.max(lf:GetHeight(), rf:GetHeight())) + spacing
         else
             lf:SetPoint("TOP", hud, "TOP", 0, -y)
-            y = y + lf:GetHeight() + spacing
+            y = y + snap(lf:GetHeight()) + spacing
         end
     end
 
     if count > 0 then
-        hud:SetSize(width + pad * 2, (y - spacing) + pad)
+        -- Even pixel counts, so the centered HUD and its centered rows keep
+        -- whole-pixel edges.
+        hud:SetSize(snap((width + pad * 2) / 2) * 2, snap(((y - spacing) + pad) / 2) * 2)
         self:ApplyPanel()
         hud:Show()
     else
