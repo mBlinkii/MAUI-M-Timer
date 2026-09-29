@@ -187,6 +187,109 @@ end
 
 -- Bound to element[key][field]; refreshes every module so the change shows
 -- across the whole HUD at once.
+-- Accent of the settings window. Kept in the profile so it travels with a
+-- profile switch like every other look setting.
+local function accentCfg()
+    local ui = Addon.db.profile.ui
+    ui.accent = ui.accent or {}
+    return ui.accent
+end
+
+local function windowCfg()
+    local ui = Addon.db.profile.ui
+    ui.window = ui.window or {}
+    return ui.window
+end
+
+-- LibSharedMedia keys its font dropdown by name, not by path.
+local function fontNames()
+    local t = {}
+    local LSM = LibStub("LibSharedMedia-3.0", true)
+    if LSM then for _, name in ipairs(LSM:List("font")) do t[name] = name end end
+    return t
+end
+
+-- Settings window and the text renderer. Lives on the General page: the accent
+-- is the window's, but the renderer is the whole addon's, so neither belongs
+-- under Colors.
+function Addon:InterfaceOptions(order)
+    local L = ns.L
+    return {
+        type = "group", inline = true, name = L["Interface"], order = order or 2,
+        args = {
+            font = {
+                type = "select", name = L["Font"], order = 1,
+                desc = L["Typeface of the settings window itself, separate from the HUD font."],
+                dialogControl = "LSM30_Font",
+                values = fontNames,
+                get = function() return ns.OT:FaceName() end,
+                set = function(_, v)
+                    windowCfg().font = v
+                    ns.OT:FontChanged()
+                end,
+            },
+            alpha = {
+                type = "range", name = L["Window opacity"], order = 2,
+                desc = L["How solid the settings window is. Its text stays readable; only the surfaces thin out."],
+                min = 0.3, max = 1, step = 0.05, isPercent = true,
+                get = function() return windowCfg().alpha or 1 end,
+                set = function(_, v)
+                    windowCfg().alpha = v
+                    ns.OT:AlphaChanged()
+                end,
+            },
+            mode = {
+                type = "select", name = L["Accent source"], order = 3,
+                desc = L["Which color marks active elements in the settings window: switches, slider fills, the selected page and the title bar."],
+                values = function()
+                    return {
+                        default = L["Default"],
+                        class = L["Class color"],
+                        custom = L["Custom color"],
+                    }
+                end,
+                sorting = { "default", "class", "custom" },
+                get = function() return accentCfg().mode or "class" end,
+                set = function(_, v)
+                    accentCfg().mode = v
+                    ns.OT:AccentChanged()
+                end,
+            },
+            color = {
+                type = "color", name = L["Custom accent"], order = 4,
+                desc = L["Used only while the accent source is set to a custom color."],
+                disabled = function() return (accentCfg().mode or "class") ~= "custom" end,
+                get = function()
+                    local c = accentCfg().color or EMPTY
+                    return c[1] or 0.161, c[2] or 0.659, c[3] or 0.941
+                end,
+                set = function(_, r, g, b)
+                    accentCfg().color = { r, g, b }
+                    ns.OT:AccentChanged()
+                end,
+            },
+            slug = {
+                type = "toggle", name = L["Slug renderer"], order = 5, width = 1.5,
+                desc = function()
+                    if not ns.OT:SlugAvailable() then
+                        return L["Not available in this client."]
+                    end
+                    return L["Draws glyphs from outlines instead of a pixel grid, which keeps small text sharp. Applies to the settings window and the HUD."]
+                end,
+                disabled = function() return not ns.OT:SlugAvailable() end,
+                get = function() return windowCfg().slug ~= false end,
+                set = function(_, v)
+                    windowCfg().slug = v and true or false
+                    ns.OT:FontChanged()
+                    -- The HUD resolves the flag through its style cache.
+                    Addon.Widgets:InvalidateStyle()
+                    Addon.MainWindow:Refresh()
+                end,
+            },
+        },
+    }
+end
+
 local function areaColor(key, field, name, order, default)
     return {
         type = "color", name = name, order = order, hasAlpha = true,

@@ -167,6 +167,7 @@ function Addon:BuildOptions()
                 order = 1,
                 icon = ICON_GENERAL,
                 args = {
+                    interface = Addon:InterfaceOptions(2),
                     settings = {
                         type = "group", inline = true, name = L["Settings"], order = 1,
                         args = {
@@ -299,6 +300,32 @@ function Addon:BuildOptions()
     return options
 end
 
+-- Every refresh asks, so the last decode is kept until the string changes.
+local peekedString, peekedPayload
+
+local function peekImport()
+    local str = Addon._importString or ""
+    if str ~= peekedString then
+        peekedString = str
+        peekedPayload = str ~= "" and Addon.Profiles:DecodeImport(str) or nil
+    end
+    return peekedPayload
+end
+
+-- What the import box shows in place of a valid string; nil while there is none.
+local function importPreview()
+    local payload = peekImport()
+    if not payload then return nil end
+    local L = ns.L
+
+    local profile = payload.name
+    if Addon.Profiles:Exists(payload.name) then
+        profile = profile .. "  |cfff09020" .. L["(exists, will be overwritten)"] .. "|r"
+    end
+    return strjoin("\n", Addon.Utils.ShareLine(L["Profile"], profile),
+        Addon.Utils.ShareMetaLines(payload.meta))
+end
+
 -- UI only; the serialization lives in Core/Profiles.lua.
 function Addon:BuildShareOptions()
     local L = ns.L
@@ -339,30 +366,50 @@ function Addon:BuildShareOptions()
                 name = L["Export string"],
                 hidden = function() return not Addon._exportString or Addon._exportString == "" end,
                 get = function() return Addon._exportString or "" end,
-                set = function() end, -- read-only: select the text and copy it
+                set = function() end,
+                arg = "readOnly", -- UI/Options: select and copy only, no Accept
             },
             importDesc = {
                 type = "description", order = 10,
-                name = L["Paste a string and accept to import the profile. It is created under its exported name; your current profile is kept."],
+                name = L["Paste a profile string, check its details and click Import. The profile is created under its exported name; your current profile is kept."],
             },
             import = {
                 type = "input", multiline = 6, width = "full", order = 11,
-                name = L["Import"],
-                -- Confirmation is only needed when the imported name collides
-                -- with an existing profile. Invalid strings return false here
-                -- (no popup) and fail fast with an error in `set` instead.
-                confirm = function(_, value)
-                    local payload = Addon.Profiles:DecodeImport(value)
+                name = function()
+                    if (Addon._importString or "") ~= "" and not peekImport() then
+                        return L["Import string"] .. "  |cfff04a4a" .. L["Not a valid profile string."] .. "|r"
+                    end
+                    return L["Import string"]
+                end,
+                arg = "live", -- UI/Options: stored while pasting, so the box turns into the preview
+                -- A valid string is shown as its details; the string itself stays in _importString.
+                get = function() return importPreview() or Addon._importString or "" end,
+                set = function(_, value)
+                    local preview = importPreview()
+                    if preview then
+                        if value == preview then return end
+                        -- Pasted beside the preview instead of over it (Ace's box does not select all).
+                        local from, to = value:find(preview, 1, true)
+                        if from then value = value:sub(1, from - 1) .. value:sub(to + 1) end
+                    end
+                    Addon._importString = strtrim(value)
+                end,
+            },
+            importBtn = {
+                type = "execute", order = 13, name = L["Import"],
+                disabled = function() return peekImport() == nil end,
+                -- Only a name that already exists needs asking about.
+                confirm = function()
+                    local payload = peekImport()
                     if payload and Addon.Profiles:Exists(payload.name) then
-                        return string.format(
-                            L["Profile '%s' already exists. Overwrite it?"], payload.name)
+                        return string.format(L["Profile '%s' already exists. Overwrite it?"], payload.name)
                     end
                     return false
                 end,
-                get = function() return "" end,
-                set = function(_, value)
-                    local ok, res = Addon.Profiles:Import(value)
+                func = function()
+                    local ok, res = Addon.Profiles:Import(Addon._importString or "")
                     if ok then
+                        Addon._importString = nil
                         Addon:Info(L["Imported profile '%s'."], tostring(res))
                         if Addon.MainWindow then Addon.MainWindow:Refresh() end
                     else
@@ -467,10 +514,29 @@ function Addon:SetupConfig()
     self:RegisterChatCommand("mauimpt", "HandleSlash")
 end
 
+-- "maui" is the own settings window in UI/Options, "ace" the AceConfig dialog.
+-- Switched with /mauimpt renderer until the new window reaches parity.
+function Addon:UseOwnOptions()
+    return self.db and self.db.global.optionsRenderer == "maui"
+end
+
+-- page is an optional deeplink key, resolved through self._optionPath.
 -- Geometry binding and reset control come from the Open hook in SetupConfig.
-function Addon:OpenOptions()
+function Addon:OpenOptions(page)
+    if self:UseOwnOptions() then
+        return Addon.OptionsWindow:Open(page)
+    end
     if not self.AceConfigDialog then return end
     self.AceConfigDialog:Open(ADDON_NAME)
+    if not page then return end
+    local path = self._optionPath and self._optionPath[page]
+    pcall(function()
+        if path then
+            self.AceConfigDialog:SelectGroup(ADDON_NAME, unpack(path))
+        else
+            self.AceConfigDialog:SelectGroup(ADDON_NAME, page)
+        end
+    end)
 end
 
 -- The AceGUI Frame writes its geometry into its status table after every move
@@ -485,6 +551,9 @@ function Addon:ApplyOptionsWindowStatus()
 end
 
 function Addon:ToggleOptions()
+    if self:UseOwnOptions() then
+        return Addon.OptionsWindow:Toggle()
+    end
     if not self.AceConfigDialog then return end
     if self.AceConfigDialog.OpenFrames[ADDON_NAME] then
         self.AceConfigDialog:Close(ADDON_NAME)
@@ -495,7 +564,10 @@ end
 
 -- Also clears the persisted geometry so the default survives the session.
 function Addon:ResetOptionsWindowSize()
-    wipe(self.db.global.optionsWindow)
+    if self:UseOwnOptions() then
+        return Addon.OptionsWindow:ResetGeometry()
+    end
+    ns.Controls.ClearGeometry(self.db.global.optionsWindow)
     local widget = self.AceConfigDialog and self.AceConfigDialog.OpenFrames[ADDON_NAME]
     if not widget then return end
     widget:SetWidth(OPTIONS_DEFAULT_WIDTH)
@@ -519,7 +591,7 @@ function Addon:EnsureOptionsResetButton(widget)
         end)
         btn:SetScript("OnEnter", function(s)
             GameTooltip:SetOwner(s, "ANCHOR_TOP")
-            GameTooltip:SetText(L["Reset window size"])
+            GameTooltip:SetText(L["Reset window size and position"])
             GameTooltip:Show()
         end)
         btn:SetScript("OnLeave", function()
@@ -639,10 +711,27 @@ end
 -- /mauimpt [subcommand] -> open the GUI, optionally jumping to a sub page.
 function Addon:HandleSlash(input)
     input = (input or ""):gsub("%s+", ""):lower()
-    local dialog = self.AceConfigDialog
 
     if input == "demo" then
         Addon.Demo:Toggle()
+        return
+    end
+
+    -- Development harness for the new settings controls.
+    if input == "controls" then
+        Addon.OptionPreview:Toggle()
+        return
+    end
+
+    if input == "renderer" then
+        local own = self:UseOwnOptions()
+        if own then
+            Addon.OptionsWindow:Close()
+        elseif self.AceConfigDialog then
+            self.AceConfigDialog:Close(ADDON_NAME)
+        end
+        self.db.global.optionsRenderer = own and "ace" or "maui"
+        self:Info(ns.L["Settings renderer: %s"]:format(self.db.global.optionsRenderer))
         return
     end
 
@@ -663,16 +752,5 @@ function Addon:HandleSlash(input)
         return
     end
 
-    self:OpenOptions()
-
-    if input ~= "" then
-        local path = self._optionPath and self._optionPath[input]
-        pcall(function()
-            if path then
-                dialog:SelectGroup(ADDON_NAME, unpack(path))
-            else
-                dialog:SelectGroup(ADDON_NAME, input)
-            end
-        end)
-    end
+    self:OpenOptions(input ~= "" and input or nil)
 end

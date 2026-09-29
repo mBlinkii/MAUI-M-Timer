@@ -50,7 +50,8 @@ read_globals = {
     "GetWorldElapsedTime", "GetWorldElapsedTimers",
 
     -- Frames / UI
-    "CreateFrame", "UIParent", "GameTooltip",
+    "CreateFrame", "UIParent", "GameTooltip", "UISpecialFrames",
+    "GetPhysicalScreenSize", "ColorPickerFrame",
     "GameFontNormal", "GameFontHighlight", "GameFontNormalLarge",
     "hooksecurefunc", "issecure", "securecall", "geterrorhandler",
     "PlaySound", "PlaySoundFile", "StopSound",
@@ -77,7 +78,8 @@ read_globals = {
     "C_UnitAuras",
 
     -- Instance / combat / unit
-    "GetInstanceInfo", "InCombatLockdown", "UnitName",
+    "GetInstanceInfo", "InCombatLockdown", "UnitName", "UnitClass", "GetNormalizedRealmName",
+    "CUSTOM_CLASS_COLORS",
 
     -- Minimap (button placement + shape) and cursor
     "Minimap", "GetMinimapShape", "GetCursorPosition",
@@ -96,5 +98,5 @@ read_globals = {
     "SOUNDKIT", "STANDARD_TEXT_FONT",
 
     -- Global UI string constants
-    "NONE", "OKAY", "CLOSE",
+    "NONE", "OKAY", "CLOSE", "YES", "NO", "ACCEPT",
 }

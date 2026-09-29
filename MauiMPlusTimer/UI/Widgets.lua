@@ -32,6 +32,15 @@ local function resolveStyle(elementKey)
         for k, v in pairs(override) do style[k] = v end
     end
 
+    -- The outline renderer is a global choice rather than an element's, and it
+    -- rides on whatever outline the element already asked for. ns.OT owns the
+    -- probe; it is loaded by the time any style is resolved.
+    local OT = ns.OT
+    if OT and OT:FontFlags() == "SLUG" then
+        style.fontFlags = (style.fontFlags and style.fontFlags ~= "")
+            and (style.fontFlags .. ",SLUG") or "SLUG"
+    end
+
     styleCache[cacheKey] = style
     return style
 end

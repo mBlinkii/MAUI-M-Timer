@@ -1,246 +1,233 @@
 -- Modules/Splits/Manager.lua
 -- Panel for viewing and cleaning up stored run times, via "/mauimpt splits".
+-- The window itself is ns.Panel; this file only supplies the list and the page.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
 local Splits = Addon:GetModule("Splits")
 
-local AceGUI = LibStub("AceGUI-3.0")
-
-local Manager = {}
-Splits.Manager = Manager
-
 local Utils = Addon.Utils
 
-local OUTDATED = "__outdated__" -- sentinel tree value for the previous seasons' group
+local OUTDATED = "__outdated__" -- list key for the bulk cleanup page
 
-local function dungeonNode(mapID)
+-- List ---------------------------------------------------------------------
+
+local function dungeonEntry(mapID)
     return {
-        value = tostring(mapID),
+        key = tostring(mapID),
         text = Utils.GetMapName(mapID),
         icon = Utils.GetMapTexture(mapID),
     }
 end
 
--- Current season at the top level, everything else grouped as outdated; flat
--- per dungeon, because selecting one shows all its runs as cards.
-local function buildTree()
+local function buildList()
     local L = ns.L
-    local tree = {}
+    local entries = { { header = true, text = L["Current season"] } }
+
     for _, mapID in ipairs(Utils.GetSeasonMaps()) do
-        tree[#tree + 1] = dungeonNode(mapID)
+        entries[#entries + 1] = dungeonEntry(mapID)
     end
 
     local old = Utils.GetOutdatedMaps(Splits.Data.GetDungeons())
     if #old > 0 then
-        local children = {}
-        for _, mapID in ipairs(old) do children[#children + 1] = dungeonNode(mapID) end
-        tree[#tree + 1] = {
-            value = OUTDATED,
-            text = "|cff888888" .. L["Outdated"] .. "|r",
-            children = children,
-        }
+        entries[#entries + 1] = { header = true, text = L["Outdated"],
+            right = format("%d", #old) }
+        for _, mapID in ipairs(old) do
+            local entry = dungeonEntry(mapID)
+            entry.dim = true
+            entries[#entries + 1] = entry
+        end
+        entries[#entries + 1] = { key = OUTDATED, text = L["Delete outdated data"],
+            dim = true }
     end
-    return tree
+    return entries
 end
 
-local COLOR_INTIME  = { 0.2, 0.8, 0.2, 1 }
-local COLOR_OVER    = { 0.85, 0.2, 0.2, 1 }
-local COLOR_UNKNOWN = { 0.45, 0.45, 0.45, 1 }
+-- Page ---------------------------------------------------------------------
 
-local function addRunCard(scroll, mapID, level, run, best, limit)
+-- One card per stored run, in the shape of the banner above the page: the key
+-- level and the run's particulars on the left, the total on the right, and the
+-- bar for the time against the dungeon's limit.
+local function runNode(mapID, level, run, best, limit, order)
     local L = ns.L
 
     local timed -- nil when the dungeon has no known time limit
     if limit and run.total then timed = (run.total <= limit) end
-    local color = (timed == nil and COLOR_UNKNOWN) or (timed and COLOR_INTIME or COLOR_OVER)
-    -- Signed against the dungeon timer: "-1:20" is time to spare.
-    local delta = (limit and run.total) and Utils.FormatDelta(run.total - limit) or ""
 
-    local card = AceGUI:Create("MMTRunCard")
-    card:SetFullWidth(true)
-    card:SetLayout("Flow")
-    card:SetBorderColor(unpack(color))
-    scroll:AddChild(card)
-
-    local lines = {}
-    lines[#lines + 1] = Utils.KeystoneLevelTag(level, true) .. "    |cffffffff" .. Utils.FormatTime(run.total or 0) .. "|r"
-        .. (delta ~= "" and ("    " .. delta) or "")
-        .. (run == best and ("  |cffffd200(" .. L["Best"] .. ")|r") or "")
     local meta = { (run.deaths or 0) .. " " .. L["Deaths"] }
     if run.date then meta[#meta + 1] = date("%Y-%m-%d %H:%M", run.date) end
-    lines[#lines + 1] = "|cff888888" .. table.concat(meta, "    ") .. "|r"
-    if run.sections then
-        for i, t in ipairs(run.sections) do
-            if t then
-                lines[#lines + 1] = "|cffaaaaaa   " .. L["Boss"] .. " " .. i .. ": " .. Utils.FormatTime(t) .. "|r"
+
+    local splits = {}
+    for i, t in ipairs(run.sections or {}) do
+        if t then
+            splits[#splits + 1] = L["Boss"] .. " " .. i .. ": " .. Utils.FormatTime(t)
+        end
+    end
+
+    local tag = Utils.KeystoneLevelTag(level, true)
+    local total = Utils.FormatTime(run.total or 0)
+
+    return {
+        type = "run", order = order,
+        -- The tooltip's heading; the card itself carries no label.
+        name = tag .. "  " .. total,
+        desc = L["Removes only this run."],
+        tag = tag,
+        badge = (run == best) and L["Best"] or "",
+        total = total,
+        totalColor = (timed == nil and "muted") or (timed and "on" or "danger"),
+        delta = (limit and run.total) and Utils.FormatDelta(run.total - limit) or "",
+        meta = table.concat(meta, "   \194\183   "),
+        splits = table.concat(splits, "   "),
+        progress = (limit and run.total) and (run.total / limit) or nil,
+        confirm = true,
+        confirmText = L["Removes only this run."],
+        func = function()
+            Splits.Data.DeleteRun(mapID, level, run)
+            Splits.Manager:Refresh()
+        end,
+    }
+end
+
+local function outdatedPage()
+    local L = ns.L
+    local old = Utils.GetOutdatedMaps(Splits.Data.GetDungeons())
+    return {
+        type = "group", name = L["Outdated"],
+        args = {
+            note = { type = "description", order = 1,
+                name = L["Dungeons from earlier seasons that still have stored data."] },
+            wipe = {
+                type = "execute", order = 2,
+                name = L["Delete outdated data"],
+                desc = L["Removes all stored times of dungeons outside the current season. Cannot be undone."],
+                confirm = true,
+                confirmText = L["Removes all stored times of dungeons outside the current season. Cannot be undone."],
+                disabled = function() return #old == 0 end,
+                func = function()
+                    for _, mapID in ipairs(old) do Splits.Data.DeleteDungeon(mapID) end
+                    Addon:Info(L["Removed the stored times of %d outdated dungeon(s)."], #old)
+                    Splits.Manager:Refresh()
+                end,
+            },
+        },
+    }
+end
+
+local function dungeonPage(mapID)
+    local L = ns.L
+    local args = {}
+    local limit = Utils.GetMapTimeLimit(mapID)
+    local levels = Splits.Data.GetLevels(mapID)
+    local order = 0
+
+    if #levels == 0 then
+        args.empty = { type = "description", order = 1, name = L["No data"] }
+    else
+        local runs = { type = "group", inline = true, name = L["Stored runs"], order = 1, args = {} }
+        -- Highest levels first.
+        for i = #levels, 1, -1 do
+            local level = levels[i]
+            local list, best = Splits.Data.GetRuns(mapID, level)
+            for _, run in ipairs(list) do
+                order = order + 1
+                runs.args["run" .. order] = runNode(mapID, level, run, best, limit, order)
+            end
+        end
+        args.runs = runs
+    end
+
+    return { type = "group", name = Utils.GetMapName(mapID), args = args }
+end
+
+-- Wiping the dungeon belongs to the page, not into it: as the last row it
+-- scrolled out of sight behind a long list of runs.
+local function dungeonAction(mapID)
+    local L = ns.L
+    local levels = Splits.Data.GetLevels(mapID)
+    return {
+        type = "execute",
+        name = L["Delete dungeon"],
+        desc = L["Removes all stored times for this dungeon (every key level). Cannot be undone."],
+        confirm = true,
+        confirmText = L["Removes all stored times for this dungeon (every key level). Cannot be undone."],
+        disabled = function() return #levels == 0 end,
+        func = function()
+            Splits.Data.DeleteDungeon(mapID)
+            Splits.Manager:Refresh()
+        end,
+    }
+end
+
+-- Banner -------------------------------------------------------------------
+
+-- Headline of a dungeon page: the highest key that beat the timer, and within
+-- that key the best time. A faster run on a lower key is not the better result,
+-- so it only stands in when nothing was timed at all.
+local function dungeonBanner(mapID)
+    local L = ns.L
+    local limit = Utils.GetMapTimeLimit(mapID)
+
+    local count = 0
+    local best, bestLevel       -- highest timed key, best time within it
+    local fastest, fastestLevel -- fallback while nothing has been timed
+
+    for _, level in ipairs(Splits.Data.GetLevels(mapID)) do
+        local list = Splits.Data.GetRuns(mapID, level)
+        count = count + #list
+        for _, run in ipairs(list) do
+            if run.total then
+                if not fastest or run.total < fastest.total then
+                    fastest, fastestLevel = run, level
+                end
+                if limit and run.total <= limit
+                    and (not best or level > bestLevel
+                        or (level == bestLevel and run.total < best.total)) then
+                    best, bestLevel = run, level
+                end
             end
         end
     end
 
-    local label = AceGUI:Create("Label")
-    label:SetRelativeWidth(0.74)
-    label:SetText(table.concat(lines, "\n"))
-    card:AddChild(label)
+    local run, level = best, bestLevel
+    if not run then run, level = fastest, fastestLevel end
 
-    local del = AceGUI:Create("Button")
-    del:SetText(L["Remove"])
-    del:SetRelativeWidth(0.24)
-    del:SetCallback("OnClick", function()
-        Splits.Data.DeleteRun(mapID, level, run)
-        Manager:Refresh()
-    end)
-    del:SetCallback("OnEnter", function(widget)
-        GameTooltip:SetOwner(widget.frame, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(L["Remove"])
-        GameTooltip:AddLine(L["Removes only this run."], 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    del:SetCallback("OnLeave", function() GameTooltip:Hide() end)
-    card:AddChild(del)
-end
+    local data = {
+        title = Utils.GetMapName(mapID),
+        tag = level and Utils.KeystoneLevelTag(level, true) or "",
+        sub = limit and format(L["%d run(s), limit %s"], count, Utils.FormatTime(limit))
+            or format(L["%d run(s)"], count),
+    }
 
--- Overview of the outdated group, with a one-click cleanup.
-function Manager:ShowOutdated(container)
-    local L = ns.L
-
-    local scroll = AceGUI:Create("ScrollFrame")
-    scroll:SetLayout("List")
-    scroll:SetFullWidth(true)
-    scroll:SetFullHeight(true)
-    container:AddChild(scroll)
-
-    local head = AceGUI:Create("Label")
-    head:SetFullWidth(true)
-    head:SetText("|cffffffff" .. L["Outdated"] .. "|r\n"
-        .. L["Dungeons from earlier seasons that still have stored data."] .. "\n")
-    scroll:AddChild(head)
-
-    local del = AceGUI:Create("Button")
-    del:SetText(L["Delete outdated data"])
-    del:SetFullWidth(true)
-    del:SetCallback("OnClick", function()
-        local old = Utils.GetOutdatedMaps(Splits.Data.GetDungeons())
-        for _, mapID in ipairs(old) do Splits.Data.DeleteDungeon(mapID) end
-        Addon:Info(L["Removed the stored times of %d outdated dungeon(s)."], #old)
-        Manager:Refresh()
-    end)
-    del:SetCallback("OnEnter", function(widget)
-        GameTooltip:SetOwner(widget.frame, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(L["Delete outdated data"])
-        GameTooltip:AddLine(L["Removes all stored times of dungeons outside the current season. Cannot be undone."], 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    del:SetCallback("OnLeave", function() GameTooltip:Hide() end)
-    scroll:AddChild(del)
-end
-
--- One coloured card per stored run.
-function Manager:ShowDetail(container, path)
-    container:ReleaseChildren()
-    local L = ns.L
-
-    -- Last segment: outdated dungeons sit below their group node.
-    local key = path:match("[^\001]+$")
-    if key == OUTDATED then
-        self:ShowOutdated(container)
-        return
+    if not run then
+        data.big = "\226\128\148" -- em dash
+        data.bigSub = L["No data"]
+        return data
     end
 
-    local mapID = tonumber(key)
-    if not mapID then return end
-
-    local scroll = AceGUI:Create("ScrollFrame")
-    scroll:SetLayout("List")
-    scroll:SetFullWidth(true)
-    scroll:SetFullHeight(true)
-    container:AddChild(scroll)
-
-    local head = AceGUI:Create("Label")
-    head:SetFullWidth(true)
-    head:SetText("|cffffffff" .. Utils.GetMapName(mapID) .. "|r\n")
-    scroll:AddChild(head)
-
-    local limit = Utils.GetMapTimeLimit(mapID)
-    local levels = Splits.Data.GetLevels(mapID)
-
-    if #levels == 0 then
-        local hint = AceGUI:Create("Label")
-        hint:SetFullWidth(true)
-        hint:SetText(L["No data"])
-        scroll:AddChild(hint)
-        return
-    end
-
-    -- Highest levels first.
-    for i = #levels, 1, -1 do
-        local level = levels[i]
-        local runs, best = Splits.Data.GetRuns(mapID, level)
-        for _, run in ipairs(runs) do
-            addRunCard(scroll, mapID, level, run, best, limit)
-        end
-    end
-
-    local delDun = AceGUI:Create("Button")
-    delDun:SetText(L["Delete dungeon"])
-    delDun:SetFullWidth(true)
-    delDun:SetCallback("OnClick", function()
-        Splits.Data.DeleteDungeon(mapID)
-        Manager:Refresh()
-    end)
-    delDun:SetCallback("OnEnter", function(widget)
-        GameTooltip:SetOwner(widget.frame, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(L["Delete dungeon"])
-        GameTooltip:AddLine(L["Removes all stored times for this dungeon (every key level). Cannot be undone."], 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    delDun:SetCallback("OnLeave", function() GameTooltip:Hide() end)
-    scroll:AddChild(delDun)
+    data.big = Utils.FormatTime(run.total)
+    data.bigColor = (run == best) and "on" or "danger"
+    data.bigSub = limit and Utils.FormatDelta(run.total - limit) or L["Best"]
+    data.progress = limit and (run.total / limit) or nil
+    return data
 end
 
-function Manager:Open()
-    if self.frame then return end
-    local L = ns.L
-
-    local frame = AceGUI:Create("Frame")
-    frame:SetTitle("MAUI M+ Timer \226\128\148 " .. L["Manage times"])
-    frame:SetLayout("Fill")
-    frame:SetCallback("OnClose", function(widget)
-        Manager.frame, Manager.tree = nil, nil
-        AceGUI:Release(widget)
-    end)
-    self.frame = frame
-
-    local tree = AceGUI:Create("TreeGroup")
-    tree:SetLayout("Fill")
-    tree:SetFullWidth(true)
-    tree:SetFullHeight(true)
-    tree:EnableButtonTooltips(false)
-    tree:SetTree(buildTree())
-    tree:SetCallback("OnGroupSelected", function(widget, _, path)
-        Manager:ShowDetail(widget, path)
-    end)
-    frame:AddChild(tree)
-    self.tree = tree
-end
-
-function Manager:Close()
-    if self.frame then
-        self.frame:Hide() -- triggers OnClose -> release
-    end
-end
-
-function Manager:Toggle()
-    if self.frame then
-        self:Close()
-    else
-        self:Open()
-    end
-end
-
--- After a deletion.
-function Manager:Refresh()
-    if not self.tree then return end
-    self.tree:SetTree(buildTree())
-    self.tree:ReleaseChildren()
-end
+Splits.Manager = ns.Panel.New("splits", {
+    title = function() return "MAUI M+ Timer \226\128\148 " .. ns.L["Manage times"] end,
+    globalName = "MauiMPlusTimerSplitsPanel",
+    width = 900, height = 620,
+    BuildList = buildList,
+    BuildPage = function(_, key)
+        if key == OUTDATED then return outdatedPage() end
+        local mapID = tonumber(key)
+        return mapID and dungeonPage(mapID) or nil
+    end,
+    BuildBanner = function(_, key)
+        local mapID = tonumber(key)
+        return mapID and dungeonBanner(mapID) or nil
+    end,
+    BuildAction = function(_, key)
+        local mapID = tonumber(key)
+        return mapID and dungeonAction(mapID) or nil
+    end,
+})

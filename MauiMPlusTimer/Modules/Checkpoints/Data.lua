@@ -169,8 +169,12 @@ function Data.SetPoNRPct(mapID, index, value)
 end
 
 -- All dungeons at once; nil plus an error message on failure.
+-- meta sits beside the mapID keys; older imports skip non-numeric keys, so the
+-- string stays readable for them.
 function Data.Export()
-    return Addon.Utils.EncodeShare("checkpoints", store())
+    local payload = { meta = Addon.Utils.ShareMeta() }
+    for mapID, entry in pairs(store()) do payload[mapID] = entry end
+    return Addon.Utils.EncodeShare("checkpoints", payload)
 end
 
 -- Readable Lua source for embedding a preset in addon code. Developer format;
@@ -208,22 +212,32 @@ end
 
 -- Per dungeon: an incoming entry overwrites the existing one, dungeons absent
 -- from the string are kept. Returns true plus the count, or false plus an error.
-function Data.Import(str)
+-- Validates without applying, for the import preview. Returns
+-- { maps = { [mapID] = entry }, count, meta }, or nil plus an error message.
+function Data.Decode(str)
     local incoming, err = Addon.Utils.DecodeShare("checkpoints", str)
-    if not incoming then return false, err end
+    if not incoming then return nil, err end
 
-    local s = store()
-    local count = 0
+    local maps, count = {}, 0
     for mapID, entry in pairs(incoming) do
-        local sanitized = sanitizeEntry(entry)
-        if type(mapID) == "number" and sanitized then
-            s[mapID] = sanitized
+        local sanitized = type(mapID) == "number" and sanitizeEntry(entry)
+        if sanitized then
+            maps[mapID] = sanitized
             count = count + 1
         end
     end
-    if count == 0 then return false, "no valid checkpoint data" end
+    if count == 0 then return nil, "no valid checkpoint data" end
+    return { maps = maps, count = count, meta = incoming.meta }
+end
+
+function Data.Import(str)
+    local decoded, err = Data.Decode(str)
+    if not decoded then return false, err end
+
+    local s = store()
+    for mapID, entry in pairs(decoded.maps) do s[mapID] = entry end
     invalidate()
-    return true, count
+    return true, decoded.count
 end
 
 -- Shipped defaults, keyed by mapID; edit here to update them.

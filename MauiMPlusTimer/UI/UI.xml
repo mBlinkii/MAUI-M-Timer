@@ -7,4 +7,12 @@
     <Script file="RunCard.lua"/>
     <Script file="MainWindow.lua"/>
     <Script file="StyleOptions.lua"/>
+
+    <!-- Settings window: own renderer over the existing option tables -->
+    <Script file="Options\Theme.lua"/>
+    <Script file="Options\Controls.lua"/>
+    <Script file="Options\Window.lua"/>
+    <Script file="Options\Panel.lua"/>
+    <Script file="Options\Render.lua"/>
+    <Script file="Options\Preview.lua"/>
 </Ui>

@@ -54,6 +54,5 @@ end
 -- Records the version account-wide, so the auto-show fires once per update.
 function Changelog:Show()
     Addon.db.global.lastChangelogVersion = Addon.version
-    Addon:OpenOptions()
-    Addon.AceConfigDialog:SelectGroup(ADDON_NAME, "changelog")
+    Addon:OpenOptions("changelog")
 end

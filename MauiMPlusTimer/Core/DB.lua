@@ -64,6 +64,13 @@ local defaults = {
             demo    = false,
             showBest = false,    -- show the stored best run's split times behind live elements
             bestPrefix = "(", bestSuffix = ")", -- bracket characters around best times (either may be empty)
+            -- Accent of the settings window. "class" follows the player's class
+            -- colour, "custom" uses the stored one, "default" the value below.
+            accent  = { mode = "class", color = { 0.161, 0.659, 0.941 } },
+            -- Settings window typeface and how solid its surfaces are. font =
+            -- false picks the most legible face LibSharedMedia offers; slug
+            -- asks for WoW's outline renderer, for the window and the HUD.
+            window  = { font = false, slug = true, alpha = 1 },
             font = {},           -- global font baseline (font, fontSize, fontFlags)
             elements = {},       -- per-element style overrides, keyed by elementKey
             -- No `after` key here: a legacy anchor in the DEFAULTS would be
@@ -92,7 +99,9 @@ local defaults = {
         splits      = {},
         checkpoints = {},
         lastChangelogVersion = "", -- last version whose changelog was auto-shown
-        optionsWindow = {},        -- written by the AceGUI Frame status table
+        optionsWindow = {},        -- geometry, shared by both option renderers
+        panels      = {},          -- geometry per side panel, keyed by its id
+        optionsRenderer = "ace",   -- "ace" or "maui", switched with /mauimpt renderer
         setupPending = false,      -- armed on a fresh install, cleared once handled
         setupDone    = false,      -- wizard ran (finished, skipped or closed)
     },

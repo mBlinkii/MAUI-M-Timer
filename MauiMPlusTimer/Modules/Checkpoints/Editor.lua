@@ -1,19 +1,14 @@
 -- Modules/Checkpoints/Editor.lua
 -- Panel for the per-dungeon forces targets, opened via "/mauimpt checkpoints".
+-- The window itself is ns.Panel; this file only supplies the list and the page.
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
 local Checkpoints = Addon:GetModule("Checkpoints")
 
-local AceGUI = LibStub("AceGUI-3.0")
-
-local Editor = {}
-Checkpoints.Editor = Editor
-
-local SHARE = "__share__"       -- sentinel tree value for the Import / Export page
-local OUTDATED = "__outdated__" -- sentinel tree value for the previous seasons' group
-
 local Utils = Addon.Utils
+
+local SHARE = "__share__" -- list key for the Import / Export page
 
 -- Current season's maps, plus the active key should the cache miss it.
 local function seasonList()
@@ -28,334 +23,316 @@ local function seasonList()
     return list
 end
 
-local function dungeonNode(mapID)
+-- List ---------------------------------------------------------------------
+
+local function dungeonEntry(mapID)
     return {
-        value = tostring(mapID),
+        key = tostring(mapID),
         text = Utils.GetMapName(mapID),
         icon = Utils.GetMapTexture(mapID),
     }
 end
 
--- One node per dungeon of the current season, configured dungeons from earlier
--- seasons grouped below, Import/Export pinned to the bottom.
-local function buildTree()
+local function buildList()
     local L = ns.L
-    local tree = {}
+    local entries = { { header = true, text = L["Current season"] } }
+
     for _, mapID in ipairs(seasonList()) do
-        tree[#tree + 1] = dungeonNode(mapID)
+        entries[#entries + 1] = dungeonEntry(mapID)
     end
 
     local old = Utils.GetOutdatedMaps(Checkpoints.Data.GetDungeons())
     if #old > 0 then
-        local children = {}
-        for _, mapID in ipairs(old) do children[#children + 1] = dungeonNode(mapID) end
-        tree[#tree + 1] = {
-            value = OUTDATED,
-            text = "|cff888888" .. L["Outdated"] .. "|r",
-            children = children,
-        }
+        entries[#entries + 1] = { header = true, text = L["Outdated"],
+            right = format("%d", #old) }
+        for _, mapID in ipairs(old) do
+            local entry = dungeonEntry(mapID)
+            entry.dim = true
+            entries[#entries + 1] = entry
+        end
     end
 
-    tree[#tree + 1] = {
-        value = SHARE,
-        text = "|cff40c057" .. L["Import / Export"] .. "|r",
+    entries[#entries + 1] = { header = true, text = L["Other"] }
+    entries[#entries + 1] = {
+        key = SHARE,
+        text = L["Import / Export"],
         icon = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Menu\\share",
     }
-    return tree
+    return entries
 end
 
-local function addRow(parent, leftLabel, leftValue, rightValue, onLeft, onRight, onRemove)
+-- Page: one dungeon -------------------------------------------------------
+
+-- Boss index, target and the remove button share a line: none of the three
+-- carries an explanation, so the renderer keeps them in its column flow.
+local function sectionArgs(mapID, bySection)
     local L = ns.L
-    local row = AceGUI:Create("SimpleGroup")
-    row:SetFullWidth(true)
-    row:SetLayout("Flow")
-    parent:AddChild(row)
+    local args = {}
+    for i, section in ipairs(bySection) do
+        local base = i * 10
+        args["boss" .. i] = {
+            type = "input", order = base, width = 1,
+            name = L["Boss"] .. " #",
+            get = function() return tostring(section.bossIndex or 1) end,
+            set = function(_, text) Checkpoints.Data.SetSectionBossIndex(mapID, i, text) end,
+        }
+        args["pct" .. i] = {
+            type = "input", order = base + 1, width = 1,
+            name = L["Target %"],
+            get = function() return tostring(section.targetPct or 0) end,
+            set = function(_, text) Checkpoints.Data.SetSectionTargetPct(mapID, i, text) end,
+        }
+        args["del" .. i] = {
+            type = "execute", order = base + 2, width = 1,
+            name = L["Remove"],
+            func = function()
+                Checkpoints.Data.RemoveSection(mapID, i)
+                Checkpoints.Editor:Refresh()
+            end,
+        }
+        args["break" .. i] = Addon:OptLine(base + 3)
+    end
 
-    local left = AceGUI:Create("EditBox")
-    left:SetLabel(leftLabel)
-    left:SetWidth(110)
-    left:SetText(leftValue)
-    left:SetCallback("OnEnterPressed", function(_, _, text) onLeft(text) end)
-    row:AddChild(left)
-
-    local right = AceGUI:Create("EditBox")
-    right:SetLabel(L["Target %"])
-    right:SetWidth(90)
-    right:SetText(rightValue)
-    right:SetCallback("OnEnterPressed", function(_, _, text) onRight(text) end)
-    row:AddChild(right)
-
-    local del = AceGUI:Create("Button")
-    del:SetText(L["Remove"])
-    del:SetWidth(90)
-    del:SetCallback("OnClick", onRemove)
-    row:AddChild(del)
+    args.add = {
+        type = "execute", order = 900, width = 1.5,
+        name = L["Add boss target"],
+        func = function()
+            Checkpoints.Data.AddSection(mapID, #bySection + 1, 0)
+            Checkpoints.Editor:Refresh()
+        end,
+    }
+    return args
 end
 
--- One % input plus a remove button.
-local function addPonrRow(parent, value, onValue, onRemove)
+local function ponrArgs(mapID, ponr)
     local L = ns.L
-    local row = AceGUI:Create("SimpleGroup")
-    row:SetFullWidth(true)
-    row:SetLayout("Flow")
-    parent:AddChild(row)
+    local args = {}
+    for i, point in ipairs(ponr) do
+        local base = i * 10
+        args["pct" .. i] = {
+            type = "input", order = base, width = 1,
+            name = L["Minimum %"],
+            get = function() return tostring(point.pct or 0) end,
+            set = function(_, text) Checkpoints.Data.SetPoNRPct(mapID, i, text) end,
+        }
+        args["del" .. i] = {
+            type = "execute", order = base + 1, width = 1,
+            name = L["Remove"],
+            func = function()
+                Checkpoints.Data.RemovePoNR(mapID, i)
+                Checkpoints.Editor:Refresh()
+            end,
+        }
+        args["break" .. i] = Addon:OptLine(base + 2)
+    end
 
-    local pct = AceGUI:Create("EditBox")
-    pct:SetLabel(L["Minimum %"])
-    pct:SetWidth(110)
-    pct:SetText(value)
-    pct:SetCallback("OnEnterPressed", function(_, _, text) onValue(text) end)
-    row:AddChild(pct)
-
-    local del = AceGUI:Create("Button")
-    del:SetText(L["Remove"])
-    del:SetWidth(90)
-    del:SetCallback("OnClick", onRemove)
-    row:AddChild(del)
+    args.add = {
+        type = "execute", order = 900, width = 1.5,
+        name = L["Add point of no return"],
+        func = function()
+            Checkpoints.Data.AddPoNR(mapID, 0)
+            Checkpoints.Editor:Refresh()
+        end,
+    }
+    return args
 end
 
-function Editor:ShowDungeon(container, mapID)
-    container:ReleaseChildren()
+local function dungeonPage(mapID)
     local L = ns.L
-    if not mapID then return end
-
-    local scroll = AceGUI:Create("ScrollFrame")
-    scroll:SetLayout("List")
-    scroll:SetFullWidth(true)
-    scroll:SetFullHeight(true)
-    container:AddChild(scroll)
-
-    local head = AceGUI:Create("Label")
-    head:SetFullWidth(true)
-    head:SetText("|cffffd200" .. Utils.GetMapName(mapID) .. "|r\n")
-    scroll:AddChild(head)
-
     -- Get, not GetOrCreate: browsing a dungeon must not store an empty record.
     -- The Add buttons create the entry on first use.
     local entry = Checkpoints.Data.Get(mapID)
     local bySection = (entry and entry.bySection) or {}
     local ponr = (entry and entry.ponr) or {}
 
-    local h1 = AceGUI:Create("Heading")
-    h1:SetFullWidth(true)
-    h1:SetText(L["Boss section targets"])
-    scroll:AddChild(h1)
-
-    for i, s in ipairs(bySection) do
-        -- Via the Data setters, which validate and bump the generation counter.
-        addRow(scroll, L["Boss"] .. " #", tostring(s.bossIndex or 1), tostring(s.targetPct or 0),
-            function(text)
-                Checkpoints.Data.SetSectionBossIndex(mapID, i, text)
-            end,
-            function(text)
-                Checkpoints.Data.SetSectionTargetPct(mapID, i, text)
-            end,
-            function()
-                Checkpoints.Data.RemoveSection(mapID, i)
-                Editor:ReShow()
-            end)
-    end
-
-    local addBoss = AceGUI:Create("Button")
-    addBoss:SetText(L["Add boss target"])
-    addBoss:SetWidth(180)
-    addBoss:SetCallback("OnClick", function()
-        Checkpoints.Data.AddSection(mapID, (#bySection + 1), 0)
-        Editor:ReShow()
-    end)
-    scroll:AddChild(addBoss)
-
-    local h2 = AceGUI:Create("Heading")
-    h2:SetFullWidth(true)
-    h2:SetText(L["Point of No Return"])
-    scroll:AddChild(h2)
-
-    for i, p in ipairs(ponr) do
-        addPonrRow(scroll, tostring(p.pct or 0),
-            function(text)
-                Checkpoints.Data.SetPoNRPct(mapID, i, text)
-            end,
-            function()
-                Checkpoints.Data.RemovePoNR(mapID, i)
-                Editor:ReShow()
-            end)
-    end
-
-    local addPonr = AceGUI:Create("Button")
-    addPonr:SetText(L["Add point of no return"])
-    addPonr:SetWidth(220)
-    addPonr:SetCallback("OnClick", function()
-        Checkpoints.Data.AddPoNR(mapID, 0)
-        Editor:ReShow()
-    end)
-    scroll:AddChild(addPonr)
+    return {
+        type = "group", name = Utils.GetMapName(mapID),
+        args = {
+            sections = {
+                type = "group", inline = true, order = 1,
+                name = L["Boss section targets"],
+                args = sectionArgs(mapID, bySection),
+            },
+            ponr = {
+                type = "group", inline = true, order = 2,
+                name = L["Point of No Return"],
+                args = ponrArgs(mapID, ponr),
+            },
+        },
+    }
 end
 
-function Editor:ShowShare(container)
-    container:ReleaseChildren()
+-- Page: import and export --------------------------------------------------
+
+-- Every refresh asks, so the last decode is kept until the string changes.
+local peekedText, peekedImport
+
+local function peekImport()
+    local text = Checkpoints.Editor.importText or ""
+    if text ~= peekedText then
+        peekedText = text
+        peekedImport = text ~= "" and Checkpoints.Data.Decode(text) or nil
+    end
+    return peekedImport
+end
+
+local function overwritten(decoded)
+    local count = 0
+    for mapID in pairs(decoded.maps) do
+        if Checkpoints.Data.Get(mapID) then count = count + 1 end
+    end
+    return count
+end
+
+-- What the import box shows in place of a valid string; nil while there is none.
+local function importPreview()
+    local decoded = peekImport()
+    if not decoded then return nil end
     local L = ns.L
 
-    local scroll = AceGUI:Create("ScrollFrame")
-    scroll:SetLayout("List")
-    scroll:SetFullWidth(true)
-    scroll:SetFullHeight(true)
-    container:AddChild(scroll)
+    local names = {}
+    for mapID in pairs(decoded.maps) do names[#names + 1] = Utils.GetMapName(mapID) end
+    sort(names)
+    local count = tostring(decoded.count)
+    local taken = overwritten(decoded)
+    if taken > 0 then
+        count = count .. "  |cfff09020" .. format(L["(%d configured, will be overwritten)"], taken) .. "|r"
+    end
+    return strjoin("\n", Utils.ShareLine(L["Dungeons"], count), table.concat(names, ", "),
+        Utils.ShareMetaLines(decoded.meta))
+end
 
-    local h1 = AceGUI:Create("Heading")
-    h1:SetFullWidth(true)
-    h1:SetText(L["Export"])
-    scroll:AddChild(h1)
+local function sharePage()
+    local L = ns.L
+    local Editor = Checkpoints.Editor
 
-    local d1 = AceGUI:Create("Label")
-    d1:SetFullWidth(true)
-    d1:SetText(L["Click Export to generate a shareable string of all your checkpoints, then copy it."])
-    scroll:AddChild(d1)
-
-    -- Shareable string, or readable Lua code that Import() cannot read back.
-    local exportAsLua = false
-
-    local plainToggle = AceGUI:Create("CheckBox")
-    plainToggle:SetLabel(L["Export as Lua table"])
-    plainToggle:SetDescription(L["Output the checkpoints as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."])
-    plainToggle:SetFullWidth(true)
-    scroll:AddChild(plainToggle)
-
-    local exportBox = AceGUI:Create("MultiLineEditBox")
-    exportBox:SetLabel(L["Export string"])
-    exportBox:SetFullWidth(true)
-    exportBox:SetNumLines(6)
-    exportBox:DisableButton(true)
-    scroll:AddChild(exportBox)
-
-    local function generateExport()
-        return (exportAsLua and Checkpoints.Data.ExportPlain()
+    local function generate()
+        return (Editor.exportAsLua and Checkpoints.Data.ExportPlain()
             or Checkpoints.Data.Export()) or ""
     end
 
-    plainToggle:SetCallback("OnValueChanged", function(_, _, value)
-        exportAsLua = value and true or false
-        -- Regenerate an already visible export in the new format.
-        if exportBox:GetText() ~= "" then
-            exportBox:SetText(generateExport())
-        end
-    end)
-
-    local exportBtn = AceGUI:Create("Button")
-    exportBtn:SetText(L["Export"])
-    exportBtn:SetWidth(180)
-    exportBtn:SetCallback("OnClick", function()
-        exportBox:SetText(generateExport())
-    end)
-    scroll:AddChild(exportBtn)
-
-    local h2 = AceGUI:Create("Heading")
-    h2:SetFullWidth(true)
-    h2:SetText(L["Import"])
-    scroll:AddChild(h2)
-
-    local d2 = AceGUI:Create("Label")
-    d2:SetFullWidth(true)
-    d2:SetText(L["Paste a string and accept to import checkpoints."])
-    scroll:AddChild(d2)
-
-    local importBox = AceGUI:Create("MultiLineEditBox")
-    importBox:SetLabel(L["Import"])
-    importBox:SetFullWidth(true)
-    importBox:SetNumLines(6)
-    importBox:DisableButton(true)
-    scroll:AddChild(importBox)
-
-    local importBtn = AceGUI:Create("Button")
-    importBtn:SetText(L["Import"])
-    importBtn:SetWidth(180)
-    importBtn:SetCallback("OnClick", function()
-        local ok, res = Checkpoints.Data.Import(importBox:GetText())
-        if ok then
-            Addon:Info(L["Imported checkpoints for %d dungeon(s)."], res or 0)
-            importBox:SetText("")
-            Editor:Refresh() -- new dungeons may have appeared in the tree
-        else
-            Addon:Error(L["Import failed: %s"], tostring(res))
-        end
-    end)
-    scroll:AddChild(importBtn)
+    return {
+        type = "group", name = L["Import / Export"],
+        args = {
+            export = {
+                type = "group", inline = true, order = 1, name = L["Export"],
+                args = {
+                    note = { type = "description", order = 1,
+                        name = L["Click Export to generate a shareable string of all your checkpoints, then copy it."] },
+                    plain = {
+                        type = "toggle", order = 2,
+                        name = L["Export as Lua table"],
+                        desc = L["Output the checkpoints as readable Lua code (for use in an addon) instead of a shareable string. This format cannot be re-imported."],
+                        get = function() return Editor.exportAsLua == true end,
+                        set = function(_, value)
+                            Editor.exportAsLua = value and true or false
+                            -- Regenerate an already visible export in the new format.
+                            if Editor.exportText and Editor.exportText ~= "" then
+                                Editor.exportText = generate()
+                            end
+                        end,
+                    },
+                    run = {
+                        type = "execute", order = 3, width = 1.5,
+                        name = L["Export"],
+                        func = function() Editor.exportText = generate() end,
+                    },
+                    nl = Addon:OptLine(4),
+                    text = {
+                        type = "input", order = 5, width = "full", multiline = true,
+                        name = L["Export string"],
+                        get = function() return Editor.exportText or "" end,
+                        set = function() end,
+                        arg = "readOnly", -- UI/Options: select and copy only, no Accept
+                    },
+                },
+            },
+            import = {
+                type = "group", inline = true, order = 2, name = L["Import"],
+                args = {
+                    note = { type = "description", order = 1,
+                        name = L["Paste a checkpoint string, check its details and click Import."] },
+                    text = {
+                        type = "input", order = 2, width = "full", multiline = true,
+                        name = function()
+                            if (Editor.importText or "") ~= "" and not peekImport() then
+                                return L["Import string"] .. "  |cfff04a4a" .. L["Not a valid checkpoint string."] .. "|r"
+                            end
+                            return L["Import string"]
+                        end,
+                        arg = "live", -- UI/Options: stored while pasting, so the box turns into the preview
+                        -- A valid string is shown as its details; the string itself stays in importText.
+                        get = function() return importPreview() or Editor.importText or "" end,
+                        set = function(_, text)
+                            local preview = importPreview()
+                            if preview then
+                                if text == preview then return end
+                                -- Pasted beside the preview instead of over it (Ace's box does not select all).
+                                local from, to = text:find(preview, 1, true)
+                                if from then text = text:sub(1, from - 1) .. text:sub(to + 1) end
+                            end
+                            Editor.importText = strtrim(text)
+                        end,
+                    },
+                    run = {
+                        type = "execute", order = 3, width = 1.5,
+                        name = L["Import"],
+                        disabled = function() return peekImport() == nil end,
+                        confirm = function()
+                            local decoded = peekImport()
+                            return decoded and overwritten(decoded) > 0
+                                and L["Import checkpoints? Matching dungeons will be overwritten."] or false
+                        end,
+                        func = function()
+                            local ok, res = Checkpoints.Data.Import(Editor.importText or "")
+                            if ok then
+                                Addon:Info(L["Imported checkpoints for %d dungeon(s)."], res or 0)
+                                Editor.importText = ""
+                                -- New dungeons may have appeared in the list.
+                                Editor:Refresh()
+                            else
+                                Addon:Error(L["Import failed: %s"], tostring(res))
+                            end
+                        end,
+                    },
+                },
+            },
+        },
+    }
 end
 
--- Plain hint; the group itself holds no data.
-function Editor:ShowOutdated(container)
-    container:ReleaseChildren()
+-- Banner -------------------------------------------------------------------
 
-    local label = AceGUI:Create("Label")
-    label:SetFullWidth(true)
-    label:SetText(ns.L["Dungeons from earlier seasons that still have stored data."])
-    container:AddChild(label)
+-- Headline of a dungeon page: what is configured for this map.
+local function dungeonBanner(mapID)
+    local entry = Checkpoints.Data.Get(mapID)
+    local sections = (entry and entry.bySection) or {}
+    local ponr = (entry and entry.ponr) or {}
+    return {
+        title = Utils.GetMapName(mapID),
+        sub = format(ns.L["%d boss target(s), %d point(s) of no return"],
+            #sections, #ponr),
+    }
 end
 
--- Dispatch the right pane based on the selected tree node.
-function Editor:ShowDetail(container, path)
-    -- Last segment: outdated dungeons sit below their group node.
-    local key = path:match("[^\001]+$")
-    if key == SHARE then
-        self:ShowShare(container)
-    elseif key == OUTDATED then
-        self:ShowOutdated(container)
-    else
-        self:ShowDungeon(container, tonumber(key))
-    end
-end
-
--- Re-render the currently selected node in place (after add/remove).
-function Editor:ReShow()
-    if self.tree and self.selected then
-        self:ShowDetail(self.tree, self.selected)
-    end
-end
-
--- Rebuild the tree (e.g. after an import added dungeons) and re-render.
-function Editor:Refresh()
-    if not self.tree then return end
-    self.tree:SetTree(buildTree())
-    if self.selected then
-        self:ShowDetail(self.tree, self.selected)
-    end
-end
-
-function Editor:Open()
-    if self.frame then return end
-    local L = ns.L
-
-    local frame = AceGUI:Create("Frame")
-    frame:SetTitle("MAUI M+ Timer \226\128\148 " .. L["Edit checkpoints"])
-    frame:SetLayout("Fill")
-    frame:SetCallback("OnClose", function(widget)
-        Editor.frame, Editor.tree, Editor.selected = nil, nil, nil
-        AceGUI:Release(widget)
-    end)
-    self.frame = frame
-
-    local tree = AceGUI:Create("TreeGroup")
-    tree:SetLayout("Fill")
-    tree:SetFullWidth(true)
-    tree:SetFullHeight(true)
-    tree:EnableButtonTooltips(false)
-    tree:SetTree(buildTree())
-    tree:SetCallback("OnGroupSelected", function(widget, _, path)
-        Editor.selected = path
-        Editor:ShowDetail(widget, path)
-    end)
-    frame:AddChild(tree)
-    self.tree = tree
-
-    -- Default to the active dungeon if any, otherwise the Import/Export page.
-    local active = C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID
-        and C_ChallengeMode.GetActiveChallengeMapID()
-    tree:SelectByValue(active and tostring(active) or SHARE)
-end
-
-function Editor:Close()
-    if self.frame then self.frame:Hide() end
-end
-
-function Editor:Toggle()
-    if self.frame then self:Close() else self:Open() end
-end
+Checkpoints.Editor = ns.Panel.New("checkpoints", {
+    title = function() return "MAUI M+ Timer \226\128\148 " .. ns.L["Edit checkpoints"] end,
+    globalName = "MauiMPlusTimerCheckpointsPanel",
+    width = 900, height = 620,
+    BuildList = buildList,
+    BuildPage = function(_, key)
+        if key == SHARE then return sharePage() end
+        local mapID = tonumber(key)
+        return mapID and dungeonPage(mapID) or nil
+    end,
+    BuildBanner = function(_, key)
+        local mapID = tonumber(key)
+        return mapID and dungeonBanner(mapID) or nil
+    end,
+    -- The dungeon being run, if any; otherwise Import / Export.
+    Default = function()
+        local active = C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID
+            and C_ChallengeMode.GetActiveChallengeMapID()
+        return active and tostring(active) or SHARE
+    end,
+})

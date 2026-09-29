@@ -9,11 +9,13 @@ local Profiles = {}
 Addon.Profiles = Profiles
 
 -- The payload carries the profile name so an import can recreate it under that
--- name. Returns the string, or nil plus an error message.
+-- name, and `meta` for the import preview; older strings have no meta.
+-- Returns the string, or nil plus an error message.
 function Profiles:Export()
     return Addon.Utils.EncodeShare("profile", {
         name = Addon.db:GetCurrentProfile(),
         profile = Addon.db.profile,
+        meta = Addon.Utils.ShareMeta(),
     })
 end
 
@@ -45,6 +47,7 @@ function Profiles:DecodeImport(str)
     if type(payload.name) ~= "string" or payload.name == "" then
         payload.name = "Imported"
     end
+    if type(payload.meta) ~= "table" then payload.meta = {} end
     return payload
 end
 

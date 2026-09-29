@@ -251,6 +251,39 @@ local function shareLibs()
     return LibStub("LibSerialize", true), LibStub("LibDeflate", true)
 end
 
+-- Who exported a share string and with what, for the import preview.
+function Utils.ShareMeta()
+    local _, class = UnitClass("player")
+    return {
+        author = UnitName("player"),
+        realm = GetNormalizedRealmName(),
+        class = class,
+        version = Addon.version,
+        time = time(),
+    }
+end
+
+-- "Label: value", the line format of an import preview.
+function Utils.ShareLine(label, value)
+    return format("|cff9aa0ab%s:|r %s", label, value)
+end
+
+-- The author, version and date lines; strings from before meta existed read "Unknown".
+function Utils.ShareMetaLines(meta)
+    local L = ns.L
+    meta = type(meta) == "table" and meta or {}
+    local author = L["Unknown"]
+    if type(meta.author) == "string" then
+        local who = type(meta.realm) == "string" and (meta.author .. "-" .. meta.realm) or meta.author
+        local color = meta.class and RAID_CLASS_COLORS[meta.class]
+        author = color and ("|c" .. color.colorStr .. who .. "|r") or who
+    end
+    local stamp = type(meta.time) == "number" and date("%d.%m.%Y %H:%M", meta.time) or L["Unknown"]
+    return Utils.ShareLine(L["Exported by"], author),
+        Utils.ShareLine(L["Addon version"], tostring(meta.version or L["Unknown"])),
+        Utils.ShareLine(L["Exported on"], stamp)
+end
+
 -- kind: payload tag, e.g. "profile" or "checkpoints". Returns the string, or
 -- nil plus an error message.
 function Utils.EncodeShare(kind, payload)

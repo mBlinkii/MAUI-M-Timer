@@ -1,5 +1,17 @@
 # Changelog - MAUI M+ Timer
 
+## [ver. 1.6.0] - TBD
+### 🔧 UPDATE
+- UPDATE - [Splits]: The "Manage times" window has a new design, with a summary banner for the selected dungeon, stored runs as cards with a time bar, and the delete action pinned to the bottom.
+- UPDATE - [Checkpoints]: The checkpoint editor has the same new design as the "Manage times" window.
+- UPDATE - [Profiles]: A pasted import string is replaced by its details, showing the profile name, the exporting character, the addon version and the export date, and the import asks before it overwrites an existing profile.
+- UPDATE - [Checkpoints]: A pasted import string is replaced by its details, showing the dungeons it contains, how many of them are already configured, the exporting character, the addon version and the export date, and the import asks before it overwrites configured dungeons.
+- UPDATE - [Profiles]: A generated export string is selected right away, ready to copy.
+### ✨ NEW
+- NEW - [Options]: A new settings window in the addon's own design, with a searchable sidebar, a counter of this session's changes with a button to discard them, and a button to reset its size and position; switch between it and the classic dialog with /mauimpt renderer.
+- NEW - [Options]: The font, opacity and accent color of the settings window can be set under General -> Interface, with the accent following the class color, the default or a custom color.
+- NEW - [System]: The settings window and the HUD draw text with the Slug font renderer, which keeps small text sharp; it can be switched off under General -> Interface.
+
 ## [ver. 1.5.0] - 20.08.2026
 ### 🔧 UPDATE
 - UPDATE - [Checkpoints]: The recommended checkpoint targets cover the current season's eight dungeons and no longer ship the previous season's.
