@@ -1,14 +1,19 @@
--- UI/Options/Controls.lua
--- Widget factory for the settings window: one constructor per AceConfig node
--- type. UI/Widgets.lua stays HUD-only; every settings frame is created here.
+-- BlinkiiOptions/Controls.lua
+-- Widget factory for the settings windows: one constructor per option node
+-- type, plus the window chrome every window and panel is built from.
 
-local ADDON_NAME, ns = ...
-local Addon = ns.Addon
-local OT = ns.OT
+-- The confirm dialog is registered in Blizzard's popup table.
+-- luacheck: globals StaticPopupDialogs
+
+local lib = BlinkiiOptions
+if lib.__skip then return end
+
+local OT = lib.OT
+local Compat = lib.Compat
+local L = lib.L
 
 local Controls = {}
-ns.Controls = Controls
-Addon.OptionControls = Controls
+lib.Controls = Controls
 
 local EMPTY = {}
 
@@ -80,36 +85,53 @@ end
 -- Every write goes through nodeSet, so this is the only place that can say
 -- what a session changed. Keyed by the node, so twenty nudges of one slider
 -- stay one change and the value kept is the one from before the first of them.
-local journal = { list = {}, index = {} }
+-- One journal per app: discarding in one window must not undo another's.
+local journals = {}
 
--- The profiles page writes through AceDBOptions and switches the whole store;
--- putting that in a list that offers to undo it would be a lie.
+-- The profiles page writes through its own handler and switches the whole
+-- store; putting that in a list that offers to undo it would be a lie.
 local SKIP_ROOT = { profiles = true }
 
 local function pack(...)
     return { n = select("#", ...), ... }
 end
 
-local function currentProfile()
-    local db = Addon.db
-    return db and db.GetCurrentProfile and db:GetCurrentProfile() or nil
+local function currentProfile(appName)
+    local app = appName and lib.apps[appName]
+    return app and app:Get("profile") or nil
 end
 
-function Controls:ClearChanges()
+local function journalOf(appName)
+    local key = appName or ""
+    local journal = journals[key]
+    if not journal then
+        journal = { list = {}, index = {} }
+        journals[key] = journal
+    end
+    return journal
+end
+
+function Controls:ClearChanges(appName)
+    local journal = journalOf(appName)
     journal.list, journal.index = {}, {}
-    journal.profile = currentProfile()
+    journal.profile = currentProfile(appName)
 end
 
-function Controls:ChangeCount()
-    return #journal.list
+function Controls:ChangeCount(appName)
+    return #journalOf(appName).list
 end
 
 local function record(node, info)
     if node.noJournal or SKIP_ROOT[info and info[1]] then return end
+    local appName = info and info.appName
+    local journal = journalOf(appName)
 
     -- A profile switch makes every stored "before" value meaningless.
-    local profile = currentProfile()
-    if profile ~= journal.profile then Controls:ClearChanges() end
+    local profile = currentProfile(appName)
+    if profile ~= journal.profile then
+        Controls:ClearChanges(appName)
+        journal = journalOf(appName)
+    end
 
     if journal.index[node] then return end
     local entry = { node = node, info = info, old = pack(nodeGet(node, info)) }
@@ -118,18 +140,19 @@ local function record(node, info)
 end
 
 -- Newest first: a later change can depend on an earlier one.
-function Controls:DiscardChanges()
+function Controls:DiscardChanges(appName)
+    local journal = journalOf(appName)
     for i = #journal.list, 1, -1 do
         local e = journal.list[i]
         member(e.node, "set", e.info, unpack(e.old, 1, e.old.n))
     end
-    self:ClearChanges()
+    self:ClearChanges(appName)
     self:Refresh()
     if self.OnChange then self:OnChange() end
 end
 
--- Every write re-pulls the whole visible page: this is what replaces
--- AceConfigRegistry:NotifyChange, which drove the old dialog's refresh.
+-- Every write re-pulls the whole visible page; an app calls NotifyChange only
+-- when a write shows or hides other options, which needs a new layout.
 local function nodeSet(node, info, ...)
     if node.set == nil then return end
     record(node, info)
@@ -400,8 +423,6 @@ end
 
 -- Chevron ---------------------------------------------------------------
 
-local CHEVRON = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Options\\chevron"
-
 -- Tex coords for the quad corners (UL, LL, UR, LR). The stored glyph points
 -- down; turning the coordinates a quarter turn counter-clockwise points it
 -- right. SetRotation is no help here -- it rotates the texture coordinates,
@@ -416,7 +437,7 @@ function Controls:Chevron(parent, size)
     size = size or 9
     local glyph = parent:CreateTexture(nil, "ARTWORK")
     glyph:SetSize(size, size)
-    glyph:SetTexture(CHEVRON)
+    glyph:SetTexture(OT.CHEVRON)
 
     -- Declared without an implicit self so the closures do not shadow the
     -- factory's own self.
@@ -995,19 +1016,11 @@ function Color:OpenPicker()
     r, g, b, a = r or 1, g or 1, b or 1, a or 1
     local hasAlpha = node.hasAlpha and true or false
 
-    local function apply()
-        local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-        local na = hasAlpha and ColorPickerFrame:GetColorAlpha() or 1
-        nodeSet(node, info, nr, ng, nb, na)
-    end
-
-    ColorPickerFrame:SetupColorPickerAndShow({
-        r = r, g = g, b = b,
-        hasOpacity = hasAlpha, opacity = a,
-        swatchFunc = apply,
-        opacityFunc = apply,
-        cancelFunc = function() nodeSet(node, info, r, g, b, a) end,
-    })
+    Compat.OpenColorPicker(r, g, b, a, hasAlpha, function(nr, ng, nb, na)
+        nodeSet(node, info, nr, ng, nb, hasAlpha and na or 1)
+    end, function()
+        nodeSet(node, info, r, g, b, a)
+    end)
 end
 
 function Color:NaturalWidth()
@@ -1034,7 +1047,7 @@ end
 
 -- Confirm ---------------------------------------------------------------
 
-local CONFIRM_POPUP = "MAUIMPT_OPTION_CONFIRM"
+local CONFIRM_POPUP = "BLINKIIOPTIONS_CONFIRM"
 
 StaticPopupDialogs[CONFIRM_POPUP] = {
     text = "%s",
@@ -1236,7 +1249,8 @@ function Input:Commit()
         local ok = member(node, "validate", info, text)
         if ok == false or type(ok) == "string" then
             local message = type(ok) == "string" and ok or member(node, "usage", info)
-            if message then Addon:Warning("%s", message) end
+            local app = info and lib.apps[info.appName]
+            if message and app then app:Warn(message) end
             if not node.multiline then
                 self:SetDirty(false)
                 edit:ClearFocus()
@@ -1694,7 +1708,10 @@ function Controls:BuildWindow(owner, spec)
     f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:SetResizable(true)
-    if f.SetResizeBounds then f:SetResizeBounds(spec.minWidth, spec.minHeight) end
+    Compat.SetResizeBounds(f, spec.minWidth, spec.minHeight)
+    -- Toplevel, so a click brings the whole window in front of another one at
+    -- the same strata instead of mixing their controls.
+    f:SetToplevel(true)
     f:EnableMouse(true)
     f:Hide()
 
@@ -1744,7 +1761,7 @@ function Controls:BuildWindow(owner, spec)
 
     local close = headerButton(header, OT.CLOSE, 24, CLOSE, "danger", function() owner:Close() end)
     close:SetPoint("RIGHT", -OT.space.sm, 0)
-    local reset = headerButton(header, OT.RESET, 21, ns.L["Reset window size and position"], nil,
+    local reset = headerButton(header, OT.RESET, 21, L["Reset window size and position"], nil,
         function() owner:ResetGeometry() end)
     reset:SetPoint("RIGHT", close, "LEFT", -OT.space.xs, 0)
     crumb:SetPoint("RIGHT", reset, "LEFT", -OT.space.md, 0)
@@ -1810,19 +1827,31 @@ function Controls:BuildWindow(owner, spec)
     edge:EnableMouse(false)
     OT:Outline(edge, "lineStrong")
 
-    -- A redraw per size event would rebuild the page per pixel; OnUpdate coalesces them.
-    f:SetScript("OnSizeChanged", function() owner.dirty = true end)
-    f:SetScript("OnUpdate", function(_, elapsed)
+    -- A redraw per size event would rebuild the page per pixel; OnUpdate coalesces
+    -- them. It only runs while a redraw or a verify pass is pending.
+    local function tick(_, elapsed)
         if owner.verify then
             owner.verify = nil
             owner:Draw(true)
             return
         end
-        if not owner.dirty then return end
+        if not owner.dirty then
+            f:SetScript("OnUpdate", nil)
+            return
+        end
         owner.since = (owner.since or 0) + elapsed
         if owner.since < 0.05 then return end
         owner.since, owner.dirty = 0, nil
         owner:Draw()
+    end
+    f.wake = function() f:SetScript("OnUpdate", tick) end
+    f:SetScript("OnSizeChanged", function()
+        owner.dirty = true
+        f.wake()
+    end)
+    f:SetScript("OnShow", function(s)
+        s:Raise()
+        if owner.app then OT:Use(owner.app) end
     end)
     -- ESC hides through UISpecialFrames without calling Close. Hiding UIParent
     -- (Alt+Z) fires this too while the frame stays shown; that is no close.
@@ -1868,6 +1897,7 @@ function Controls.Settle(owner, scroll, height, verifying)
         owner.verifyLeft = VERIFY_MAX
         owner.verify = true
     end
+    if owner.verify and owner.frame and owner.frame.wake then owner.frame.wake() end
     owner.lastHeight = height
 end
 

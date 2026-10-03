@@ -1,5 +1,9 @@
 # Changelog - MAUI M+ Timer
 
+## [ver. 1.6.1] - TBD
+### 🔧 UPDATE
+- UPDATE - [Options]: The settings window is now built by the embedded BlinkiiOptions library, which other addons by the same author share; it looks and works as before.
+
 ## [ver. 1.6.0] - 29.09.2026
 ### 🔧 UPDATE
 - UPDATE - [Splits]: The "Manage times" window has a new design, with a summary banner for the selected dungeon, stored runs as cards with a time bar, and the delete action pinned to the bottom.

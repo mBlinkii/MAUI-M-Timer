@@ -1,0 +1,11 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- Core first: it decides whether this copy loads at all. -->
+    <Script file="Core.lua"/>
+    <Script file="Compat.lua"/>
+    <Script file="Theme.lua"/>
+    <Script file="Controls.lua"/>
+    <Script file="Tree.lua"/>
+    <Script file="Render.lua"/>
+    <Script file="Window.lua"/>
+    <Script file="Panel.lua"/>
+</Ui>

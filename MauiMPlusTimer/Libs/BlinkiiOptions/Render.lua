@@ -1,17 +1,18 @@
--- UI/Options/Render.lua
--- Lays an option group out as controls. Reads the same tables the AceConfig
--- dialog reads and defines no option data of its own.
+-- BlinkiiOptions/Render.lua
+-- Lays an option group out as controls. Reads AceConfig-shaped tables and
+-- defines no option data of its own.
 
-local ADDON_NAME, ns = ...
-local Addon = ns.Addon
-local OT = ns.OT
-local Controls = ns.Controls
+local lib = BlinkiiOptions
+if lib.__skip then return end
+
+local OT = lib.OT
+local Controls = lib.Controls
+local Tree = lib.Tree
 
 local EMPTY_NODE = {}
 
 local Render = {}
-ns.Render = Render
-Addon.OptionRender = Render
+lib.Render = Render
 
 -- Ace widths are multiples of one control column. Keeping that model means the
 -- existing tables (width = 0.25, 1.0, "full") lay out as they were written; the
@@ -51,9 +52,8 @@ local KINDS = {
     run         = "Run",
 }
 
--- Resolved late: Window.lua loads first but is not needed until a draw runs.
 local function sorted(group, context)
-    return ns.OptionsWindow.SortedArgs(group, nil, context)
+    return Tree.SortedArgs(group, nil, context)
 end
 
 local function unitsOf(node, columns)
@@ -211,7 +211,7 @@ function Render:Group(state, group, context, inCard)
         if node.type == "group" then
             -- Nested pages belong in the sidebar; only inline groups are drawn.
             if node.inline then
-                local childContext = ns.OptionsWindow.ChildContext(context, entry.key, node)
+                local childContext = Tree.ChildContext(context, entry.key, node)
                 if inCard then
                     newRow(state)
                     local header = Controls:Acquire("Header", state.parent)

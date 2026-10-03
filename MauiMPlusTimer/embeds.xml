@@ -20,6 +20,9 @@
     <Include file="Libs\LibSharedMedia-3.0\lib.xml"/>
     <Include file="Libs\AceGUI-3.0-SharedMediaWidgets\AceGUI-3.0-SharedMediaWidgets\widget.xml"/>
 
+    <!-- Settings window (own lib, no dependencies) -->
+    <Include file="Libs\BlinkiiOptions\BlinkiiOptions.xml"/>
+
     <!-- Serialization (profile import/export) -->
     <Script file="Libs\LibSerialize\LibSerialize.lua"/>
     <Script file="Libs\LibDeflate\LibDeflate.lua"/>

@@ -1,12 +1,13 @@
--- UI/Options/Theme.lua
--- Design tokens for the settings window (ns.OT, "options theme"). Deliberately
--- fixed: ns.Themes and profile.ui style the HUD and must not reach the chrome.
+-- BlinkiiOptions/Theme.lua
+-- Design tokens for the settings windows (OT, "options theme"). The tokens are
+-- fixed; what an app may choose (accent, window alpha, face, slug) is read from
+-- the app whose window is in front, see OT:Use.
 
-local ADDON_NAME, ns = ...
-local Addon = ns.Addon
+local lib = BlinkiiOptions
+if lib.__skip then return end
 
 local OT = {}
-ns.OT = OT
+lib.OT = OT
 
 -- Flat by design: solid fills plus hairlines, no edge files anywhere here.
 OT.color = {
@@ -79,21 +80,6 @@ OT.size = {
     listMax = 14,
 }
 
--- Sidebar dots. A module keeps its colour whatever the accent is, so the list
--- stays readable at a glance; anything not listed falls back to the muted grey.
-OT.moduleColor = {
-    Dungeon     = { 0.353, 0.722, 0.941 },
-    Timer       = { 0.941, 0.706, 0.161 },
-    EnemyForces = { 0.878, 0.341, 0.290 },
-    Objectives  = { 0.310, 0.820, 0.773 },
-    Splits      = { 0.949, 0.482, 0.627 },
-    Checkpoints = { 0.561, 0.820, 0.310 },
-    Deaths      = { 0.518, 0.580, 0.659 },
-    Cooldowns   = { 0.710, 0.494, 0.863 },
-    Sound       = { 0.941, 0.565, 0.310 },
-    Automation  = { 0.839, 0.827, 0.310 },
-}
-
 OT.font = {
     title   = 18,
     heading = 14,
@@ -108,20 +94,40 @@ local FACE_PREFERENCE = { "Expressway", "PT Sans Narrow", "Roboto", "Continuum M
 
 -- Shapes the window draws with. dot.tga holds two glyphs side by side, a
 -- filled disc and a ring, picked with the tex coords below.
-local ASSETS = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Options\\"
-OT.DOT = ASSETS .. "dot"
 OT.DOT_FILLED = { 0, 0.5, 0, 1 }
 OT.DOT_RING = { 0.5, 1, 0, 1 }
-OT.SWITCH = ASSETS .. "switch"
 
 -- Tiled grain overlay. The tile is a power of two and seamless, so the repeat
 -- is done through tex coords that follow the frame size.
-OT.NOISE = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Options\\noise"
-OT.BACKDROP = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Options\\backdrop"
-OT.TRASH = ASSETS .. "trash"
-OT.CLOSE = ASSETS .. "close"
-OT.RESET = ASSETS .. "reset"
 OT.NOISE_TILE = 128
+
+-- An embedded lib sits in whichever addon carries it, so it cannot know its own
+-- folder; the first app tells it. Every texture path is derived from that.
+function OT:SetMediaPath(path)
+    self.DOT = path .. "dot"
+    self.SWITCH = path .. "switch"
+    self.NOISE = path .. "noise"
+    self.BACKDROP = path .. "backdrop"
+    self.TRASH = path .. "trash"
+    self.CLOSE = path .. "close"
+    self.RESET = path .. "reset"
+    self.CHEVRON = path .. "chevron"
+end
+
+-- A newer copy of the lib replaces this table after an older one already learnt the folder.
+if lib.mediaPath then OT:SetMediaPath(lib.mediaPath) end
+
+-- The app whose settings the chrome is painted with: the one whose window was
+-- shown or raised last, else the first registered. Two windows of different
+-- apps open at once share whichever is in front.
+local function provider()
+    return OT.app or lib.appOrder[1]
+end
+
+local function setting(key, ...)
+    local app = provider()
+    if app then return app:Get(key, ...) end
+end
 
 local px
 
@@ -177,21 +183,11 @@ function OT:InvalidateClassColor()
     classColor = nil
 end
 
--- The accent the settings window paints with: the player's class colour, or the
--- one stored in the profile. Falls back to the class while the database is not
--- up yet, which is the case while the very first frames are built.
+-- The accent the settings window paints with: whatever the app returns, or the
+-- player's class colour when it returns nothing.
 function OT:AccentColor()
-    local db = Addon.db
-    local profile = db and db.profile
-    local cfg = profile and profile.ui and profile.ui.accent
-    local mode = cfg and cfg.mode or "class"
-    if mode == "custom" and cfg.color then
-        return cfg.color[1], cfg.color[2], cfg.color[3]
-    end
-    if mode == "default" then
-        local c = self.color.accent
-        return c[1], c[2], c[3]
-    end
+    local r, g, b = setting("accent")
+    if r then return r, g, b end
     return self:ClassColor()
 end
 
@@ -204,10 +200,7 @@ local SURFACE = {
 }
 
 local function windowAlpha()
-    local db = Addon.db
-    local profile = db and db.profile
-    local cfg = profile and profile.ui and profile.ui.window
-    local alpha = cfg and cfg.alpha
+    local alpha = setting("windowAlpha")
     if type(alpha) ~= "number" then return 1 end
     return min(1, max(0.3, alpha))
 end
@@ -228,7 +221,7 @@ end
 -- The LibSharedMedia name of the face in use, so the dropdown shows what is
 -- actually on screen rather than an empty "automatic".
 function OT:FaceName()
-    local LSM = LibStub("LibSharedMedia-3.0", true)
+    local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
     if not LSM then return "" end
     local path = self:Face()
     for name, file in pairs(LSM:HashTable("font")) do
@@ -239,10 +232,9 @@ end
 
 function OT:Face()
     if face then return face end
-    local LSM = LibStub("LibSharedMedia-3.0", true)
-    local db = Addon.db
-    local profile = db and db.profile
-    local chosen = profile and profile.ui and profile.ui.window and profile.ui.window.font
+    -- Asked for, never required: the window works without LibSharedMedia.
+    local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+    local chosen = setting("font")
 
     if LSM then
         if chosen and LSM:IsValid("font", chosen) then
@@ -277,10 +269,7 @@ end
 
 function OT:FontFlags()
     if not self:SlugAvailable() then return "" end
-    local db = Addon.db
-    local profile = db and db.profile
-    local cfg = profile and profile.ui and profile.ui.window
-    if cfg and cfg.slug == false then return "" end
+    if setting("slug") == false then return "" end
     return "SLUG"
 end
 
@@ -333,8 +322,7 @@ end
 local PROGRESS_MID = 0.85
 
 local function deltaColor(ahead, fallback)
-    local Utils = Addon.Utils
-    local c = Utils and Utils.GetDeltaColor and Utils.GetDeltaColor(ahead)
+    local c = setting("progressColor", ahead)
     if type(c) == "table" and c[1] then return c end
     return OT.color[fallback]
 end
@@ -384,6 +372,16 @@ end
 -- Clears the cached class colour and repaints everything the accent touches.
 function OT:AccentChanged()
     classColor = nil
+    self:Repaint()
+end
+
+-- Called when a window is shown or raised: its app's accent, alpha and face
+-- take over the chrome. Nothing happens while the same app stays in front.
+function OT:Use(app)
+    if self.app == app then return end
+    self.app = app
+    face = nil
+    self:FontChanged()
     self:Repaint()
 end
 

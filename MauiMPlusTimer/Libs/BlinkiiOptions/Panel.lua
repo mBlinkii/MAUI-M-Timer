@@ -1,16 +1,16 @@
--- UI/Options/Panel.lua
+-- BlinkiiOptions/Panel.lua
 -- A second window of the same make as the settings one, with its own list on
--- the left instead of the option tree. A page is an AceConfig group table,
--- drawn by the same renderer.
+-- the left instead of the option tree. A page is an AceConfig-shaped group
+-- table, drawn by the same renderer. Created through app:NewPanel(id, config).
 
-local ADDON_NAME, ns = ...
-local Addon = ns.Addon
-local OT = ns.OT
-local Controls = ns.Controls
+local lib = BlinkiiOptions
+if lib.__skip then return end
+
+local OT = lib.OT
+local Controls = lib.Controls
 
 local Panel = {}
-ns.Panel = Panel
-Addon.Panel = Panel
+lib.Panel = Panel
 
 local PAD = OT.space.lg
 local SCROLLBAR_W = 4
@@ -21,11 +21,8 @@ local ACTION_MIN_H = 52
 local plain = Controls.Plain
 
 -- Geometry and folded sections per panel, beside the settings window's own.
-local function store(id)
-    local global = Addon.db.global
-    global.panels = global.panels or {}
-    global.panels[id] = global.panels[id] or {}
-    return global.panels[id]
+local function store(panel)
+    return panel.app:PanelStore(panel.id)
 end
 
 -- List ---------------------------------------------------------------------
@@ -43,12 +40,12 @@ end
 -- config.collapsible = false turns folding off for the whole list.
 function Panel:Collapsed(title)
     if self.config.collapsible == false then return false end
-    local folded = store(self.id).collapsed
+    local folded = store(self).collapsed
     return folded ~= nil and folded[title] == true
 end
 
 function Panel:ToggleSection(title)
-    local kept = store(self.id)
+    local kept = store(self)
     kept.collapsed = kept.collapsed or {}
     kept.collapsed[title] = not kept.collapsed[title] or nil
     self:BuildList()
@@ -274,10 +271,10 @@ function Panel:Draw(verifying)
 
     local height = 0
     if group then
-        height = ns.Render:Draw(self.content, group, width, {
+        height = lib.Render:Draw(self.content, group, width, {
             options = group,
-            appName = ADDON_NAME,
-            uiName = ADDON_NAME,
+            appName = self.app.name,
+            uiName = self.app.name,
             path = {},
         })
     end
@@ -306,7 +303,7 @@ function Panel:Build()
     local config = self.config
     local f = Controls:BuildWindow(self, {
         name = config.globalName,
-        -- A function, because ns.L does not exist while the files load.
+        -- A function, because an addon's strings may not exist while its files load.
         title = type(config.title) == "function" and config.title() or config.title,
         width = config.width or 900,
         height = config.height or 600,
@@ -327,15 +324,15 @@ end
 -- Geometry -----------------------------------------------------------------
 
 function Panel:SaveGeometry()
-    Controls.SaveGeometry(self.frame, store(self.id))
+    Controls.SaveGeometry(self.frame, store(self))
 end
 
 function Panel:RestoreGeometry()
-    Controls.RestoreGeometry(self.frame, store(self.id), self.config.width or 900, self.config.height or 600)
+    Controls.RestoreGeometry(self.frame, store(self), self.config.width or 900, self.config.height or 600)
 end
 
 function Panel:ResetGeometry()
-    Controls.ClearGeometry(store(self.id))
+    Controls.ClearGeometry(store(self))
     self:RestoreGeometry()
 end
 
@@ -343,7 +340,7 @@ end
 
 function Panel:Open()
     -- These panels are as large as the settings window and would bury it.
-    local settings = Addon.OptionsWindow
+    local settings = self.app.window
     if settings and settings:IsShown() then
         self.restoreSettings = true
         settings:Close()
@@ -380,7 +377,7 @@ function Panel:OnClosed()
 
     if self.restoreSettings then
         self.restoreSettings = nil
-        Addon.OptionsWindow:Open()
+        self.app.window:Open()
     end
 end
 
@@ -394,10 +391,10 @@ end
 
 -- config: title (string or function), globalName, width, height, listWidth,
 -- BuildList, BuildPage, Default, and optional BuildBanner and BuildAction.
--- BuildPage returns an AceConfig group; BuildBanner nil or
+-- BuildPage returns an AceConfig-shaped group; BuildBanner nil or
 -- { title, tag, sub, big, bigColor, bigSub, progress }; BuildAction nil or an
 -- execute node for the bar pinned to the bottom.
-function Panel.New(id, config)
-    return setmetatable({ id = id, config = config, rows = {}, headings = {} },
+function Panel.New(app, id, config)
+    return setmetatable({ app = app, id = id, config = config, rows = {}, headings = {} },
         { __index = Panel })
 end

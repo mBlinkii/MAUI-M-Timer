@@ -1,17 +1,19 @@
--- UI/Options/Window.lua
--- The settings window: sidebar navigation over the option tree, search in the
--- title bar, and the selected group handed to ns.Render.
+-- BlinkiiOptions/Window.lua
+-- The settings window of one app: sidebar navigation over the option tree,
+-- search in the title bar, and the selected group handed to the renderer.
 
-local ADDON_NAME, ns = ...
-local Addon = ns.Addon
-local OT = ns.OT
-local Controls = ns.Controls
+local lib = BlinkiiOptions
+if lib.__skip then return end
+
+local OT = lib.OT
+local Controls = lib.Controls
+local Tree = lib.Tree
+local L = lib.L
 
 local Window = {}
-ns.OptionsWindow = Window
-Addon.OptionsWindow = Window
+Window.__index = Window
+lib.Window = Window
 
-local FRAME_NAME = "MauiMPlusTimerOptions"
 local DEFAULT_W, DEFAULT_H = 980, 660
 local MIN_W, MIN_H = 720, 480
 local PAD = OT.space.lg
@@ -19,110 +21,36 @@ local SCROLLBAR_W = 4
 local SEARCH_W = 210
 local FOOTER_H = 34
 local CHIP_PAD = 7
-local LOGO = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_small"
 
 local plain = Controls.Plain
+local isPage = Tree.IsPage
 
--- AceConfig ordering: nil counts as 100, negatives sort after positives, ties
--- go alphabetically. Reproduced so both renderers show the same sequence.
-local function compare(a, b)
-    local orderA = a.order or 100
-    local orderB = b.order or 100
-    if orderA == orderB then return plain(a.name) < plain(b.name) end
-    if orderA < 0 then
-        if orderB >= 0 then return false end
-    elseif orderB < 0 then
-        return true
+function Window.New(app)
+    return setmetatable({ app = app, path = {}, filter = "", navRows = {}, navHeadings = {} }, Window)
+end
+
+-- Every write goes through the controls, and each window's footer shows its
+-- own app's count; one hook serves all of them.
+Controls.OnChange = function()
+    for i = 1, #lib.appOrder do
+        lib.appOrder[i].window:RefreshFooter()
     end
-    return orderA < orderB
 end
 
--- Search --------------------------------------------------------------------
+-- Kept for callers that walked the tree through the window.
+Window.SubtreeHit = Tree.SubtreeHit
+Window.ChildContext = Tree.ChildContext
+Window.SortedArgs = Tree.SortedArgs
 
-local function textHit(text, filter)
-    return text ~= nil and plain(text):lower():find(filter, 1, true) ~= nil
-end
-
--- Titles only: matching the explanations too makes half a page hit on a common word.
-local function nodeHit(node, info, filter)
-    return textHit(Controls.NameOf(node, info), filter)
-end
-
--- A page is a hit when its own name matches or anything inside it does, so the
--- sidebar can offer a page for a setting buried three levels down.
-local function subtreeHit(node, context, key, filter, depth)
-    local info = Controls.MakeInfo(context, key, node)
-    if nodeHit(node, info, filter) then return true end
-    if node.type ~= "group" or (depth or 0) > 6 then return false end
-
-    local childContext = Window.ChildContext(context, key, node)
-    for childKey, child in pairs(node.args or {}) do
-        if type(child) == "table"
-            and subtreeHit(child, childContext, childKey, filter, (depth or 0) + 1) then
-            return true
-        end
-    end
-    return false
-end
-
-Window.SubtreeHit = subtreeHit
-
--- The context an option's callbacks are resolved against: its path in the tree
--- and the handler it inherits.
-function Window.ChildContext(context, key, node)
-    -- A group that matched by its own name is the whole answer; filtering
-    -- inside it would leave one lonely row.
-    local filterOff = context and context.filterOff
-    if context and context.filter and not filterOff
-        and nodeHit(node, Controls.MakeInfo(context, key, node), context.filter) then
-        filterOff = true
-    end
-
-    local path = {}
-    if context and context.path then
-        for i = 1, #context.path do path[i] = context.path[i] end
-    end
-    path[#path + 1] = key
-    return {
-        options = context and context.options,
-        appName = context and context.appName,
-        uiName = context and context.uiName,
-        path = path,
-        handler = node.handler or (context and context.handler),
-        filter = context and context.filter,
-        filterOff = filterOff,
-    }
-end
-
--- Sorted list of {key, node, name, order, info} for a group's args. `hidden`
--- may itself be a handler method, so it needs the info table like any callback.
-function Window.SortedArgs(group, keep, context)
-    local out = {}
-    -- The filter rides on the context, so the panels, which have no search, never see it.
-    local filter = context and not context.filterOff and context.filter
-    for key, node in pairs(group and group.args or {}) do
-        if type(node) == "table" then
-            local info = Controls.MakeInfo(context, key, node)
-            local hit = not filter or subtreeHit(node, context, key, filter)
-            if hit and not Controls.IsHidden(node, info) and (not keep or keep(node)) then
-                tinsert(out, { key = key, node = node, name = node.name,
-                    order = node.order, info = info })
-            end
-        end
-    end
-    sort(out, compare)
-    return out
-end
-
--- Walked with ChildContext so the search travels down the path. AceDBOptions
--- puts its handler on the profiles group and every entry below reads through it.
+-- Walked with ChildContext so the search travels down the path. A handler on
+-- a group (a profiles page, for one) is inherited by every entry below it.
 function Window:Context()
     local context = self:RootContext()
     local group = self.options
     for i = 1, #self.path do
         local child = group.args and group.args[self.path[i]]
         if not child then break end
-        context = self.ChildContext(context, self.path[i], child)
+        context = Tree.ChildContext(context, self.path[i], child)
         group = child
     end
     return context, group
@@ -131,47 +59,19 @@ end
 function Window:RootContext()
     return {
         options = self.options,
-        appName = ADDON_NAME,
-        uiName = "MauiMPlusTimer",
+        appName = self.app.name,
+        uiName = self.app.name,
         path = {},
         handler = self.options.handler,
         filter = (self.filter ~= "" and self.filter) or nil,
     }
 end
 
-local function isPage(node)
-    return node.type == "group" and not node.inline
-end
-
--- A page is keyed by the module's optionsKey ("enemyForces"), the module by its
--- name ("EnemyForces"). Built once; modules register long before a window opens.
-local moduleByKey
-
-local function moduleFor(key)
-    if not moduleByKey then
-        moduleByKey = {}
-        for _, module in Addon:IterateModules() do
-            if module.optionsKey then moduleByKey[module.optionsKey] = module end
-        end
-    end
-    return moduleByKey[key]
-end
-
--- A page with no module behind it counts as on, so the ratio never reads as broken.
-local function enabledCount(children)
-    local on = 0
-    for i = 1, #children do
-        local module = moduleFor(children[i].key)
-        if not module or module:IsEnabled() then on = on + 1 end
-    end
-    return format("%d / %d", on, #children)
-end
-
 -- Footer -------------------------------------------------------------------
 
 -- What this session has changed, and the way back. No fill: the body gradient
 -- has already reached "base" down here, and another layer would darken it.
-local function buildFooter(parent)
+local function buildFooter(window, parent)
     local footer = CreateFrame("Frame", nil, parent)
     footer:SetHeight(FOOTER_H)
     footer:SetPoint("BOTTOMLEFT")
@@ -196,24 +96,23 @@ local function buildFooter(parent)
 
     footer.version = OT:Text(footer, "small", "faint")
     footer.version:SetPoint("RIGHT", -PAD, 0)
-    footer.version:SetText(Addon.version or "")
+    footer.version:SetText(window.app:Get("version") or "")
     return footer
 end
 
--- Built once: the journal keys on the node, so a fresh table per draw would
--- count one press twice.
-local discardNode
-
-local function footerNode()
-    if not discardNode then
-        discardNode = {
+-- Built once per window: the journal keys on the node, so a fresh table per
+-- draw would count one press twice.
+function Window:FooterNode()
+    if not self.discardNode then
+        local appName = self.app.name
+        self.discardNode = {
             type = "execute",
-            name = ns.L["Discard"],
-            desc = ns.L["Put back the value every setting had before this session."],
-            func = function() Controls:DiscardChanges() end,
+            name = L["Discard"],
+            desc = L["Put back the value every setting had before this session."],
+            func = function() Controls:DiscardChanges(appName) end,
         }
     end
-    return discardNode
+    return self.discardNode
 end
 
 function Window:RefreshFooter()
@@ -221,10 +120,10 @@ function Window:RefreshFooter()
     if not f then return end
 
     local footer = f.footer
-    local count = Controls:ChangeCount()
+    local count = Controls:ChangeCount(self.app.name)
     local changed = count > 0
 
-    footer.chipText:SetText(format(ns.L["%d changes this session"], count))
+    footer.chipText:SetText(format(L["%d changes this session"], count))
     footer.chipText:SetShown(changed)
     footer.chip:SetShown(changed)
     footer.dot:SetShown(changed)
@@ -234,18 +133,19 @@ function Window:RefreshFooter()
         footer.discard:SetRowMode(false)
         footer.discard.frame:SetPoint("LEFT", footer.chip, "RIGHT", OT.space.sm, -2)
     end
-    footer.discard:SetOption(footerNode())
+    footer.discard:SetOption(self:FooterNode())
     footer.discard:SetWidth(footer.discard:NaturalWidth())
     footer.discard.frame:SetShown(changed)
 end
 
 -- Build --------------------------------------------------------------------
 
-local function buildFrame()
-    local f = Controls:BuildWindow(Window, {
-        name = FRAME_NAME,
-        title = "MAUI M+ Timer",
-        logo = LOGO,
+function Window:Build()
+    local app = self.app
+    local f = Controls:BuildWindow(self, {
+        name = app:Get("frameName") or ("BlinkiiOptions_" .. app.name:gsub("%W", "")),
+        title = app:Get("title") or app.name,
+        logo = app:Get("logo"),
         width = DEFAULT_W,
         height = DEFAULT_H,
         minWidth = MIN_W,
@@ -282,15 +182,15 @@ local function buildFrame()
 
     local hint = OT:Text(search, "normal", "faint")
     hint:SetPoint("LEFT")
-    hint:SetText(ns.L["Search"])
+    hint:SetText(L["Search"])
 
     search:SetScript("OnTextChanged", function(s)
         local text = s:GetText()
         hint:SetShown(text == "")
         clear:SetShown(text ~= "")
-        Window.filter = text:lower()
-        Window:BuildNav()
-        Window:Draw()
+        self.filter = text:lower()
+        self:BuildNav()
+        self:Draw()
     end)
     search:SetScript("OnEscapePressed", function(s)
         s:SetText("")
@@ -302,43 +202,31 @@ local function buildFrame()
     end)
 
     f.search = search
-    f.footer = buildFooter(f.body)
-
-    -- Every write goes through the controls, and the footer is what shows it.
-    Controls.OnChange = function() Window:RefreshFooter() end
-
-    -- Options that show or hide others call NotifyChange; a refresh cannot add
-    -- a control that was hidden, so the page is laid out again.
-    LibStub("AceConfigRegistry-3.0").RegisterCallback(Window, "ConfigTableChange", function(_, appName)
-        if appName == ADDON_NAME and Window:IsShown() then Window:Redraw() end
-    end)
-
-    Window.frame = f
+    f.footer = buildFooter(self, f.body)
+    self.frame = f
     return f
 end
 
 -- Navigation -------------------------------------------------------------
 
-local navRows, navHeadings = {}, {}
-
-local function navRow(index)
-    navRows[index] = navRows[index] or Controls.ListRow(Window.frame.list)
-    return navRows[index]
+function Window:NavRow(index)
+    self.navRows[index] = self.navRows[index] or Controls.ListRow(self.frame.list)
+    return self.navRows[index]
 end
 
-local function navHeading(index)
-    navHeadings[index] = navHeadings[index] or Controls:ListHeading(Window.frame.list)
-    return navHeadings[index]
+function Window:NavHeading(index)
+    self.navHeadings[index] = self.navHeadings[index] or Controls:ListHeading(self.frame.list)
+    return self.navHeadings[index]
 end
 
--- Global rather than per profile: folding is a way of looking at the window.
+-- Account wide rather than per profile: folding is a way of looking at the window.
 function Window:Collapsed(title)
-    local store = Addon.db.global.optionsWindow
+    local store = self.app:Store()
     return store.collapsed ~= nil and store.collapsed[title] == true
 end
 
 function Window:ToggleSection(title)
-    local store = Addon.db.global.optionsWindow
+    local store = self.app:Store()
     store.collapsed = store.collapsed or {}
     store.collapsed[title] = not store.collapsed[title] or nil
     self:BuildNav()
@@ -346,12 +234,12 @@ end
 
 -- Pages with sub pages start folded, unlike the sections.
 function Window:Expanded(key)
-    local store = Addon.db.global.optionsWindow
+    local store = self.app:Store()
     return store.expanded ~= nil and store.expanded[key] == true
 end
 
 function Window:ToggleExpanded(key)
-    local store = Addon.db.global.optionsWindow
+    local store = self.app:Store()
     store.expanded = store.expanded or {}
     store.expanded[key] = not store.expanded[key] or nil
     self:BuildNav()
@@ -371,70 +259,47 @@ local function rowToggle(row)
     return toggle
 end
 
--- Display pages, modules, system pages. Anything new lands under Display unless
--- it is a module or named here, so the list cannot silently lose a page.
-local SYSTEM_KEYS = { profiles = true, changelog = true, about = true }
-
+-- The app arranges the sidebar (see README); without a sections callback it is
+-- one section holding every top-level page.
 function Window:Sections()
+    local sections = self.app:Get("sections", self)
+    if type(sections) == "table" then return sections end
     local root = self:RootContext()
-    local display, system, modules = {}, {}, nil
-
-    for _, entry in ipairs(self.SortedArgs(self.options, isPage, root)) do
-        if entry.key == "modules" then
-            modules = entry
-        elseif SYSTEM_KEYS[entry.key] then
-            system[#system + 1] = entry
-        else
-            display[#display + 1] = entry
-        end
-    end
-
-    local list = { { title = ns.L["Display"], entries = display } }
-    if modules then
-        local children = self.SortedArgs(modules.node, isPage,
-            self.ChildContext(root, modules.key, modules.node))
-        list[#list + 1] = {
-            title = ns.L["Modules"], entries = children,
-            parentKey = modules.key, count = enabledCount(children),
-        }
-    end
-    list[#list + 1] = { title = ns.L["System"], entries = system }
-    return list
+    return { { title = L["Settings"], entries = Tree.SortedArgs(self.options, isPage, root) } }
 end
 
 function Window:BuildNav()
     local f = self.frame
     local rowIndex, headingIndex, y = 0, 0, 0
 
-    local function addRow(entry, parentKey, isModule)
+    -- flat: the section lists children of parentKey side by side (a module list)
+    -- rather than pages that unfold their own sub pages below them.
+    local function addRow(entry, parentKey, flat)
         rowIndex = rowIndex + 1
-        local row = navRow(rowIndex)
+        local row = self:NavRow(rowIndex)
         row:SetPoint("TOPLEFT", f.list, "TOPLEFT", 0, -y)
         row:SetPoint("TOPRIGHT", f.list, "TOPRIGHT", 0, -y)
-        local indent = (parentKey and not isModule) and OT.size.indent or 0
+        local indent = (parentKey and not flat) and OT.size.indent or 0
         row.icon:SetPoint("LEFT", OT.space.md + indent, 0)
         row.label:SetPoint("LEFT", OT.space.md + 22 + indent, 0)
 
-        -- A module shows its colour as a dot, hollow when switched off; other pages keep their icon.
-        local module = isModule and moduleFor(entry.key)
-        local on = not module or module:IsEnabled()
-
+        -- An entry with a dot shows it, hollow when switched off; other pages keep their icon.
+        local dot = entry.dot
         Controls.SetIcon(row.icon, entry.node.icon)
-        row.icon:SetShown(not isModule and entry.node.icon ~= nil)
-        row.dot:SetShown(isModule)
-        if isModule then
-            row.dot:SetTexCoord(unpack(on and OT.DOT_FILLED or OT.DOT_RING))
-            local color = OT.moduleColor[module and module:GetName() or entry.key]
-            if on and color then
+        row.icon:SetShown(not dot and entry.node.icon ~= nil)
+        row.dot:SetShown(dot ~= nil)
+        if dot then
+            row.dot:SetTexCoord(unpack(dot.on and OT.DOT_FILLED or OT.DOT_RING))
+            local color = dot.color
+            if dot.on and color then
                 row.dot:SetVertexColor(color[1], color[2], color[3], 1)
             else
                 row.dot:SetVertexColor(OT:Unpack("faint"))
             end
         end
 
-        -- BuildOptions colours top-level names for the Ace tree; here the dot does that job.
         row.label:SetText(plain(entry.name))
-        row.right:SetText((isModule and not on) and ns.L["Off"] or "")
+        row.right:SetText((dot and not dot.on) and L["Off"] or "")
 
         local active
         if parentKey then
@@ -467,7 +332,7 @@ function Window:BuildNav()
 
             local title = section.title
             local folded = self:Collapsed(title)
-            local heading = navHeading(headingIndex)
+            local heading = self:NavHeading(headingIndex)
             heading.frame:ClearAllPoints()
             heading.frame:SetPoint("TOPLEFT", f.list, "TOPLEFT", 0, -y)
             heading.frame:SetPoint("TOPRIGHT", f.list, "TOPRIGHT", 0, -y)
@@ -486,8 +351,8 @@ function Window:BuildNav()
                     -- The renderer draws inline groups only, so a page nested in
                     -- a page (Profiles > Import / Export) needs its own row.
                     if not section.parentKey then
-                        local context = self.ChildContext(self:RootContext(), entry.key, entry.node)
-                        local children = self.SortedArgs(entry.node, isPage, context)
+                        local context = Tree.ChildContext(self:RootContext(), entry.key, entry.node)
+                        local children = Tree.SortedArgs(entry.node, isPage, context)
                         if #children > 0 then
                             -- A search or a selected child must not end up folded away.
                             local open = self:Expanded(entry.key) or (self.filter or "") ~= ""
@@ -508,8 +373,8 @@ function Window:BuildNav()
         end
     end
 
-    for i = rowIndex + 1, #navRows do navRows[i]:Hide() end
-    for i = headingIndex + 1, #navHeadings do navHeadings[i].frame:Hide() end
+    for i = rowIndex + 1, #self.navRows do self.navRows[i]:Hide() end
+    for i = headingIndex + 1, #self.navHeadings do self.navHeadings[i].frame:Hide() end
     f.list:SetSize(f.listScroll:GetWidth(), max(1, y))
 end
 
@@ -547,7 +412,7 @@ function Window:Draw(verifying)
     f.scroll:SetPoint("BOTTOMRIGHT", f.footer, "TOPRIGHT",
         -(PAD + SCROLLBAR_W + OT.space.sm), OT.space.sm)
     f.content:SetWidth(width)
-    local height = ns.Render:Draw(f.content, group, width, context)
+    local height = lib.Render:Draw(f.content, group, width, context)
     f.content:SetHeight(max(1, height))
 
     Controls.Settle(self, f.scroll, height, verifying)
@@ -569,10 +434,10 @@ function Window:Select(key, childKey)
     -- Clicking a parent that only holds pages jumps to its first child.
     local node = self.options.args[key]
     if not childKey and node then
-        local context = self.ChildContext(self:RootContext(), key, node)
-        local children = self.SortedArgs(node, isPage, context)
+        local context = Tree.ChildContext(self:RootContext(), key, node)
+        local children = Tree.SortedArgs(node, isPage, context)
         if #children > 0
-            and not next(self.SortedArgs(node, function(n) return not isPage(n) end, context)) then
+            and not next(Tree.SortedArgs(node, function(n) return not isPage(n) end, context)) then
             childKey = children[1].key
         end
     end
@@ -583,40 +448,51 @@ end
 
 -- Geometry ---------------------------------------------------------------
 
--- Shares the keys AceGUI writes, so the window keeps its place across the renderer switch.
 function Window:SaveGeometry()
-    Controls.SaveGeometry(self.frame, Addon.db.global.optionsWindow)
+    Controls.SaveGeometry(self.frame, self.app:Store())
 end
 
 function Window:RestoreGeometry()
-    Controls.RestoreGeometry(self.frame, Addon.db.global.optionsWindow, DEFAULT_W, DEFAULT_H)
+    Controls.RestoreGeometry(self.frame, self.app:Store(), DEFAULT_W, DEFAULT_H)
 end
 
 function Window:ResetGeometry()
-    Controls.ClearGeometry(Addon.db.global.optionsWindow)
+    Controls.ClearGeometry(self.app:Store())
     if self.frame then self:RestoreGeometry() end
 end
 
 -- Lifecycle --------------------------------------------------------------
 
+-- The first page, unless the app names one.
+function Window:DefaultPath()
+    local path = self.app:Get("defaultPath")
+    if type(path) == "table" and path[1] then return { path[1], path[2] } end
+    local first = Tree.SortedArgs(self.options, isPage, self:RootContext())[1]
+    return first and { first.key } or {}
+end
+
 function Window:Open(pathKey)
-    if not self.frame then
-        buildFrame()
-        self.path = { "general" }
-    end
-    self.options = Addon:BuildOptions()
+    local fresh = not self.frame
+    if fresh then self:Build() end
+    self.options = self.app:Get("options") or { type = "group", args = {} }
+    if fresh then self.path = self:DefaultPath() end
     self:RestoreGeometry()
-    self.frame:Show()
+    if self.frame:IsShown() then
+        self.frame:Raise()
+        OT:Use(self.app)
+    else
+        self.frame:Show()
+    end
 
     if pathKey then
-        local path = Addon._optionPath and Addon._optionPath[pathKey]
-        if path then
+        local path = self.app:Get("resolvePath", pathKey)
+        if type(path) == "table" and path[1] then
             self.path = { path[1], path[2] }
         elseif self.options.args[pathKey] then
             self.path = { pathKey }
         end
     end
-    if not self:CurrentGroup() then self.path = { "general" } end
+    if not self:CurrentGroup() then self.path = self:DefaultPath() end
     self:BuildNav()
     self:Draw()
 end
@@ -640,5 +516,5 @@ function Window:Toggle()
 end
 
 function Window:IsShown()
-    return self.frame and self.frame:IsShown()
+    return self.frame ~= nil and self.frame:IsShown()
 end
