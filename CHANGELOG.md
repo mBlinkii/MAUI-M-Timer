@@ -1,7 +1,9 @@
 # Changelog - MAUI M+ Timer
 
-## [ver. 1.6.1] - TBD
+## [ver. 1.7.0] - TBD
 ### 🔧 UPDATE
+- UPDATE - [System]: The settings, the setup wizard and the "Manage times" and checkpoint windows moved into a separate addon, MAUI M+ Timer - Options, that only loads when one of them is opened, which more than halves the memory the timer uses after login.
+- UPDATE - [Options]: The classic settings dialog and /mauimpt renderer are removed; the entry in the game's AddOns settings now has a button that opens the settings window.
 - UPDATE - [Options]: The settings window is now built by the embedded BlinkiiOptions library, which other addons by the same author share; it looks and works as before.
 
 ## [ver. 1.6.0] - 29.09.2026

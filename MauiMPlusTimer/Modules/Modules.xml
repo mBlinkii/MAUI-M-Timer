@@ -1,70 +1,56 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
-    <!-- Module base class (must load before any module) -->
+    <!-- Module base class (must load before any module). Every Options.lua,
+         the Splits manager, the checkpoint editor, the changelog page and the
+         setup wizard live in the load-on-demand addon MauiMPlusTimer_Options. -->
     <Script file="ModuleTemplate.lua"/>
 
     <!-- Dungeon (name, keystone level, affixes) -->
     <Script file="Dungeon\Module.lua"/>
     <Script file="Dungeon\UI.lua"/>
-    <Script file="Dungeon\Options.lua"/>
 
     <!-- Timer (main bar, thresholds, countdowns) -->
     <Script file="Timer\Module.lua"/>
     <Script file="Timer\Data.lua"/>
     <Script file="Timer\UI.lua"/>
-    <Script file="Timer\Options.lua"/>
 
     <!-- Enemy Forces (progress bar + markers) -->
     <Script file="EnemyForces\Module.lua"/>
     <Script file="EnemyForces\Data.lua"/>
     <Script file="EnemyForces\UI.lua"/>
-    <Script file="EnemyForces\Options.lua"/>
 
     <!-- Objectives (boss list + per-boss times/deltas) -->
     <Script file="Objectives\Module.lua"/>
     <Script file="Objectives\Data.lua"/>
     <Script file="Objectives\UI.lua"/>
-    <Script file="Objectives\Options.lua"/>
 
     <!-- Deaths (counter + time penalty) -->
     <Script file="Deaths\Module.lua"/>
     <Script file="Deaths\UI.lua"/>
-    <Script file="Deaths\Options.lua"/>
 
-    <!-- Splits (best-run recording + live comparison + manager) -->
+    <!-- Splits (best-run recording + live comparison) -->
     <Script file="Splits\Module.lua"/>
     <Script file="Splits\Data.lua"/>
     <Script file="Splits\UI.lua"/>
-    <Script file="Splits\Manager.lua"/>
-    <Script file="Splits\Options.lua"/>
 
-    <!-- Checkpoints (custom waypoints + editor) -->
+    <!-- Checkpoints (custom waypoints) -->
     <Script file="Checkpoints\Module.lua"/>
     <Script file="Checkpoints\Data.lua"/>
     <Script file="Checkpoints\UI.lua"/>
-    <Script file="Checkpoints\Editor.lua"/>
-    <Script file="Checkpoints\Options.lua"/>
 
     <!-- Cooldowns (battle res / heroism tracking) -->
     <Script file="Cooldowns\Module.lua"/>
     <Script file="Cooldowns\UI.lua"/>
-    <Script file="Cooldowns\Options.lua"/>
 
     <!-- Sound (event-triggered audio cues) -->
     <Script file="Sound\Module.lua"/>
     <Script file="Sound\Data.lua"/>
-    <Script file="Sound\Options.lua"/>
 
     <!-- Automation (tracker hiding, keystone auto-slot) -->
     <Script file="Automation\Module.lua"/>
-    <Script file="Automation\Options.lua"/>
 
-    <!-- Changelog (in-game version history + one-time update popup) -->
+    <!-- Changelog (one-time update popup; the page itself is in the settings) -->
     <Script file="Changelog\Module.lua"/>
-    <Script file="Changelog\Data.lua"/>
-    <Script file="Changelog\Options.lua"/>
 
-    <!-- Setup (first-start wizard: profile choice + default checkpoints) -->
+    <!-- Setup (first-start trigger; the wizard itself is in the settings) -->
     <Script file="Setup\Module.lua"/>
-    <Script file="Setup\Data.lua"/>
-    <Script file="Setup\UI.lua"/>
 </Ui>

@@ -19,11 +19,13 @@ exclude_files = {
     "MauiMPlusTimer/Libs/Ace*",
     "MauiMPlusTimer/Libs/Lib*",
     "MauiMPlusTimer/Libs/CallbackHandler-1.0/",
+    "MauiMPlusTimer_Options/Libs/Ace*",
+    "MauiMPlusTimer_Options/Libs/Lib*",
 }
 
 -- Globals the addon itself defines (written by the client / TOC).
 globals = {
-    "BlinkiiOptions",                   -- the embedded settings lib (Libs/BlinkiiOptions)
+    "BlinkiiOptions",                   -- the settings lib (MauiMPlusTimer_Options/Libs/BlinkiiOptions)
     "MauiMPlusTimerDB",                 -- SavedVariables table
     "MauiMPlusTimer_OnCompartmentClick",-- AddonCompartmentFunc from the .toc
 }
@@ -55,7 +57,7 @@ read_globals = {
 
     -- Frames / UI
     "CreateFrame", "UIParent", "GameTooltip", "UISpecialFrames",
-    "GetPhysicalScreenSize", "ColorPickerFrame", "PixelUtil", "OpacitySliderFrame", "GetLocale",
+    "GetPhysicalScreenSize", "ColorPickerFrame", "PixelUtil", "SettingsPanel", "OpacitySliderFrame", "GetLocale",
     "GameFontNormal", "GameFontHighlight", "GameFontNormalLarge",
     "hooksecurefunc", "issecure", "securecall", "geterrorhandler",
     "PlaySound", "PlaySoundFile", "StopSound",

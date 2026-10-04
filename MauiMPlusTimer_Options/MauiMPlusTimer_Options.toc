@@ -1,0 +1,40 @@
+## Interface: 120100
+## Title: |cfff0f0f0Ma|r|cff29a8f0U|r|cfff09020I|r |cff8b40f0M|r|cfff040a0+|r |cfff0f0f0Timer|r - Options
+## Notes: Settings, setup wizard and panels of MAUI M+ Timer. Loaded only when they are opened.
+## Author: Blinkii
+## Version: git-build
+## LoadOnDemand: 1
+## Dependencies: MauiMPlusTimer
+## IconTexture: Interface\AddOns\MauiMPlusTimer\Assets\icon_small
+## X-License: MIT
+
+# --- Libraries only the settings need (see Libs/README.md of the main addon) ---
+embeds.xml
+
+# --- Shares the main addon's namespace; must load before everything below ---
+Bootstrap.lua
+
+Profiles.lua
+StyleOptions.lua
+Config.lua
+OptionsApp.lua
+
+Modules\Dungeon\Options.lua
+Modules\Timer\Options.lua
+Modules\EnemyForces\Options.lua
+Modules\Objectives\Options.lua
+Modules\Deaths\Options.lua
+Modules\Splits\Manager.lua
+Modules\Splits\Options.lua
+Modules\Checkpoints\Editor.lua
+Modules\Checkpoints\Options.lua
+Modules\Cooldowns\Options.lua
+Modules\Sound\Options.lua
+Modules\Automation\Options.lua
+Modules\Changelog\Data.lua
+Modules\Changelog\Options.lua
+Modules\Setup\Data.lua
+Modules\Setup\UI.lua
+
+# --- Registers every page once all builders exist ---
+Register.lua

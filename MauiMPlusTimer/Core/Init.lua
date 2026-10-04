@@ -9,6 +9,8 @@ local Addon = AceAddon:NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "A
 
 ns.Addon = Addon
 ns.ADDON_NAME = ADDON_NAME
+-- MauiMPlusTimer_Options shares this namespace (see its Bootstrap.lua).
+Addon.ns = ns
 
 Addon.version = (C_AddOns and C_AddOns.GetAddOnMetadata
     and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")) or "0.1.0"

@@ -7,7 +7,6 @@
     <Script file="RunState.lua"/>
     <Script file="RunController.lua"/>
     <Script file="Demo.lua"/>
-    <Script file="Profiles.lua"/>
     <Script file="Config.lua"/>
     <Script file="MinimapButton.lua"/>
 </Ui>

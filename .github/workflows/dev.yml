@@ -51,8 +51,10 @@ jobs:
 
           # Stamp every addon .toc so the build is identifiable as non-release
           # in-game; Libs/ is third-party code.
-          find "$ADDON" -name '*.toc' -not -path "$ADDON/Libs/*" \
-            -exec sed -i "s|^## Version:.*|## Version: ${VERSION}|" {} +
+          for DIR in "$ADDON" "${ADDON}_Options"; do
+            find "$DIR" -name '*.toc' -not -path "$DIR/Libs/*" \
+              -exec sed -i "s|^## Version:.*|## Version: ${VERSION}|" {} +
+          done
 
       - name: Install Subversion
         run: sudo apt-get update -qq && sudo apt-get install -y -qq subversion
@@ -62,8 +64,11 @@ jobs:
       - name: Fetch Ace3 + helper libraries into Libs/
         run: |
           set -e
+          # Runtime libs go into the main addon, settings-only libs into the
+          # load-on-demand MauiMPlusTimer_Options (BlinkiiOptions is tracked there).
           LIBS="MauiMPlusTimer/Libs"
-          mkdir -p "$LIBS"
+          OPT="MauiMPlusTimer_Options/Libs"
+          mkdir -p "$LIBS" "$OPT"
 
           svn export --force https://repos.curseforge.com/wow/libstub/trunk "$LIBS/LibStub"
           svn export --force https://repos.curseforge.com/wow/callbackhandler/trunk/CallbackHandler-1.0 "$LIBS/CallbackHandler-1.0"
@@ -72,24 +77,24 @@ jobs:
           svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceConsole-3.0 "$LIBS/AceConsole-3.0"
           svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceTimer-3.0 "$LIBS/AceTimer-3.0"
           svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceDB-3.0 "$LIBS/AceDB-3.0"
-          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceDBOptions-3.0 "$LIBS/AceDBOptions-3.0"
-          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0 "$LIBS/AceGUI-3.0"
-          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0 "$LIBS/AceConfig-3.0"
           svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceLocale-3.0 "$LIBS/AceLocale-3.0"
           svn export --force https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0 "$LIBS/LibSharedMedia-3.0"
-          svn export --force https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk "$LIBS/AceGUI-3.0-SharedMediaWidgets"
 
-          git clone --depth 1 https://github.com/rossnichols/LibSerialize.git "$LIBS/LibSerialize"
-          rm -rf "$LIBS/LibSerialize/.git"
-          git clone --depth 1 https://github.com/SafeteeWoW/LibDeflate.git "$LIBS/LibDeflate"
-          rm -rf "$LIBS/LibDeflate/.git"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceDBOptions-3.0 "$OPT/AceDBOptions-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0 "$OPT/AceGUI-3.0"
+          svn export --force https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0 "$OPT/AceConfig-3.0"
+
+          git clone --depth 1 https://github.com/rossnichols/LibSerialize.git "$OPT/LibSerialize"
+          rm -rf "$OPT/LibSerialize/.git"
+          git clone --depth 1 https://github.com/SafeteeWoW/LibDeflate.git "$OPT/LibDeflate"
+          rm -rf "$OPT/LibDeflate/.git"
 
       # ADAPT 5: zip name - constant, otherwise the download URL changes per run.
       - name: Build zip
         run: |
           rm -f MauiMPlusTimer/.pkgmeta
-          # Zip from the repo root so "MauiMPlusTimer/" is the top-level entry.
-          zip -r "MauiMPlusTimer-dev.zip" "MauiMPlusTimer" -x "MauiMPlusTimer/.git*" "*/.svn/*"
+          # Zip from the repo root so both addon folders are top-level entries.
+          zip -r "MauiMPlusTimer-dev.zip" "MauiMPlusTimer" "MauiMPlusTimer_Options" -x "*/.git*" "*/.svn/*"
 
       # ADAPT 6: addon name and repo URL in the notice below
       - name: Write release notes

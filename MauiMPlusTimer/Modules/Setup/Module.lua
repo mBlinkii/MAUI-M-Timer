@@ -32,7 +32,12 @@ function Setup:TryAutoShow()
         self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnCombatEnded")
         return
     end
-    self.UI:Show()
+    self:Show()
+end
+
+-- The wizard comes with the settings addon.
+function Setup:Show()
+    if Addon:LoadOptions() and self.UI then self.UI:Show() end
 end
 
 function Setup:OnCombatEnded()

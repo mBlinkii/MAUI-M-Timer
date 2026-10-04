@@ -14,15 +14,12 @@ function ModuleBase:SaveSettings() end
 function ModuleBase:SetDemo(state) end
 function ModuleBase:GetOptions() return nil end
 
--- Applies the saved enabled state and registers the options page. Modules only
--- override this when they need extra one-time setup.
+-- Applies the saved enabled state. The options page is registered by
+-- MauiMPlusTimer_Options once the settings load, which also defines GetOptions.
 function ModuleBase:OnInitialize()
     local enabled = self:GetSettings().enabled
     if enabled == nil then enabled = self.enabledByDefault ~= false end
     self:SetEnabledState(enabled and true or false)
-    if self.optionsKey and self.GetOptions then
-        Addon:RegisterModuleOptions(self.optionsKey, self:GetOptions())
-    end
 end
 
 -- Modules map MMT_PROFILE_CHANGED to this themselves.

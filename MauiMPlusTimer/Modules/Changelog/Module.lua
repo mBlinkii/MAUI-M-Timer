@@ -1,23 +1,16 @@
 -- Modules/Changelog/Module.lua
 -- Version-history page that opens once per update, then only on request.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 
-local Changelog = Addon:NewMauiModule("Changelog")
+local Changelog = Addon:NewMauiModule("Changelog", "changelog")
+-- At the root of the tree, like About, instead of under the Modules node.
+Changelog.optionsCategory = "root"
 
 -- Delay so the popup never competes with the loading screen or other
 -- login-time addon windows.
 local AUTO_SHOW_DELAY = 4
-
--- Overridden to register at the root of the tree, like About, instead of under
--- the Modules node.
-function Changelog:OnInitialize()
-    local enabled = self:GetSettings().enabled
-    if enabled == nil then enabled = self.enabledByDefault ~= false end
-    self:SetEnabledState(enabled and true or false)
-    Addon:RegisterModuleOptions("changelog", self:GetOptions(), "root")
-end
 
 function Changelog:OnEnable()
     self:ScheduleTimer("TryAutoShow", AUTO_SHOW_DELAY)

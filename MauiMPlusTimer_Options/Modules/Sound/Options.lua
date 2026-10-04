@@ -1,7 +1,7 @@
 -- Modules/Sound/Options.lua
 -- AceConfig options group for the Sound module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Sound = Addon:GetModule("Sound")
 

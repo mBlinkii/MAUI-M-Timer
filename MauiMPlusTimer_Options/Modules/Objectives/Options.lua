@@ -1,7 +1,7 @@
 -- Modules/Objectives/Options.lua
 -- AceConfig options group for the Objectives module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Objectives = Addon:GetModule("Objectives")
 

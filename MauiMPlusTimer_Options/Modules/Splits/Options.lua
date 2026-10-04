@@ -2,7 +2,7 @@
 -- AceConfig options group for the Splits module: enable, the times manager, the
 -- best-time display options (global: show + bracket style) and text styling.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Splits = Addon:GetModule("Splits")
 

@@ -2,7 +2,7 @@
 -- Profile import/export on top of AceDB. A profile is serialized, compressed
 -- and encoded into a printable string that can be shared and re-imported.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 
 local Profiles = {}

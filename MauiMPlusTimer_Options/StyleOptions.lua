@@ -2,7 +2,7 @@
 -- Reusable AceConfig builders for per-element styling, plus the global font,
 -- colors and HUD panel pages.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 
 local function fontList()
@@ -45,9 +45,7 @@ end
 local OUTLINES = { [""] = "None", OUTLINE = "Outline", THICKOUTLINE = "Thick" }
 
 local function element(key)
-    local e = Addon.db.profile.ui.elements
-    e[key] = e[key] or {}
-    return e[key]
+    return Addon:GetElementSetting(key)
 end
 
 -- For get/disabled handlers: never creates the table, so merely opening the
@@ -55,11 +53,6 @@ end
 local EMPTY = {}
 local function elementRead(key)
     return Addon.db.profile.ui.elements[key] or EMPTY
-end
-
--- Auto-creates the element table; option setters write through this reference.
-function Addon:GetElementSetting(key)
-    return element(key)
 end
 
 local function restyle(module)

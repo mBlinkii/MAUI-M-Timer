@@ -2,7 +2,7 @@
 -- Version history for the in-game page. Mirrors CHANGELOG.md, always English,
 -- and must be updated together with it.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Changelog = Addon:GetModule("Changelog")
 
@@ -17,6 +17,15 @@ Changelog.Data = Data
 -- substitutions are applied for the in-game font: the arrow and em dash become
 -- "->" and "-", and straight double quotes are escaped.
 Data.entries = {
+    {
+        version = "1.7.0",
+        date = "TBD",
+        updates = {
+            "[System]: The settings, the setup wizard and the \"Manage times\" and checkpoint windows moved into a separate addon, MAUI M+ Timer - Options, that only loads when one of them is opened, which more than halves the memory the timer uses after login.",
+            "[Options]: The classic settings dialog and /mauimpt renderer are removed; the entry in the game's AddOns settings now has a button that opens the settings window.",
+            "[Options]: The settings window is now built by the embedded BlinkiiOptions library, which other addons by the same author share; it looks and works as before.",
+        },
+    },
     {
         version = "1.6.0",
         date = "29.09.2026",

@@ -1,7 +1,7 @@
 -- Modules/Deaths/Options.lua
 -- AceConfig options group for the Deaths module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Deaths = Addon:GetModule("Deaths")
 

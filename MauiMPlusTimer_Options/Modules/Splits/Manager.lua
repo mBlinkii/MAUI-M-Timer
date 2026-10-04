@@ -2,7 +2,7 @@
 -- Panel for viewing and cleaning up stored run times, via "/mauimpt splits".
 -- The window itself is ns.Panel; this file only supplies the list and the page.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Splits = Addon:GetModule("Splits")
 

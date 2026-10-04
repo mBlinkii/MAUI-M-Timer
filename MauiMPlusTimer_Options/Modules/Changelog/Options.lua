@@ -1,7 +1,7 @@
 -- Modules/Changelog/Options.lua
 -- Changelog page: auto-show toggle, version dropdown and the section blocks.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Changelog = Addon:GetModule("Changelog")
 

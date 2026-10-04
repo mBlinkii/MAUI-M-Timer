@@ -1,0 +1,13 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- LibStub, CallbackHandler and the rest of Ace3 come with the main addon. -->
+    <Include file="Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml"/>
+    <Include file="Libs\AceConfig-3.0\AceConfigRegistry-3.0\AceConfigRegistry-3.0.xml"/>
+    <!-- The setup wizard is built from AceGUI widgets. -->
+    <Include file="Libs\AceGUI-3.0\AceGUI-3.0.xml"/>
+
+    <Include file="Libs\BlinkiiOptions\BlinkiiOptions.xml"/>
+
+    <!-- Serialization (profile and checkpoint import/export) -->
+    <Script file="Libs\LibSerialize\LibSerialize.lua"/>
+    <Script file="Libs\LibDeflate\LibDeflate.lua"/>
+</Ui>

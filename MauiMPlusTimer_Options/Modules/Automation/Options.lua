@@ -1,7 +1,7 @@
 -- Modules/Automation/Options.lua
 -- AceConfig options group for the Automation module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Automation = Addon:GetModule("Automation")
 

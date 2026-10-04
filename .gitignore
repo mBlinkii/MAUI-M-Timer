@@ -19,8 +19,9 @@ Desktop.ini
 # (see MauiMPlusTimer/Libs/README.md).
 MauiMPlusTimer/Libs/*
 !MauiMPlusTimer/Libs/README.md
+MauiMPlusTimer_Options/Libs/*
 # Own lib, versioned here until it gets its own repository.
-!MauiMPlusTimer/Libs/BlinkiiOptions/
+!MauiMPlusTimer_Options/Libs/BlinkiiOptions/
 
 # Build / art sources
 *.zip

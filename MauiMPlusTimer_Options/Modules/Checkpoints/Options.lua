@@ -1,7 +1,7 @@
 -- Modules/Checkpoints/Options.lua
 -- AceConfig options group for the Checkpoints module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Checkpoints = Addon:GetModule("Checkpoints")
 

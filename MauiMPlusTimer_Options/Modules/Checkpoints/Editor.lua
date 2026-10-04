@@ -2,7 +2,7 @@
 -- Panel for the per-dungeon forces targets, opened via "/mauimpt checkpoints".
 -- The window itself is ns.Panel; this file only supplies the list and the page.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Checkpoints = Addon:GetModule("Checkpoints")
 

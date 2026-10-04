@@ -9,6 +9,29 @@ local Widgets = {}
 ns.Widgets = Widgets
 Addon.Widgets = Widgets
 
+-- WoW's Slug renderer draws glyphs from outlines, which keeps small text sharp.
+-- Probed once and guarded: a client that does not know the flag must not error.
+local slugOk
+
+function Widgets:SlugOn()
+    local ui = Addon.db and Addon.db.profile.ui
+    if ui and ui.window and ui.window.slug == false then return false end
+    if slugOk == nil then
+        local probe = UIParent:CreateFontString(nil, "BACKGROUND")
+        probe:Hide()
+        local ok, valid = pcall(probe.SetFont, probe, STANDARD_TEXT_FONT, 12, "SLUG")
+        slugOk = ok and valid ~= false
+    end
+    return slugOk
+end
+
+-- Auto-creates the element table; option setters write through this reference.
+function Addon:GetElementSetting(key)
+    local elements = Addon.db.profile.ui.elements
+    elements[key] = elements[key] or {}
+    return elements[key]
+end
+
 -- Resolving runs on every tick and every scenario update; without this cache
 -- the short-lived merge tables dominated the addon's memory. Results are
 -- shared, so callers must treat them as read-only.
@@ -33,10 +56,8 @@ local function resolveStyle(elementKey)
     end
 
     -- The outline renderer is a global choice rather than an element's, and it
-    -- rides on whatever outline the element already asked for. ns.OT owns the
-    -- probe; it is loaded by the time any style is resolved.
-    local OT = ns.OT
-    if OT and OT:FontFlags() == "SLUG" then
+    -- rides on whatever outline the element already asked for.
+    if Widgets:SlugOn() then
         style.fontFlags = (style.fontFlags and style.fontFlags ~= "")
             and (style.fontFlags .. ",SLUG") or "SLUG"
     end

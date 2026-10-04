@@ -2,7 +2,7 @@
 -- The three-step wizard window. Presentation only: applying a profile lives in
 -- Core/Profiles.lua, checkpoint data in the Checkpoints module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Setup = Addon:GetModule("Setup")
 
@@ -319,7 +319,7 @@ function UI:RenderProfiles(container)
     addHeading(container, L["Choose a profile"])
     addText(container, L["Pick a starting look - every element (fonts, colors, bars, modules) can be fine-tuned later in the options."])
 
-    for _, entry in ipairs(Setup.Data.profiles) do
+    for _, entry in ipairs(Setup.Data.Profiles()) do
         local group = AceGUI:Create("InlineGroup")
         group:SetTitle(entry.name)
         group:SetFullWidth(true)

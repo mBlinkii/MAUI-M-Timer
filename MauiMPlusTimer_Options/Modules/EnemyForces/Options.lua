@@ -1,7 +1,7 @@
 -- Modules/EnemyForces/Options.lua
 -- AceConfig options group for the Enemy Forces module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Forces = Addon:GetModule("EnemyForces")
 

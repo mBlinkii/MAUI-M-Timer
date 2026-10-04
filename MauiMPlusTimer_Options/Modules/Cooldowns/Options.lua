@@ -1,7 +1,7 @@
 -- Modules/Cooldowns/Options.lua
 -- AceConfig options group for the Cooldowns module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Cooldowns = Addon:GetModule("Cooldowns")
 

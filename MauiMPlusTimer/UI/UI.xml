@@ -6,8 +6,4 @@
     <Script file="Widgets.lua"/>
     <Script file="RunCard.lua"/>
     <Script file="MainWindow.lua"/>
-    <Script file="StyleOptions.lua"/>
-
-    <!-- Settings window: the embedded BlinkiiOptions lib over the existing option tables -->
-    <Script file="OptionsApp.lua"/>
 </Ui>

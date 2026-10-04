@@ -3,7 +3,7 @@
 -- the bar (with split-bar controls, dividers and the section countdown). Section
 -- fill colors live on the central Colors page.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Timer = Addon:GetModule("Timer")
 

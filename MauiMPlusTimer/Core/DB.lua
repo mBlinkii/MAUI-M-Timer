@@ -99,9 +99,8 @@ local defaults = {
         splits      = {},
         checkpoints = {},
         lastChangelogVersion = "", -- last version whose changelog was auto-shown
-        optionsWindow = {},        -- geometry, shared by both option renderers
+        optionsWindow = {},        -- settings window geometry and folded sections
         panels      = {},          -- geometry per side panel, keyed by its id
-        optionsRenderer = "maui",  -- "maui" or the classic "ace" dialog, switched with /mauimpt renderer
         setupPending = false,      -- armed on a fresh install, cleared once handled
         setupDone    = false,      -- wizard ran (finished, skipped or closed)
     },

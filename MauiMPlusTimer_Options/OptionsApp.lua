@@ -3,7 +3,8 @@
 -- file only supplies what is the timer's own: the option tree, where things
 -- are stored, the accent rules and how the sidebar is arranged.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
+local ADDON_NAME = ns.ADDON_NAME
 local Addon = ns.Addon
 local BlinkiiOptions = BlinkiiOptions
 
@@ -97,14 +98,13 @@ local app = BlinkiiOptions:NewApp(ADDON_NAME, {
     title = "MAUI M+ Timer",
     logo = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\icon_small",
     frameName = "MauiMPlusTimerOptions",
-    mediaPath = "Interface\\AddOns\\MauiMPlusTimer\\Libs\\BlinkiiOptions\\Assets\\",
+    mediaPath = "Interface\\AddOns\\MauiMPlusTimer_Options\\Libs\\BlinkiiOptions\\Assets\\",
     defaultPath = { "general" },
     version = function() return Addon.version end,
     options = function() return Addon:BuildOptions() end,
     resolvePath = function(key) return Addon._optionPath and Addon._optionPath[key] end,
     sections = sections,
 
-    -- Shares the keys AceGUI writes, so the window keeps its place across the renderer switch.
     storage = function() return Addon.db.global.optionsWindow end,
     panelStorage = function(id)
         local global = Addon.db.global

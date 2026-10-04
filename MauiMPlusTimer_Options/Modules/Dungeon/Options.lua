@@ -1,7 +1,7 @@
 -- Modules/Dungeon/Options.lua
 -- AceConfig options group for the Dungeon module.
 
-local ADDON_NAME, ns = ...
+local _, ns = ...
 local Addon = ns.Addon
 local Dungeon = Addon:GetModule("Dungeon")
 
