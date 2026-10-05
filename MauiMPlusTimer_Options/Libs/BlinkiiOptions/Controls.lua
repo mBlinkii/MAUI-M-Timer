@@ -466,7 +466,7 @@ end
 
 -- Toggle ----------------------------------------------------------------
 
-local SWITCH_W, SWITCH_H, KNOB = 34, 18, 14
+local SWITCH_W, SWITCH_H, KNOB = 42, 22, 20
 local GLOW_PAD = 3
 
 function Controls:CreateToggle(parent)
@@ -550,7 +550,7 @@ function Toggle:Refresh()
     OT:TintVertex(self.track, (on and not disabled) and "accent" or "switchOff")
     self.knob:ClearAllPoints()
     self.knob:SetPoint(on and "RIGHT" or "LEFT", self.track, on and "RIGHT" or "LEFT",
-        on and -2 or 2, 0)
+        on and -1 or 1, 0)
     if disabled then
         self.knob:SetVertexColor(OT:Unpack("faint"))
     elseif on then
@@ -824,8 +824,9 @@ local function listRow(index)
     row:SetHeight(OT.size.listRow)
     row.hover = OT:Fill(row, "hoverStrong")
     row.hover:Hide()
+    row.selected = OT:Fill(row, "selected", "BORDER")
     row.check = row:CreateTexture(nil, "ARTWORK")
-    row.check:SetSize(3, OT.size.listRow - 8)
+    row.check:SetSize(4, OT.size.listRow - 4)
     row.check:SetPoint("LEFT", OT.space.xs, 0)
     OT:Tint(row.check, "accent")
     row.label = OT:Text(row, "normal", "text")
@@ -870,6 +871,7 @@ function Controls:OpenList(control)
         row:SetWidth(width)
         row.label:SetText(tostring(values[key] or key))
         row.check:SetShown(key == current)
+        row.selected:SetShown(key == current)
         row:SetScript("OnClick", function()
             Controls:CloseList()
             nodeSet(node, info, key)
