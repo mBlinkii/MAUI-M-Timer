@@ -23,10 +23,17 @@ OT.color = {
     -- The dropdown list floats over the page, so it cannot take the page's
     -- alpha -- what is under it would read through the entries. It takes the
     -- window's darkest tone at almost full alpha instead: solid enough to read
-    -- on, and the same material rather than a lighter grey plate.
-    raised     = { 0.075, 0.086, 0.110, 0.97 },
+    -- on, and the same material rather than a lighter grey plate. Nearly
+    -- neutral, since the window's blue only shows diluted by the world behind
+    -- it; at full strength it read as a grey-blue plate.
+    raised     = { 0.063, 0.067, 0.075, 0.95 },
     card       = { 1.000, 1.000, 1.000, 0.030 },
-    input      = { 0.055, 0.067, 0.086, 0.55 },
+    -- Sunk into the page: darker and more solid than the panel, and neutral
+    -- for the same reason as raised.
+    input      = { 0.020, 0.022, 0.026, 0.80 },
+    -- A dropdown is something to open, so it is lifted off the page rather
+    -- than sunk into it like a text field.
+    field      = { 1.000, 1.000, 1.000, 0.07 },
     -- accent, selected and the two hover tints take the player's class colour
     -- (see OT:Unpack); the values here are the fallback until the unit exists,
     -- and their alphas are what keeps the four states apart.

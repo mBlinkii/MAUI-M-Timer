@@ -910,7 +910,7 @@ function Controls:CreateSelect(parent)
     button:SetHeight(OT.size.control)
     button:SetPoint("BOTTOMLEFT")
     button:SetPoint("BOTTOMRIGHT")
-    c.face = OT:Fill(button, "input")
+    c.face = OT:Fill(button, "field")
     -- One line under the field instead of a ring around it: a field is a place
     -- to read a value out of, a button is a thing to press, and the two should
     -- not look alike. The slider's value box already does it this way.
@@ -962,7 +962,7 @@ function Select:Refresh()
     self.button:SetEnabled(not disabled)
     self.label:SetTextColor(OT:Unpack(disabled and "faint" or "muted"))
     self.valueText:SetTextColor(OT:Unpack(disabled and "faint" or "text"))
-    self.chevron:SetColor(disabled and "faint" or "muted")
+    self.chevron:SetColor(disabled and "faint" or "text")
     self:PaintEdge()
     if list and list.owner == self and disabled then
         Controls:CloseList()
