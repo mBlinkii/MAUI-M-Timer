@@ -20,12 +20,6 @@ function Deaths:GetOptions()
         icon = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Modules\\deaths",
         args = {
             enabled = Addon:ModuleEnableOption(self, 1),
-            settings = {
-                type = "group", inline = true, name = L["Settings"], order = 2,
-                args = {
-                    align = Addon:ModuleAlignOption(self, 1),
-                },
-            },
             symbols = {
                 type = "group", inline = true, name = L["Symbols"], order = 10,
                 args = {

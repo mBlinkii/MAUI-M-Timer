@@ -1421,9 +1421,44 @@ end
 
 -- The height only exists once the width is known, so the renderer has to read
 -- GetHeight again after SetWidth.
+-- arg = { preview = function(width) return frame, height end } hands the
+-- description a frame the app draws itself. AceConfig only lets `arg` carry
+-- such a value, so that is where it lives.
+local function previewOf(node)
+    return type(node.arg) == "table" and node.arg.preview or nil
+end
+
+-- The app's frame is reused across redraws; a pooled description that shows
+-- text next time must let go of it.
+function Description:DetachPreview()
+    if self.previewFrame then
+        self.previewFrame:Hide()
+        self.previewFrame:SetParent(UIParent)
+        self.previewFrame = nil
+    end
+end
+
+function Description:DrawPreview(preview)
+    local frame, height = preview(self.width or self.frame:GetWidth() or 0)
+    if frame ~= self.previewFrame then self:DetachPreview() end
+    if not frame then return 0 end
+    self.previewFrame = frame
+    frame:SetParent(self.frame)
+    frame:ClearAllPoints()
+    frame:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, 0)
+    frame:Show()
+    return height or frame:GetHeight() or 0
+end
+
 function Description:Measure()
     local node = self.node
     if not node then return end
+    local preview = previewOf(node)
+    if preview then
+        self.height = self:DrawPreview(preview)
+        self.frame:SetHeight(max(1, self.height))
+        return
+    end
     local imageH = 0
     if self.image:IsShown() then
         imageH = self.image:GetHeight() + OT.space.sm
@@ -1439,12 +1474,20 @@ end
 -- Derived from anchors it is not necessarily settled in the same frame, which
 -- is why the text stayed on one line until something forced a repaint.
 function Description:OnWidth(width)
+    self.width = width
     self.text:SetWidth(width)
     self:Measure()
 end
 
 function Description:Refresh()
     local node, info = self.node, self.info
+    if previewOf(node) then
+        self.text:SetText("")
+        self.image:Hide()
+        self:Measure()
+        return
+    end
+    self:DetachPreview()
     local size = DESC_SIZE[member(node, "fontSize", info) or "medium"] or "normal"
     OT:ApplyFont(self.text, size)
 
@@ -1643,6 +1686,8 @@ Controls.UpperOutsideEscapes = upperOutsideEscapes
 
 function Header:Refresh()
     self.label:SetText(upperOutsideEscapes(Controls.Plain(nodeName(self.node, self.info))))
+    -- Every write refreshes the visible controls, so an accent change lands here too.
+    self.label:SetTextColor(OT:Unpack("accent"))
 end
 
 -- Window chrome ---------------------------------------------------------

@@ -55,6 +55,14 @@ local function resolveStyle(elementKey)
         for k, v in pairs(override) do style[k] = v end
     end
 
+    -- The chosen outline as saved, for the options. SHADOW is no font flag but a
+    -- drop shadow, so it is split off before the flags reach SetFont.
+    style.outline = style.fontFlags or ""
+    style.fontShadow = style.outline:find("SHADOW", 1, true) ~= nil
+    if style.fontShadow then
+        style.fontFlags = style.outline:gsub("SHADOW,?", ""):gsub(",$", "")
+    end
+
     -- The outline renderer is a global choice rather than an element's, and it
     -- rides on whatever outline the element already asked for.
     if Widgets:SlugOn() then
@@ -132,9 +140,10 @@ end
 -- Measured with a hidden FontString rather than estimated, so blocks never
 -- overlap when the font size grows.
 local measureFS
-function Widgets:LineHeight(elementKey, fallback)
+-- size overrides the element's own, for a part drawn in its face at another size.
+function Widgets:LineHeight(elementKey, fallback, size)
     local s = resolveStyle(elementKey)
-    local size = s.fontSize or fallback or 14
+    size = size or s.fontSize or fallback or 14
     if s.font then
         if not measureFS then
             measureFS = UIParent:CreateFontString(nil, "ARTWORK")
@@ -150,7 +159,7 @@ end
 
 -- Replaces digits with the widest one, leaving |T/|c/|r escapes intact, so a
 -- ticking value measures to a constant width.
-local function widenDigits(text)
+local function widenDigits(text, widest)
     local out, i, n = {}, 1, #text
     while i <= n do
         local c = text:sub(i, i)
@@ -168,7 +177,7 @@ local function widenDigits(text)
                 out[#out + 1] = c; i = i + 1
             end
         elseif c:match("%d") then
-            out[#out + 1] = "8"; i = i + 1
+            out[#out + 1] = widest; i = i + 1
         else
             out[#out + 1] = c; i = i + 1
         end
@@ -178,17 +187,41 @@ end
 
 -- Modules SetWidth a ticking text to this, so it stops resizing every tick and
 -- pushing its neighbours around. nil if unmeasurable.
-function Widgets:StableTextWidth(elementKey, text)
+-- Not every font has "8" as its widest digit, so it is measured once per face.
+local widestDigit = {}
+
+-- fs, when given, is the string being sized: it is measured in its own font,
+-- and its real width is the floor, in case the font still renders wider.
+function Widgets:StableTextWidth(elementKey, text, fs)
     if not text then return nil end
     local s = resolveStyle(elementKey)
-    if not s.font then return nil end
+    local font, size, flags = s.font, s.fontSize or 14, s.fontFlags
+    if fs then
+        local f, sz, fl = fs:GetFont()
+        if f then font, size, flags = f, sz, fl end
+    end
+    if not font then return nil end
     if not measureFS then measureFS = UIParent:CreateFontString(nil, "ARTWORK") end
-    if not measureFS:SetFont(s.font, s.fontSize or 14, s.fontFlags) then return nil end
-    measureFS:SetText(widenDigits(text))
-    local w = measureFS:GetStringWidth()
-    -- +2px: outline flags and font hinting can render slightly wider than
-    -- GetStringWidth reports, and word wrap is off, so it would be truncated.
-    if w and w > 0 then return math.ceil(w) + 2 end
+    if not measureFS:SetFont(font, size, flags) then return nil end
+    local faceKey = font .. size .. (flags or "")
+    local widest = widestDigit[faceKey]
+    if not widest then
+        local best = -1
+        for d = 0, 9 do
+            measureFS:SetText(tostring(d))
+            local dw = measureFS:GetStringWidth() or 0
+            if dw > best then best, widest = dw, tostring(d) end
+        end
+        widestDigit[faceKey] = widest
+    end
+    measureFS:SetText(widenDigits(text, widest))
+    local w = measureFS:GetStringWidth() or 0
+    if fs and fs.GetUnboundedStringWidth then
+        w = math.max(w, fs:GetUnboundedStringWidth() or 0)
+    end
+    -- GetStringWidth leaves out what the outline draws past the glyphs, and
+    -- hinting adds a little more; word wrap is off, so too narrow clips.
+    if w > 0 then return math.ceil(w) + 2 + 2 * self:OutlineMargin(s) end
     return nil
 end
 
@@ -215,11 +248,24 @@ function Widgets:CreateContainer(parent, name)
     return CreateFrame("Frame", name, parent or UIParent, "BackdropTemplate")
 end
 
+function Widgets:ApplyShadow(fs, style)
+    fs:SetShadowColor(0, 0, 0, 1)
+    fs:SetShadowOffset(style.fontShadow and 1 or 0, style.fontShadow and -1 or 0)
+end
+
 function Widgets:ApplyTextStyle(fs, elementKey)
     local style = resolveStyle(elementKey)
     fs:SetFont(style.font, style.fontSize, style.fontFlags)
     fs:SetTextColor(unpack(style.textColor))
+    self:ApplyShadow(fs, style)
     return style
+end
+
+-- Pixels an outline or shadow draws past each side of the measured glyphs.
+function Widgets:OutlineMargin(style)
+    local flags = style.fontFlags or ""
+    local margin = flags:find("THICKOUTLINE", 1, true) and 3 or (flags:find("OUTLINE", 1, true) and 2 or 0)
+    return margin + (style.fontShadow and 1 or 0)
 end
 
 -- Word wrap off: HUD texts are single-line, and a width-constrained value must

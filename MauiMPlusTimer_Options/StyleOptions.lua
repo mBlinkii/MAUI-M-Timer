@@ -42,7 +42,27 @@ local function mediaName(mtype, value, default)
     return default
 end
 
-local OUTLINES = { [""] = "None", OUTLINE = "Outline", THICKOUTLINE = "Thick" }
+-- Saved as WoW font flags; SHADOW is turned into a drop shadow when applied.
+local OUTLINE_SORTING = {
+    "", "OUTLINE", "THICKOUTLINE",
+    "MONOCHROME", "MONOCHROME,OUTLINE", "MONOCHROME,THICKOUTLINE",
+    "SHADOW", "SHADOW,OUTLINE", "SHADOW,THICKOUTLINE",
+}
+
+local function outlineValues()
+    local L = ns.L
+    return {
+        [""] = L["None"],
+        OUTLINE = L["Outline"],
+        THICKOUTLINE = L["Thick outline"],
+        MONOCHROME = L["Monochrome"],
+        ["MONOCHROME,OUTLINE"] = L["Monochrome outline"],
+        ["MONOCHROME,THICKOUTLINE"] = L["Monochrome thick outline"],
+        SHADOW = L["Shadow"],
+        ["SHADOW,OUTLINE"] = L["Shadow outline"],
+        ["SHADOW,THICKOUTLINE"] = L["Shadow thick outline"],
+    }
+end
 
 local function element(key)
     return Addon:GetElementSetting(key)
@@ -141,7 +161,7 @@ function Addon:BuildGlobalFontOptions()
                     font = { type = "select", name = L["Font"], order = 1, values = fontList,
                         get = function() return staged("font") end,
                         set = fontSet("font") },
-                    fontFlags = { type = "select", name = L["Outline"], order = 2, values = OUTLINES,
+                    fontFlags = { type = "select", name = L["Outline"], order = 2, values = outlineValues(), sorting = OUTLINE_SORTING,
                         get = function() return staged("fontFlags") or "" end,
                         set = fontSet("fontFlags") },
                     fontSize = { type = "range", name = L["Font size"], order = 3,
@@ -346,6 +366,7 @@ function Addon:BuildColorsOptions()
                 args = {
                     name = areaColor(ns.E.dungeonName, "textColor", L["Dungeon name"], 1),
                     affixes = areaColor(ns.E.dungeonAffixes, "textColor", L["Affixes"], 2),
+                    level = areaColor(ns.E.dungeonLevel, "textColor", L["Keystone level"], 3),
                 },
             },
             timer = {
@@ -427,9 +448,10 @@ function Addon:BuildColorsOptions()
             cooldowns = {
                 type = "group", inline = true, name = L["Cooldowns"], order = 70,
                 args = {
-                    text = areaColor(ns.E.cooldownsText, "textColor", L["Text"], 1),
-                    cd = areaColor(ns.E.cooldownsText, "cdColor", L["Cooldown color"], 2, { 1, 0.38, 0.38, 1 }),
-                    recharge = areaColor(ns.E.cooldownsText, "rechargeColor", L["Recharge color"], 3, { 0.60, 0.60, 0.60, 1 }),
+                    brez = areaColor(ns.E.brezText, "textColor", L["Battle resurrections"], 1),
+                    recharge = areaColor(ns.E.brezText, "rechargeColor", L["Recharge color"], 2, { 0.60, 0.60, 0.60, 1 }),
+                    lust = areaColor(ns.E.lustText, "textColor", L["Heroism"], 3),
+                    cd = areaColor(ns.E.lustText, "cdColor", L["Cooldown color"], 4, { 1, 0.38, 0.38, 1 }),
                 },
             },
         },
@@ -555,8 +577,8 @@ function Addon:ElementTextArgs(module, key, base, opts)
         font = { type = "select", name = L["Font"], order = base + 1, values = fontList,
             get = function() return eff(key, "font") end,
             set = function(_, v) element(key).font = v; restyle(module) end },
-        fontFlags = { type = "select", name = L["Outline"], order = base + 2, values = OUTLINES,
-            get = function() return eff(key, "fontFlags") or "" end,
+        fontFlags = { type = "select", name = L["Outline"], order = base + 2, values = outlineValues(), sorting = OUTLINE_SORTING,
+            get = function() return eff(key, "outline") or "" end,
             set = function(_, v) element(key).fontFlags = v; restyle(module) end },
         nlSize = Addon:OptLine(base + 3),
         fontSize = { type = "range", name = L["Font size"], order = base + 4, min = 8, max = 64, step = 1,

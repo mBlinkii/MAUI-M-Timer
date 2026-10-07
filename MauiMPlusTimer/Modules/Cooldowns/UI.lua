@@ -1,5 +1,6 @@
 -- Modules/Cooldowns/UI.lua
--- HUD block for battle-rez charges/recharge and lust availability.
+-- Two independently placeable HUD blocks: battle-rez charges/recharge ("brez")
+-- and lust availability ("bloodlust").
 
 local ADDON_NAME, ns = ...
 local Addon = ns.Addon
@@ -12,12 +13,10 @@ local DEFAULT_READY = "Interface\\RaidFrame\\ReadyCheck-Ready"
 local BREZ_FALLBACK = "Interface\\Icons\\Spell_Nature_Reincarnation"
 local LUST_FALLBACK = "Interface\\Icons\\Spell_Nature_BloodLust"
 local ICON_GAP = 4 -- between an icon and its text
-local PART_GAP = 12 -- between the two parts, left or right aligned
-local SEP_GAP = 8 -- around the "|" when centered
 
 local function readyIcon()
     local s = Cooldowns:GetSettings()
-    return Addon.Widgets:IconEscape(s.readyIcon, DEFAULT_READY, Addon.Widgets:IconSize(ns.E.cooldownsText), s.readyIconColor)
+    return Addon.Widgets:IconEscape(s.readyIcon, DEFAULT_READY, Addon.Widgets:IconSize(ns.E.lustText), s.readyIconColor)
 end
 
 -- The spell icons are textures rather than text escapes: only a texture can be
@@ -31,69 +30,56 @@ local function paintIcon(icon, spellID, fallback, greyed, size)
     icon:SetVertexColor(greyed and 0.7 or 1, greyed and 0.7 or 1, greyed and 0.7 or 1)
 end
 
-function UI:Build()
-    if self.frame then return end
-    local hud = Addon.MainWindow:Get()
-    local block = Addon.Widgets:CreateContainer(hud, "MauiMPlusTimerCooldownsBlock")
-    block:SetSize(Addon.MainWindow:GetWidth(), Addon.Widgets:LineHeight(ns.E.cooldownsText))
-
-    local function icon()
-        local t = block:CreateTexture(nil, "ARTWORK")
-        -- Cuts off the rounded border baked into Blizzard icons; survives SetTexture.
-        t:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        return t
-    end
-    self.frame = block
-    self.brezIcon, self.lustIcon = icon(), icon()
-    self.brezText = Addon.Widgets:CreateText(block, ns.E.cooldownsText)
-    self.lustText = Addon.Widgets:CreateText(block, ns.E.cooldownsText)
-    self.sepText = Addon.Widgets:CreateText(block, ns.E.cooldownsText)
-    self.sepText:SetText("||")
-    self.texts = { self.brezText, self.lustText, self.sepText }
-    self.regions = { self.brezIcon, self.brezText, self.sepText, self.lustIcon, self.lustText }
-    for _, fs in ipairs(self.texts) do fs:SetJustifyH("LEFT") end
-    self.chain, self.chainW = {}, {}
-
-    -- A split row changes the width after Update placed the chain.
-    block:SetScript("OnSizeChanged", function() UI:PlaceChain() end)
+local function newPart(hud, name, key, element)
+    local block = Addon.Widgets:CreateContainer(hud, name)
+    block:SetSize(Addon.MainWindow:GetWidth(), Addon.Widgets:LineHeight(element))
+    local icon = block:CreateTexture(nil, "ARTWORK")
+    -- Cuts off the rounded border baked into Blizzard icons; survives SetTexture.
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local text = Addon.Widgets:CreateText(block, element)
+    text:SetJustifyH("LEFT")
+    local part = { frame = block, icon = icon, text = text, key = key, element = element, textW = 0 }
+    -- A split row changes the width after Update placed the part.
+    block:SetScript("OnSizeChanged", function() UI:PlacePart(part) end)
     block:Hide()
-    Addon.MainWindow:AddBlock("cooldowns", block, 70)
+    return part
 end
 
--- Laid out left to right from the widths Update measured; the whole chain is
--- then aligned like any other HUD text.
-function UI:PlaceChain()
-    local chain, widths = self.chain, self.chainW
-    if not (chain and #chain > 0) then return end
-    local total = 0
-    for i = 1, #chain do total = total + widths[i] end
+function UI:Build()
+    if self.brez then return end
+    local hud = Addon.MainWindow:Get()
+    self.brez = newPart(hud, "MauiMPlusTimerBrezBlock", "brez", ns.E.brezText)
+    self.lust = newPart(hud, "MauiMPlusTimerBloodlustBlock", "bloodlust", ns.E.lustText)
+    Addon.MainWindow:AddBlock("brez", self.brez.frame, 70)
+    Addon.MainWindow:AddBlock("bloodlust", self.lust.frame, 71)
+end
 
-    local frameW = self.frame:GetWidth()
-    local justify = Addon.MainWindow:GetJustifyH("Cooldowns")
-    local ox, oy = Addon.Widgets:GetOffset(ns.E.cooldownsText)
+-- Icon then text, aligned as a whole like any other HUD text.
+function UI:PlacePart(part)
+    local size = Addon.Widgets:IconSize(part.element)
+    local total = size + ICON_GAP + part.textW
+    local frameW = part.frame:GetWidth()
+    local justify = Addon.MainWindow:GetJustifyH("Cooldowns", part.key)
+    local ox, oy = Addon.Widgets:GetOffset(part.element)
     local x = 0
     if justify == "RIGHT" then
         x = frameW - total
     elseif justify == "CENTER" then
         x = (frameW - total) / 2
     end
-    x = Addon.Widgets:Snap(self.frame, x + ox)
-
-    for i = 1, #chain do
-        local region = chain[i]
-        region:ClearAllPoints()
-        region:SetPoint("LEFT", self.frame, "LEFT", x, oy)
-        region:Show()
-        x = x + widths[i]
-    end
+    x = Addon.Widgets:Snap(part.frame, x + ox)
+    part.icon:ClearAllPoints()
+    part.icon:SetPoint("LEFT", part.frame, "LEFT", x, oy)
+    part.text:ClearAllPoints()
+    part.text:SetPoint("LEFT", part.frame, "LEFT", x + size + ICON_GAP, oy)
 end
 
--- Stable width, so the counting time does not shift the icons every refresh.
-local function textWidth(fs, text)
-    fs:SetText(text)
-    local w = Addon.Widgets:StableTextWidth(ns.E.cooldownsText, text) or math.ceil(fs:GetStringWidth())
-    fs:SetWidth(w)
-    return w
+-- Stable width, so the counting time does not shift the icon every refresh.
+local function setText(part, text)
+    part.text:SetText(text)
+    local w = Addon.Widgets:StableTextWidth(part.element, text, part.text) or math.ceil(part.text:GetStringWidth())
+    part.text:SetWidth(w)
+    part.textW = w
 end
 
 function UI:Update(brezOn, charges, recharge, lustOn, lustCd)
@@ -103,30 +89,9 @@ function UI:Update(brezOn, charges, recharge, lustOn, lustCd)
     self._last = last
     last.brezOn, last.charges, last.recharge, last.lustOn, last.lustCd = brezOn, charges, recharge, lustOn, lustCd
 
-    local chain, widths = self.chain, self.chainW
-    for i = #chain, 1, -1 do chain[i], widths[i] = nil, nil end
-    for _, region in ipairs(self.regions) do region:Hide() end
-
-    if not brezOn and not lustOn then
-        self.frame:Hide()
-        Addon.MainWindow:Layout()
-        return
-    end
-
-    local center = Addon.MainWindow:GetJustifyH("Cooldowns") == "CENTER"
-    local size = Addon.Widgets:IconSize(ns.E.cooldownsText)
-
-    -- The charge count follows the base text color.
-    local e = Addon:GetElementSetting(ns.E.cooldownsText)
-    local rechHex = Addon.Utils.ColorHex(e.rechargeColor or { 0.60, 0.60, 0.60, 1 })
-    local cdHex = Addon.Utils.ColorHex(e.cdColor or { 1, 0.38, 0.38, 1 })
-
-    local function add(region, width)
-        local n = #chain + 1
-        chain[n], widths[n] = region, width
-    end
-
     if brezOn then
+        local e = Addon:GetElementSetting(ns.E.brezText)
+        local rechHex = Addon.Utils.ColorHex(e.rechargeColor or { 0.60, 0.60, 0.60, 1 })
         local text
         if charges == nil then
             text = "?"
@@ -135,52 +100,46 @@ function UI:Update(brezOn, charges, recharge, lustOn, lustCd)
         else
             text = string.format("%d", charges)
         end
-        paintIcon(self.brezIcon, Cooldowns.SPELL_REBIRTH, BREZ_FALLBACK, charges == 0, size)
-        local w = textWidth(self.brezText, text)
-        -- Mirrored around the separator when centered.
-        if center then
-            add(self.brezText, w + ICON_GAP)
-            add(self.brezIcon, size)
-        else
-            add(self.brezIcon, size + ICON_GAP)
-            add(self.brezText, w)
-        end
+        paintIcon(self.brez.icon, Cooldowns.SPELL_REBIRTH, BREZ_FALLBACK, charges == 0, Addon.Widgets:IconSize(ns.E.brezText))
+        setText(self.brez, text)
+        self:PlacePart(self.brez)
     end
+    self.brez.frame:SetShown(brezOn and true or false)
 
     if lustOn then
-        if brezOn then
-            if center then
-                widths[#chain] = widths[#chain] + SEP_GAP
-                add(self.sepText, math.ceil(self.sepText:GetStringWidth()) + SEP_GAP)
-            else
-                widths[#chain] = widths[#chain] + PART_GAP
-            end
-        end
+        local e = Addon:GetElementSetting(ns.E.lustText)
+        local cdHex = Addon.Utils.ColorHex(e.cdColor or { 1, 0.38, 0.38, 1 })
         local text = lustCd and ("|c" .. cdHex .. Addon.Utils.FormatTime(lustCd) .. "|r") or readyIcon()
-        paintIcon(self.lustIcon, Cooldowns.SPELL_BLOODLUST, LUST_FALLBACK, lustCd ~= nil, size)
-        add(self.lustIcon, size + ICON_GAP)
-        add(self.lustText, textWidth(self.lustText, text))
+        paintIcon(self.lust.icon, Cooldowns.SPELL_BLOODLUST, LUST_FALLBACK, lustCd ~= nil, Addon.Widgets:IconSize(ns.E.lustText))
+        setText(self.lust, text)
+        self:PlacePart(self.lust)
     end
+    self.lust.frame:SetShown(lustOn and true or false)
 
-    self:PlaceChain()
-    self.frame:Show()
     Addon.MainWindow:Layout()
 end
 
 function UI:Restyle()
-    if not self.frame then return end
-    for _, fs in ipairs(self.texts) do
-        Addon.Widgets:ApplyTextStyle(fs, ns.E.cooldownsText)
+    if not self.brez then return end
+    for _, part in ipairs({ self.brez, self.lust }) do
+        Addon.Widgets:ApplyTextStyle(part.text, part.element)
+        part.frame:SetHeight(Addon.Widgets:LineHeight(part.element))
     end
-    self.frame:SetHeight(Addon.Widgets:LineHeight(ns.E.cooldownsText))
-    -- Full rebuild, because the mirrored layout depends on the alignment.
     local l = self._last
     if l then self:Update(l.brezOn, l.charges, l.recharge, l.lustOn, l.lustCd) end
 end
 
--- Visibility is Update's decision (it depends on which features are on), so
--- this only builds and relayouts.
+-- Visibility is Update's decision (it depends on which parts are on), so this
+-- only builds and relayouts.
 function UI:Show()
     self:Build()
+    Addon.MainWindow:Layout()
+end
+
+function UI:Hide()
+    if self.brez then
+        self.brez.frame:Hide()
+        self.lust.frame:Hide()
+    end
     Addon.MainWindow:Layout()
 end

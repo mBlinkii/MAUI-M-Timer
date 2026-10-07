@@ -48,14 +48,13 @@ function Splits:GetOptions()
             settings = {
                 type = "group", inline = true, name = L["Settings"], order = 3,
                 args = {
-                    align = Addon:ModuleAlignOption(self, 1),
                     showText = {
                         type = "toggle", name = L["Show run vs best line"], order = 1.3, width = "full",
                         desc = L["Show the run-vs-best line in the HUD. When off, best times are still recorded for the timer, forces and objectives - only this line is hidden. Removing 'Splits' in General -> Element order does the same."],
                         get = function() return Splits:GetSettings().showText ~= false end,
                         set = function(_, v)
                             Splits:GetSettings().showText = v
-                            if Splits.ApplyTextShown then Splits:ApplyTextShown() end
+                            if Splits.ApplyBlocksShown then Splits:ApplyBlocksShown() end
                             Addon.MainWindow:InvalidateRows()
                             Addon.MainWindow:Layout()
                         end,

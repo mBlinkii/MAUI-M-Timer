@@ -1,5 +1,5 @@
 -- Modules/Dungeon/Module.lua
--- Dungeon name, keystone level and affixes. Read-only: derives everything from
+-- Dungeon name, map icon, keystone level and affixes. Read-only: derives everything from
 -- RunState and the challenge-mode API.
 
 local ADDON_NAME, ns = ...

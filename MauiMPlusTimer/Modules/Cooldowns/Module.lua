@@ -109,6 +109,15 @@ function Cooldowns:Refresh()
     self.UI:Update(brezOn, charges, recharge, lustOn, lustCd)
 end
 
+-- A part was placed or removed in the grid.
+function Cooldowns:ApplyBlocksShown()
+    if self.state.demo then
+        self:SetDemo(true)
+    elseif Addon.RunState:Get() then
+        self:Start()
+    end
+end
+
 function Cooldowns:SetDemo(state)
     self.state.demo = state
     if state then

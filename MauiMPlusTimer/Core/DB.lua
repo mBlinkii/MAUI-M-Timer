@@ -12,15 +12,18 @@ local defaults = {
         modules = {
             Timer       = {
                 enabled = true,
+                showText = true,   -- the time text block ("timer")
+                textLayout = "inline", secondPos = "right", bestPos = "right", -- see Timer UI.TEXT_LAYOUTS
                 showBar = true,    -- the bar is a separate orderable block ("timerbar")
                 splitBar = false,  -- split the bar into three segments (+3/+2/+1)
                 splitGap = 2,      -- pixel gap between the three split segments
                 sectionCountdown = false, sectionCountdownAll = false, -- threshold countdowns
             },
             Dungeon     = {
-                enabled = true, showAffixes = true,
-                showLevel = true, levelPos = "left", levelColor = false, levelSep = true, -- keystone level tag
-                showIcon = false, iconPos = "left", iconSize = 20, -- optional map icon
+                -- One block each: "dungeon", "affixes", "level", "dungeonicon".
+                enabled = true, showName = true, showAffixes = true,
+                showLevel = true, levelColor = false, -- keystone level
+                showIcon = false, iconSize = 20, -- optional map icon
                 bg = {
                     show = false, color = { 0, 0, 0, 0.5 },
                     border = false, borderTexture = "Solid",
@@ -56,7 +59,9 @@ local defaults = {
             x       = 0,
             y       = 0,
             scale   = 1,
+            orientation = "vertical", -- "vertical" (3 x 11 grid) | "horizontal" (5 x 3 grid)
             width   = 220,      -- HUD width in pixels (configurable)
+            widthHorizontal = 560, -- HUD width of the horizontal grid
             spacing = 2,        -- vertical gap (px) between stacked HUD blocks
             theme   = "default",
             align   = "center", -- "left" | "center" | "right"
@@ -150,11 +155,8 @@ local preset = {
                 show = true,
             },
             enabled = true,
-            iconPos = "right",
             iconSize = 42,
             levelColor = true,
-            levelPos = "left",
-            levelSep = true,
             showAffixes = true,
             showIcon = true,
             showLevel = true,
@@ -245,11 +247,18 @@ local preset = {
                 xOffset = 0,
                 yOffset = 0,
             },
-            cooldownsText = {
-                cdColor = { 1, 0.38, 0.38, 1 },
+            brezText = {
                 font = "Fonts\\FRIZQT__.TTF",
                 fontSize = 20,
                 rechargeColor = { 0.6, 0.6, 0.6, 1 },
+                textColor = { 1, 1, 1, 1 },
+                xOffset = 0,
+                yOffset = 0,
+            },
+            lustText = {
+                cdColor = { 1, 0.38, 0.38, 1 },
+                font = "Fonts\\FRIZQT__.TTF",
+                fontSize = 20,
                 textColor = { 1, 1, 1, 1 },
                 xOffset = 0,
                 yOffset = 0,
@@ -275,6 +284,13 @@ local preset = {
                 yOffset = 0,
             },
             dungeonName = {
+                font = "Fonts\\FRIZQT__.TTF",
+                fontSize = 20,
+                textColor = { 1, 1, 1, 1 },
+                xOffset = 0,
+                yOffset = 0,
+            },
+            dungeonLevel = {
                 font = "Fonts\\FRIZQT__.TTF",
                 fontSize = 20,
                 textColor = { 1, 1, 1, 1 },
@@ -460,9 +476,23 @@ function Addon:MigrateProfile()
     local function writeRows(keys) -- one block per row, from a flat key list
         local rows = {}
         for i, key in ipairs(keys) do
-            rows[i] = { left = key }
+            rows[i] = { key }
         end
         p.ui.blockRows = rows
+    end
+
+    local maxCols = (self.MainWindow and self.MainWindow.MAX_COLS) or 5
+
+    -- Rows were { left = key, right = key } before the grid got more columns.
+    for _, rowsKey in ipairs({ "blockRows", "blockRowsHorizontal" }) do
+        local rows = p.ui[rowsKey]
+        if type(rows) == "table" then
+            for i, row in ipairs(rows) do
+                if type(row) == "table" and (row.left ~= nil or row.right ~= nil) then
+                    rows[i] = { row[1] or row.left, row[2] or row.right }
+                end
+            end
+        end
     end
 
     -- Never-released intermediate format of the row layout; drop it.
@@ -501,11 +531,10 @@ function Addon:MigrateProfile()
         if type(p.ui.blockRows) == "table" then
             for _, row in ipairs(p.ui.blockRows) do
                 if type(row) == "table" then
-                    if row.left and not migrating[row.left] then
-                        base[#base + 1] = row.left
-                    end
-                    if row.right and not migrating[row.right] then
-                        base[#base + 1] = row.right
+                    for c = 1, maxCols do
+                        if row[c] and not migrating[row[c]] then
+                            base[#base + 1] = row[c]
+                        end
                     end
                 end
             end
@@ -529,41 +558,123 @@ function Addon:MigrateProfile()
         end
     end
 
-    -- Earlier pre-release iterations of the migration above accumulated
-    -- duplicates and overlong layouts. Only rewrite when actually damaged, so
-    -- intentional row gaps survive.
-    local rows = p.ui.blockRows
-    if type(rows) == "table" then
-        local maxRows = (self.MainWindow and self.MainWindow.MAX_ROWS) or 10
-        local seen, damaged = {}, #rows > maxRows
-        for _, row in ipairs(rows) do
-            if type(row) == "table" then
-                if row.left ~= nil then
-                    if seen[row.left] then damaged = true end
-                    seen[row.left] = true
-                end
-                if row.right ~= nil then
-                    if seen[row.right] then damaged = true end
-                    seen[row.right] = true
-                end
-            end
+    -- The stacked timer layouts became a position of the second value.
+    local timer = p.modules and p.modules.Timer
+    if timer then
+        if timer.textLayout == "stacked" then
+            timer.textLayout, timer.secondPos = "inline", "below"
+        elseif timer.textLayout == "stackedRemaining" then
+            timer.textLayout, timer.secondPos = "elapsedRemaining", "below"
         end
-        if damaged then
-            local clean, taken = {}, {}
-            for _, row in ipairs(rows) do
-                if type(row) == "table" and #clean < maxRows then
-                    local left = (type(row.left) == "string" and not taken[row.left])
-                        and row.left or nil
-                    if left then taken[left] = true end
-                    local right = (type(row.right) == "string" and not taken[row.right])
-                        and row.right or nil
-                    if right then taken[right] = true end
-                    if left or right then
-                        clean[#clean + 1] = { left = left, right = right }
+        if timer.bestPos == "beside" then timer.bestPos = nil end
+    end
+
+    -- Dungeon and Cooldowns became one block per part. The new parts go next
+    -- to where the old block sat, so a saved layout keeps its look.
+    local dungeon = p.modules and p.modules.Dungeon or {}
+    local grids = self.MainWindow and self.MainWindow.GRIDS
+    for _, grid in ipairs({ { "blockRows", 3 }, { "blockRowsHorizontal", 5 } }) do
+        local rowsKey = grid[1]
+        local cols = (grids and grids[rowsKey == "blockRows" and "vertical" or "horizontal"].cols) or grid[2]
+        local rows = p.ui[rowsKey]
+        if type(rows) == "table" then
+            local function find(key)
+                for i, row in ipairs(rows) do
+                    if type(row) == "table" then
+                        for c = 1, cols do
+                            if row[c] == key then return i, c end
+                        end
                     end
                 end
             end
-            p.ui.blockRows = clean
+            local function putNear(key, i, c, side)
+                local row = rows[i]
+                for _, cc in ipairs({ c + side, c - side }) do
+                    if cc >= 1 and cc <= cols and row[cc] == nil then row[cc] = key; return end
+                end
+                for cc = 1, cols do
+                    if row[cc] == nil then row[cc] = key; return end
+                end
+                table.insert(rows, i + 1, { [c] = key })
+            end
+
+            local i, c = find("cooldowns")
+            if i then
+                rows[i][c] = "brez"
+                putNear("bloodlust", i, c, 1)
+            end
+
+            i, c = find("dungeon")
+            if i and not (find("level") or find("affixes") or find("dungeonicon")) then
+                if dungeon.showIcon == true then
+                    putNear("dungeonicon", i, c, dungeon.iconPos == "right" and 1 or -1)
+                end
+                if dungeon.showLevel ~= false then
+                    putNear("level", i, c, dungeon.levelPos == "right" and 1 or -1)
+                end
+                if dungeon.showAffixes ~= false then
+                    table.insert(rows, i + 1, { [c] = "affixes" })
+                end
+            end
+        end
+    end
+    dungeon.levelPos, dungeon.levelSep, dungeon.iconPos = nil, nil, nil
+
+    -- The parts take over the old shared text style once.
+    local elements = p.ui.elements
+    if elements then
+        local function copyOnto(from, to)
+            local target = elements[to] or {}
+            for k, v in pairs(from) do
+                target[k] = type(v) == "table" and Addon.Utils.CopyTable(v) or v
+            end
+            elements[to] = target
+        end
+        if type(elements.cooldownsText) == "table" then
+            copyOnto(elements.cooldownsText, "brezText")
+            copyOnto(elements.cooldownsText, "lustText")
+            elements.cooldownsText = nil
+        end
+        if not p.ui.blocksSplit and type(elements.dungeonName) == "table" then
+            copyOnto(elements.dungeonName, "dungeonLevel")
+        end
+    end
+    p.ui.blocksSplit = true
+
+    -- Earlier pre-release iterations of the migration above accumulated
+    -- duplicates and overlong layouts. Only rewrite when actually damaged, so
+    -- intentional row gaps survive.
+    local maxRows = (self.MainWindow and self.MainWindow.MAX_ROWS) or 11
+    for _, rowsKey in ipairs({ "blockRows", "blockRowsHorizontal" }) do
+        local rows = p.ui[rowsKey]
+        if type(rows) == "table" then
+            local seen, damaged = {}, #rows > maxRows
+            for _, row in ipairs(rows) do
+                if type(row) == "table" then
+                    for c = 1, maxCols do
+                        if row[c] ~= nil then
+                            if seen[row[c]] then damaged = true end
+                            seen[row[c]] = true
+                        end
+                    end
+                end
+            end
+            if damaged then
+                local clean, taken = {}, {}
+                for _, row in ipairs(rows) do
+                    if type(row) == "table" and #clean < maxRows then
+                        local out, any = {}, false
+                        for c = 1, maxCols do
+                            local key = row[c]
+                            if type(key) == "string" and not taken[key] then
+                                taken[key], out[c], any = true, key, true
+                            end
+                        end
+                        if any then clean[#clean + 1] = out end
+                    end
+                end
+                p.ui[rowsKey] = clean
+            end
         end
     end
 

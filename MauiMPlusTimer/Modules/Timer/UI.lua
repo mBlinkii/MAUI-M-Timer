@@ -119,42 +119,157 @@ function UI:LayoutSegments(style, h, bottomExtra)
     end
 end
 
--- Follows the time text's font family and outline, but keeps its own size.
-function UI:ApplyBestFont()
-    if not self.bestText then return end
-    local base = Addon.Widgets.ResolveStyle(ns.E.timerText)
-    local size = Addon:GetElementSetting(ns.E.timerBest).fontSize or base.fontSize
-    self.bestText:SetFont(base.font, size, base.fontFlags)
+-- Time text layouts. main: what the big value shows; second: the smaller
+-- value ("max" or "remaining"), placed by secondPos.
+UI.TEXT_LAYOUTS = {
+    inline           = { main = "elapsed", second = "max" },
+    elapsed          = { main = "elapsed" },
+    remaining        = { main = "remaining" },
+    remainingMax     = { main = "remaining", second = "max" },
+    elapsedRemaining = { main = "elapsed", second = "remaining" },
+}
+UI.TEXT_LAYOUT_ORDER = { "inline", "elapsedRemaining", "elapsed", "remaining", "remainingMax" }
+-- Where the second value and the best time sit relative to the time.
+UI.PART_POSITIONS = { "left", "right", "above", "below" }
+
+local function partPos(key)
+    local pos = Timer:GetSettings()[key]
+    if pos == "left" or pos == "above" or pos == "below" then return pos end
+    return "right"
 end
 
--- Centered still justifies LEFT inside the fixed-width box, or the elapsed
--- value's left edge re-centers and jitters on every tick.
+local PART_GAP = 6 -- between the parts on one line
+
+local function textLayout()
+    return UI.TEXT_LAYOUTS[Timer:GetSettings().textLayout] or UI.TEXT_LAYOUTS.inline
+end
+
+-- Second value and best time follow the time's face and outline, each at its
+-- own size.
+local function partSizes()
+    local base = Addon.Widgets.ResolveStyle(ns.E.timerText)
+    return base, Addon:GetElementSetting(ns.E.timerMax).fontSize or base.fontSize,
+        Addon:GetElementSetting(ns.E.timerBest).fontSize or base.fontSize
+end
+
+-- t: { frame, main, second, best } -- the HUD block or the options preview.
+function UI:ApplyTextFonts(t)
+    local base, secondSize, bestSize = partSizes()
+    Addon.Widgets:ApplyTextStyle(t.main, ns.E.timerText)
+    t.second:SetFont(base.font, secondSize, base.fontFlags)
+    t.best:SetFont(base.font, bestSize, base.fontFlags)
+    Addon.Widgets:ApplyShadow(t.second, base)
+    Addon.Widgets:ApplyShadow(t.best, base)
+end
+
+-- Stable width, or the ticking time shifts itself and its neighbors.
+local function setPart(fs, text)
+    fs:SetText(text)
+    local w = text ~= "" and Addon.Widgets:StableTextWidth(ns.E.timerText, text, fs) or 0
+    fs:SetWidth(math.max(1, w))
+    fs:SetShown(text ~= "")
+end
+
+-- best: seconds or nil (hidden).
+function UI:FillText(t, elapsed, timeLimit, best)
+    local layout = textLayout()
+    local overtime = timeLimit > 0 and elapsed > timeLimit
+    local fmt = Addon.Utils.FormatTime
+    local maxHex = Addon.Utils.ColorHex(Addon:GetElementSetting(ns.E.timerText).maxColor or DEFAULT_MAX_COLOR)
+    local over = overtime and fmt(elapsed - timeLimit) or nil
+
+    local main
+    if layout.main == "remaining" then
+        main = overtime and ("|cffff4040+" .. over .. "|r") or fmt(math.max(0, timeLimit - elapsed))
+    else
+        main = overtime and ("|cffff4040" .. fmt(elapsed) .. "|r") or fmt(elapsed)
+    end
+
+    local second = ""
+    if layout.second then
+        local value
+        if layout.second == "remaining" then
+            value = overtime and ("+" .. over) or fmt(math.max(0, timeLimit - elapsed))
+        else
+            value = fmt(timeLimit)
+            if overtime and layout.main ~= "remaining" then value = value .. "  (+" .. over .. ")" end
+        end
+        second = "|c" .. (overtime and "ffff4040" or maxHex) .. value .. "|r"
+    end
+
+    setPart(t.main, main)
+    setPart(t.second, second)
+    if best then
+        setPart(t.best, Addon.Widgets:BestText(best))
+        t.best:SetTextColor(unpack(Addon.Widgets:GetBestColor()))
+    else
+        setPart(t.best, "")
+    end
+end
+
+-- Lines top to bottom, each a run of parts aligned as a whole.
+local lines = { {}, {}, {}, {}, {} }
+
+-- Returns the height the parts need; the caller sizes its frame to it.
+function UI:PlaceText(t, justify)
+    local bestPos, secondPos = partPos("bestPos"), partPos("secondPos")
+    local _, secondSize, bestSize = partSizes()
+    local hasBest = t.best:IsShown()
+    local hasSecond = t.second:IsShown()
+    for _, l in ipairs(lines) do
+        for i = #l, 1, -1 do l[i] = nil end
+    end
+
+    -- Outermost first: the best time frames the time and its second value.
+    local n = 0
+    local function newLine() n = n + 1; return lines[n] end
+    if hasBest and bestPos == "above" then table.insert(newLine(), t.best) end
+    if hasSecond and secondPos == "above" then table.insert(newLine(), t.second) end
+    local first = newLine()
+    if hasBest and bestPos == "left" then first[#first + 1] = t.best end
+    if hasSecond and secondPos == "left" then first[#first + 1] = t.second end
+    first[#first + 1] = t.main
+    if hasSecond and secondPos == "right" then first[#first + 1] = t.second end
+    if hasBest and bestPos == "right" then first[#first + 1] = t.best end
+    if hasSecond and secondPos == "below" then table.insert(newLine(), t.second) end
+    if hasBest and bestPos == "below" then table.insert(newLine(), t.best) end
+
+    local function heightOf(fs)
+        if fs == t.main then return Addon.Widgets:LineHeight(ns.E.timerText, 16) end
+        return Addon.Widgets:LineHeight(ns.E.timerText, 16, fs == t.second and secondSize or bestSize)
+    end
+
+    local frameW = t.frame:GetWidth() or 0
+    local ox, oy = Addon.Widgets:GetOffset(ns.E.timerText)
+    local top = 0
+    for li = 1, n do
+        local l = lines[li]
+        local lineW, lineH = 0, 0
+        for i, fs in ipairs(l) do
+            lineW = lineW + fs:GetWidth() + (i > 1 and PART_GAP or 0)
+            lineH = math.max(lineH, heightOf(fs))
+        end
+        local x = 0
+        if justify == "RIGHT" then
+            x = frameW - lineW
+        elseif justify == "CENTER" then
+            x = (frameW - lineW) / 2
+        end
+        x = Addon.Widgets:Snap(t.frame, x + ox)
+        for _, fs in ipairs(l) do
+            fs:SetJustifyH("LEFT")
+            fs:ClearAllPoints()
+            fs:SetPoint("LEFT", t.frame, "TOPLEFT", x, -(top + lineH / 2) + oy)
+            x = x + fs:GetWidth() + PART_GAP
+        end
+        top = top + lineH
+    end
+    return math.max(1, top)
+end
+
 function UI:LayoutText()
     if not (self.text and self.frame) then return end
-    local justify = Addon.MainWindow:GetJustifyH("Timer")
-    self.text:SetJustifyH(justify == "CENTER" and "LEFT" or justify)
-
-    local textH = Addon.Widgets:LineHeight(ns.E.timerText, 16)
-    self.frame:SetHeight(textH)
-    local tx, ty = Addon.Widgets:GetOffset(ns.E.timerText)
-
-    self.text:ClearAllPoints()
-    if justify == "LEFT" then
-        self.text:SetPoint("LEFT", self.frame, "LEFT", tx, ty)
-    elseif justify == "RIGHT" then
-        self.text:SetPoint("RIGHT", self.frame, "RIGHT", tx, ty)
-    else
-        self.text:SetPoint("CENTER", self.frame, "CENTER", tx, ty)
-    end
-
-    if self.bestText then
-        self.bestText:ClearAllPoints()
-        if justify == "RIGHT" then
-            self.bestText:SetPoint("RIGHT", self.text, "LEFT", -4, 0)
-        else
-            self.bestText:SetPoint("LEFT", self.text, "RIGHT", 4, 0)
-        end
-    end
+    self.frame:SetHeight(self:PlaceText(self.parts, Addon.MainWindow:GetJustifyH("Timer")))
 end
 
 function UI:Build()
@@ -165,11 +280,17 @@ function UI:Build()
 
     local textBlock = Addon.Widgets:CreateContainer(hud, "MauiMPlusTimerTimerBlock")
     textBlock:SetSize(width, 20)
+    -- Own FontStrings, so the second value and the best time have own sizes.
     local text = Addon.Widgets:CreateText(textBlock, ns.E.timerText)
-    -- Own FontString, so the best time can have its own size.
+    local secondText = Addon.Widgets:CreateText(textBlock, ns.E.timerText)
     local bestText = Addon.Widgets:CreateText(textBlock, ns.E.timerText)
+    secondText:Hide()
     bestText:Hide()
     self.frame, self.text, self.bestText = textBlock, text, bestText
+    self.parts = { frame = textBlock, main = text, second = secondText, best = bestText }
+    self:ApplyTextFonts(self.parts)
+    -- The column width arrives after the first placement.
+    textBlock:SetScript("OnSizeChanged", function() UI:LayoutText() end)
 
     local barBlock = Addon.Widgets:CreateContainer(hud, "MauiMPlusTimerTimerBarBlock")
     barBlock:SetSize(width, 14)
@@ -198,7 +319,6 @@ function UI:Build()
 
     self:LayoutText()
     self:LayoutBar()
-    self:ApplyBestFont()
     bar:SetReverseFill(Addon:GetElementSetting(ns.E.timerBar).reverse == true)
     bar:SetScript("OnSizeChanged", function() UI:LayoutDividers() end)
     self:LayoutDividers()
@@ -209,22 +329,28 @@ function UI:Build()
     Addon.MainWindow:AddBlock("timerbar", barBlock, 11)
 end
 
--- Follows showBar, but only while the text block itself is shown.
-function UI:ApplyBarShown()
-    if not self.barFrame then return end
-    local shown = self.frame and self.frame:IsShown()
-        and Timer:GetSettings().showBar ~= false
-    self.barFrame:SetShown(shown and true or false)
+-- Text and bar follow their own flags while the timer is shown.
+function UI:ApplyBlocksShown()
+    if not (self.frame and self.barFrame) then return end
+    local s = Timer:GetSettings()
+    self.frame:SetShown(self.visible == true and s.showText ~= false)
+    self.barFrame:SetShown(self.visible == true and s.showBar ~= false)
+end
+
+function Timer:ApplyBlocksShown()
+    self.UI:ApplyBlocksShown()
+    Addon.MainWindow:Layout()
 end
 
 function UI:Show()
     self:Build()
-    if self.frame then self.frame:Show() end
-    self:ApplyBarShown()
+    self.visible = true
+    self:ApplyBlocksShown()
     Addon.MainWindow:Layout()
 end
 
 function UI:Hide()
+    self.visible = false
     if self.frame then self.frame:Hide() end
     if self.barFrame then self.barFrame:Hide() end
     Addon.MainWindow:Layout()
@@ -293,6 +419,7 @@ function UI:LayoutDividers()
 
         if line.label then
             line.label:SetFont(ls.font, ls.fontSize or 11, ls.fontFlags)
+            Addon.Widgets:ApplyShadow(line.label, ls)
             anchorCountdown(line.label, line, mode, lx, ly)
         end
     end
@@ -322,7 +449,7 @@ function UI:UpdateSections(elapsed, timeLimit)
                 local cd = Addon.Utils.FormatTime(tTime - elapsed)
                 line.label:SetText(cd)
                 -- Stable width + LEFT, or the ticking countdown jitters.
-                local w = Addon.Widgets:StableTextWidth(ns.E.timerSection, cd)
+                local w = Addon.Widgets:StableTextWidth(ns.E.timerSection, cd, line.label)
                 if w then line.label:SetWidth(w) end
                 line.label:SetJustifyH("LEFT")
                 line.label:Show()
@@ -383,48 +510,12 @@ function UI:Update(elapsed, timeLimit, bonus, bestTotal)
     -- second resolution, so gate the string work on a real change -- rebuilding
     -- it every tick allocated ~10x more garbage. Restyle resets the gate.
     local sec = math.floor(elapsed)
-    local textDirty = self._lastSec ~= sec or self._lastLimit ~= timeLimit or self._lastOver ~= overtime
-    if textDirty then
-        self._lastSec, self._lastLimit, self._lastOver = sec, timeLimit, overtime
-
-        local timeStr
-        if overtime then
-            timeStr = string.format(
-                "|cffff4040%s / %s  (+%s)|r",
-                Addon.Utils.FormatTime(elapsed),
-                Addon.Utils.FormatTime(timeLimit),
-                Addon.Utils.FormatTime(elapsed - timeLimit))
-        else
-            local maxHex = Addon.Utils.ColorHex(
-                Addon:GetElementSetting(ns.E.timerText).maxColor or DEFAULT_MAX_COLOR)
-            timeStr = string.format(
-                "%s  |c%s/ %s|r",
-                Addon.Utils.FormatTime(elapsed),
-                maxHex,
-                Addon.Utils.FormatTime(timeLimit))
-        end
-        self.text:SetText(timeStr)
-        -- Stable width, or the ticking time shifts itself and the best-time
-        -- text anchored to it in left/right alignment.
-        local w = Addon.Widgets:StableTextWidth(ns.E.timerText, timeStr)
-        if w then self.text:SetWidth(w) end
-
+    local best = Addon.db.profile.ui.showBest == true and bestTotal or nil
+    if self._lastSec ~= sec or self._lastLimit ~= timeLimit or self._lastBest ~= best then
+        self._lastSec, self._lastLimit, self._lastBest = sec, timeLimit, best
+        self:FillText(self.parts, elapsed, timeLimit, best)
+        self:LayoutText()
         self:UpdateSections(elapsed, timeLimit)
-    end
-
-    -- Gated the same way; only rewritten when value or visibility change.
-    if self.bestText then
-        local showBest = Addon.db.profile.ui.showBest == true and bestTotal or false
-        if showBest ~= self._bestShown or bestTotal ~= self._bestVal then
-            self._bestShown, self._bestVal = showBest, bestTotal
-            if showBest then
-                self.bestText:SetText(Addon.Widgets:BestText(bestTotal))
-                self.bestText:SetTextColor(unpack(Addon.Widgets:GetBestColor()))
-                self.bestText:Show()
-            else
-                self.bestText:Hide()
-            end
-        end
     end
 end
 
@@ -432,19 +523,17 @@ function UI:Restyle()
     if not self.frame then return end
     -- Clear the Update gates, or a font/color change would only show on the
     -- next second boundary.
-    self._lastSec, self._lastLimit, self._lastOver = nil, nil, nil
-    self._bestShown, self._bestVal = nil, nil
-    Addon.Widgets:ApplyTextStyle(self.text, ns.E.timerText)
+    self._lastSec, self._lastLimit, self._lastBest = nil, nil, nil
+    self:ApplyTextFonts(self.parts)
     Addon.Widgets:ApplyBarStyle(self.bar, ns.E.timerBar)
     if self.segBars then
         for _, seg in ipairs(self.segBars) do
             Addon.Widgets:ApplyBarStyle(seg, ns.E.timerBar)
         end
     end
-    self:ApplyBestFont()
     self:LayoutText()
     self:LayoutBar()
-    self:ApplyBarShown()
+    self:ApplyBlocksShown()
     self.bar:SetReverseFill(Addon:GetElementSetting(ns.E.timerBar).reverse == true)
     self:LayoutDividers()
     Addon.MainWindow:ApplyPosition()

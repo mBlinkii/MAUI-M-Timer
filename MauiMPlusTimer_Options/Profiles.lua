@@ -30,6 +30,8 @@ end
 function Profiles:ApplyTable(tbl)
     Addon.db:ResetProfile() -- fires OnProfileReset -> Addon:OnProfileChanged
     if type(tbl) == "table" then
+        -- The reset already migrated the empty profile; tbl may need it again.
+        Addon.db.profile.ui.blocksSplit = nil
         Addon.Utils.CopyIntoTyped(Addon.db.profile, tbl)
         Addon:OnProfileChanged()
     end

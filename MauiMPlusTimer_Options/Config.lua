@@ -60,91 +60,133 @@ end
 local function blockLabels()
     local L = ns.L
     return {
-        dungeon = L["Dungeon"], timer = L["Timer"], timerbar = L["Timer bar"],
+        dungeon = L["Dungeon name"], dungeonicon = L["Dungeon icon"],
+        level = L["Keystone level"], affixes = L["Affixes"],
+        timer = L["Timer"], timerbar = L["Timer bar"],
         forces = L["Enemy Forces"],
         objectives = L["Objectives"], deaths = L["Deaths"], splits = L["Splits"],
-        checkpoints = L["Checkpoints"], cooldowns = L["Cooldowns"],
+        checkpoints = L["Checkpoints"],
+        brez = L["Battle resurrections"], bloodlust = L["Heroism"],
         separator1 = L["Separator line"] .. " 1",
         separator2 = L["Separator line"] .. " 2",
     }
 end
 
--- One dropdown pair (left/right half) per HUD row. Clearing a slot re-adds the
--- module on the lowest free row, so a module can never get lost.
+-- One dropdown per grid cell of each HUD row. Clearing a slot re-adds the
+-- module in a free slot, so a module can never get lost.
 function Addon:BuildBlockOrderArgs()
     local L = ns.L
     local MainWindow = Addon.MainWindow
     local labels = blockLabels()
 
-    -- Full-row blocks only offered on the left: they occupy the whole row.
-    local leftValues, rightValues = { none = "-" }, { none = "-" }
-    local leftSorting, rightSorting = { "none" }, { "none" }
+    local values, sorting = { none = "-" }, { "none" }
     for _, key in ipairs(MainWindow.MODULE_BLOCKS) do
-        leftValues[key] = labels[key]
-        leftSorting[#leftSorting + 1] = key
-        if not MainWindow:IsFullRowKey(key) then
-            rightValues[key] = labels[key]
-            rightSorting[#rightSorting + 1] = key
-        end
+        values[key] = labels[key]
+        sorting[#sorting + 1] = key
     end
     for i = 1, 2 do
         if MainWindow:IsSeparatorEnabled(i) then
             local key = "separator" .. i
-            leftValues[key] = labels[key]
-            leftSorting[#leftSorting + 1] = key
+            values[key] = labels[key]
+            sorting[#sorting + 1] = key
         end
     end
 
+    local function notify()
+        LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+    end
+
     local args = {
+        orientation = {
+            type = "select", order = 0,
+            name = L["Orientation"],
+            desc = L["Vertical stacks the elements in a narrow grid with 3 columns, horizontal lays them out in a wide grid with 5 columns and 3 rows. Each orientation keeps its own element order and width."],
+            values = { vertical = L["Vertical"], horizontal = L["Horizontal"] },
+            sorting = { "vertical", "horizontal" },
+            get = function() return MainWindow:GetOrientation() end,
+            set = function(_, v)
+                MainWindow:SetOrientation(v)
+                notify()
+            end,
+        },
         desc = {
-            type = "description", order = 0,
-            name = L["Assign each element to a row (top to bottom). A row can hold two blocks side by side (left/right); cleared modules re-appear on the lowest free row. Enabled separator lines are placed here as well."],
+            type = "description", order = 1,
+            name = L["Assign each element to a grid slot (top to bottom). A row holds several blocks side by side, depending on the orientation; cleared modules re-appear in a free slot. Bars, objectives and separator lines always take a whole row."],
         },
     }
 
-    for index = 1, MainWindow.MAX_ROWS do
-        local base = index * 10
-        args["row" .. index .. "Num"] = {
-            type = "description", order = base, width = 0.25, fontSize = "medium",
-            name = string.format("%d.", index),
-        }
-        -- Full-width spacer after each row forces the flow layout onto a new
-        -- line, so rows stack vertically at any options window width.
-        args["row" .. index .. "Break"] = {
-            type = "description", order = base + 3, width = "full", name = " ",
-            fontSize = "small",
-        }
-        args["row" .. index .. "Left"] = {
-            type = "select", order = base + 1, width = 1.0, name = "",
-            values = leftValues, sorting = leftSorting,
-            get = function()
-                return MainWindow:GetBlockRows()[index].left or "none"
-            end,
-            set = function(_, v)
-                MainWindow:SetBlockSlot(index, "left", v ~= "none" and v or nil)
-            end,
-        }
-        args["row" .. index .. "Right"] = {
-            type = "select", order = base + 2, width = 1.0, name = "",
-            values = rightValues, sorting = rightSorting,
-            -- Full-row blocks occupy the whole row; no right-hand neighbor.
-            disabled = function()
-                return MainWindow:IsFullRowKey(MainWindow:GetBlockRows()[index].left)
-            end,
-            get = function()
-                return MainWindow:GetBlockRows()[index].right or "none"
-            end,
-            set = function(_, v)
-                MainWindow:SetBlockSlot(index, "right", v ~= "none" and v or nil)
-            end,
+    -- The outer columns and the middle one align fixed; 2 and 4 lean either way.
+    for i, col in ipairs(MainWindow.ADJUSTABLE_COLUMNS) do
+        args["column" .. col .. "Align"] = {
+            type = "select", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.1 * i, -- below the grid
+            name = string.format(L["Column %d alignment"], col),
+            desc = L["Text alignment of this column in the horizontal grid. The outer columns align to their side, the middle one centers."],
+            values = { left = L["Left"], right = L["Right"] },
+            sorting = { "left", "right" },
+            hidden = function() return MainWindow:GetOrientation() ~= "horizontal" end,
+            get = function() return MainWindow:GetColumnAlign(col) end,
+            set = function(_, v) MainWindow:SetColumnAlign(col, v) end,
         }
     end
 
+    -- One set of dropdowns per orientation; widths are static in AceConfig.
+    -- Columns align their text, so full-row blocks may sit in any of them.
+    local grids = {
+        { orientation = "vertical", prefix = "v", cols = 3, width = 0.9 },
+        { orientation = "horizontal", prefix = "h", cols = 5, width = 0.55 },
+    }
+    for _, grid in ipairs(grids) do
+        for index = 1, MainWindow.MAX_ROWS do
+            local base = index * 10
+            local id = grid.prefix .. "row" .. index
+            -- Overflow rows only exist while full-row blocks exceed the grid.
+            local function hidden()
+                return MainWindow:GetOrientation() ~= grid.orientation
+                    or MainWindow:GetBlockRows()[index] == nil
+            end
+            args[id .. "Num"] = {
+                type = "description", order = base, width = 0.25, fontSize = "medium",
+                name = string.format("%d.", index), hidden = hidden,
+            }
+            -- Full-width spacer after each row forces the flow layout onto a new
+            -- line, so rows stack vertically at any options window width.
+            args[id .. "Break"] = {
+                type = "description", order = base + 9, width = "full", name = " ",
+                fontSize = "small", hidden = hidden,
+            }
+            for col = 1, grid.cols do
+                args[id .. "Col" .. col] = {
+                    type = "select", order = base + col, width = grid.width, name = "",
+                    values = values, sorting = sorting,
+                    hidden = hidden,
+                    get = function()
+                        local row = MainWindow:GetBlockRows()[index]
+                        return row and row[col] or "none"
+                    end,
+                    set = function(_, v)
+                        local before = #MainWindow:GetBlockRows()
+                        MainWindow:SetBlockSlot(index, col, v ~= "none" and v or nil)
+                        if #MainWindow:GetBlockRows() ~= before then notify() end
+                    end,
+                }
+            end
+        end
+    end
+
+    args.columnAlignBreak = {
+        type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.5, width = "full", name = " ",
+        fontSize = "small",
+        hidden = function() return MainWindow:GetOrientation() ~= "horizontal" end,
+    }
+
     args.resetOrder = {
-        type = "execute", order = (MainWindow.MAX_ROWS + 1) * 10, width = 1.0,
+        type = "execute", order = (MainWindow.MAX_ROWS + 1) * 10 + 1, width = 1.0,
         name = L["Reset order"],
         confirm = function() return L["Reset the element order to the default layout?"] end,
-        func = function() MainWindow:ResetBlockRows() end,
+        func = function()
+            MainWindow:ResetBlockRows()
+            notify()
+        end,
     }
     return args
 end
@@ -173,11 +215,10 @@ function Addon:BuildOptions()
                                 name = L["Width"],
                                 desc = L["Width of the display in pixels (increase if text is cut off)."],
                                 order = 1,
-                                min = 150, max = 600, step = 5,
-                                get = function() return Addon.db.profile.ui.width or 220 end,
+                                min = 150, max = 1200, step = 5,
+                                get = function() return Addon.MainWindow:GetWidth() end,
                                 set = function(_, v)
-                                    Addon.db.profile.ui.width = v
-                                    Addon.MainWindow:ApplyWidth()
+                                    Addon.MainWindow:SetWidthSetting(v)
                                     -- Restyle so width-dependent layouts (e.g. the
                                     -- split bar segments) and demo data refresh live.
                                     Addon.MainWindow:Refresh()
@@ -512,27 +553,20 @@ function Addon:ModuleEnableOption(module, order)
     }
 end
 
-function Addon:ModuleAlignOption(module, order)
+-- On/off of one HUD block; switching it on keeps the slot the grid gives it.
+function Addon:BlockEnableOption(blockKey, order)
     local L = ns.L
+    local MainWindow = Addon.MainWindow
     return {
-        type = "select",
-        name = L["Alignment"],
-        desc = L["Text alignment for this element."],
-        order = order or 90,
-        values = {
-            left = L["Left"],
-            center = L["Center"],
-            right = L["Right"],
-        },
-        get = function()
-            local a = module:GetSettings().align
-            if a ~= "left" and a ~= "right" then a = "center" end
-            return a
-        end,
+        type = "toggle",
+        name = L["Enable"],
+        order = order or 1,
+        get = function() return MainWindow:IsBlockActive(blockKey) end,
         set = function(_, v)
-            module:GetSettings().align = v
-            -- Refresh, not Restyle: mirrored rows depend on the alignment.
-            Addon.MainWindow:Refresh()
+            MainWindow:SetBlockActive(blockKey, v)
+            MainWindow:InvalidateRows()
+            if v then MainWindow:SaveRows() end
+            MainWindow:Refresh()
         end,
     }
 end

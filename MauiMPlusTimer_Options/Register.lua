@@ -15,6 +15,12 @@ for _, module in Addon:IterateModules() do
     if group then
         Addon:RegisterModuleOptions(module.optionsKey, group, module.optionsCategory)
     end
+    -- Modules split into several HUD blocks bring one page per block.
+    if module.GetOptionPages then
+        for key, page in pairs(module:GetOptionPages()) do
+            Addon:RegisterModuleOptions(key, page, module.optionsCategory)
+        end
+    end
 end
 
 LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable(ns.ADDON_NAME, function() return Addon:BuildOptions() end)

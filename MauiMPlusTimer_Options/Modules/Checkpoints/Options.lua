@@ -33,7 +33,6 @@ function Checkpoints:GetOptions()
             settings = {
                 type = "group", inline = true, name = L["Settings"], order = 4,
                 args = {
-                    align = Addon:ModuleAlignOption(self, 1),
                     labelIcons = {
                         type = "toggle", name = L["Icons instead of labels"], order = 2,
                         desc = L["Replace the 'Boss' and 'PoNR' texts with compact icons."],

@@ -45,9 +45,11 @@ ns.E = {
     timerBar     = "timerBar",
     timerSection = "timerSection",
     timerBest    = "timerBest",
+    timerMax     = "timerMax", -- size of the max/remaining part only
     -- Dungeon
     dungeonName    = "dungeonName",
     dungeonAffixes = "dungeonAffixes",
+    dungeonLevel   = "dungeonLevel",
     -- Enemy Forces
     forcesText    = "forcesText",
     forcesBar     = "forcesBar",
@@ -57,7 +59,9 @@ ns.E = {
     deathsText      = "deathsText",
     splitsText      = "splitsText",
     checkpointsText = "checkpointsText",
-    cooldownsText   = "cooldownsText",
+    cooldownsText   = "cooldownsText", -- legacy, copied into brezText/lustText
+    brezText        = "brezText",
+    lustText        = "lustText",
     -- Shared color buckets
     deltas = "deltas",
     best   = "best",

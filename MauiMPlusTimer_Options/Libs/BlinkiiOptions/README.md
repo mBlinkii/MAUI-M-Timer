@@ -84,7 +84,7 @@ Plain Lua tables in the shape of AceConfig option tables. No Ace code is involve
 | `func`, `confirm`, `confirmText` | execute |
 | `icon` | sidebar icon (file path or file id) |
 | `noJournal` | this option is not listed in "changes this session" |
-| `arg` | passed through as `info.arg` |
+| `arg` | passed through as `info.arg`; on a `description`, `{ preview = function(width) return frame, height end }` shows a frame the app draws itself (reused, re-parented on every redraw) |
 
 `info` passed to callbacks: the path as array (`info[1]` .. `info[n]`), `info.options`, `info.appName`,
 `info.uiName`, `info.uiType = "dialog"`, `info.handler`, `info.option`, `info.arg`, `info.type`.

@@ -28,7 +28,6 @@ function Objectives:GetOptions()
             settings = {
                 type = "group", inline = true, name = L["Settings"], order = 2,
                 args = {
-                    align = Addon:ModuleAlignOption(self, 1),
                     rowSpacing = {
                         type = "range", name = L["Row spacing"], order = 2, min = 0, max = 30, step = 1,
                         desc = L["Extra vertical space between objective rows."],

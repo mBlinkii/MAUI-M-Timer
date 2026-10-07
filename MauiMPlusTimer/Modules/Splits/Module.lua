@@ -123,7 +123,7 @@ function Splits:OnRunCompleted(_, onTime)
 end
 
 -- Only the HUD line; recording keeps running either way.
-function Splits:ApplyTextShown()
+function Splits:ApplyBlocksShown()
     if self.state.demo then
         self.UI:Update(-8)
     elseif Addon.RunState:Get() then
