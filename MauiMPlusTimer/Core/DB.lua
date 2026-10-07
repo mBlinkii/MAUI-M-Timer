@@ -572,10 +572,9 @@ function Addon:MigrateProfile()
     -- Dungeon and Cooldowns became one block per part. The new parts go next
     -- to where the old block sat, so a saved layout keeps its look.
     local dungeon = p.modules and p.modules.Dungeon or {}
-    local grids = self.MainWindow and self.MainWindow.GRIDS
-    for _, grid in ipairs({ { "blockRows", 3 }, { "blockRowsHorizontal", 5 } }) do
-        local rowsKey = grid[1]
-        local cols = (grids and grids[rowsKey == "blockRows" and "vertical" or "horizontal"].cols) or grid[2]
+    local horizontalCols = p.ui.horizontalColumns == 7 and 7 or 5
+    for _, grid in ipairs({ { "blockRows", 3 }, { "blockRowsHorizontal", horizontalCols } }) do
+        local rowsKey, cols = grid[1], grid[2]
         local rows = p.ui[rowsKey]
         if type(rows) == "table" then
             local function find(key)

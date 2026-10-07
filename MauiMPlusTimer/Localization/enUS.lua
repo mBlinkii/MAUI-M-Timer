@@ -412,3 +412,6 @@ L["Time and max"] = true
 L["Time and remaining"] = true
 L["Remaining and max"] = true
 L["Max/remaining time position"] = true
+L["Columns"] = true
+L["Number of columns of the horizontal grid. Both share one element order; elements in columns 6 and 7 move to a free slot with 5 columns."] = true
+L["Column %d width"] = "Column %d width (%%)"

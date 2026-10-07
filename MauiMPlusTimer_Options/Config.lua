@@ -109,13 +109,26 @@ function Addon:BuildBlockOrderArgs()
                 notify()
             end,
         },
+        columns = {
+            type = "select", order = 0.5,
+            name = L["Columns"],
+            desc = L["Number of columns of the horizontal grid. Both share one element order; elements in columns 6 and 7 move to a free slot with 5 columns."],
+            values = { ["5"] = "5", ["7"] = "7" },
+            sorting = { "5", "7" },
+            hidden = function() return MainWindow:GetOrientation() ~= "horizontal" end,
+            get = function() return tostring(MainWindow:GetHorizontalColumns()) end,
+            set = function(_, v)
+                MainWindow:SetHorizontalColumns(tonumber(v))
+                notify()
+            end,
+        },
         desc = {
             type = "description", order = 1,
             name = L["Assign each element to a grid slot (top to bottom). A row holds several blocks side by side, depending on the orientation; cleared modules re-appear in a free slot. Bars, objectives and separator lines always take a whole row."],
         },
     }
 
-    -- The outer columns and the middle one align fixed; 2 and 4 lean either way.
+    -- The outer columns and the middle one align fixed; the others lean either way.
     for i, col in ipairs(MainWindow.ADJUSTABLE_COLUMNS) do
         args["column" .. col .. "Align"] = {
             type = "select", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.1 * i, -- below the grid
@@ -123,7 +136,7 @@ function Addon:BuildBlockOrderArgs()
             desc = L["Text alignment of this column in the horizontal grid. The outer columns align to their side, the middle one centers."],
             values = { left = L["Left"], right = L["Right"] },
             sorting = { "left", "right" },
-            hidden = function() return MainWindow:GetOrientation() ~= "horizontal" end,
+            hidden = function() return not MainWindow:IsAdjustableColumn(col) end,
             get = function() return MainWindow:GetColumnAlign(col) end,
             set = function(_, v) MainWindow:SetColumnAlign(col, v) end,
         }
@@ -134,6 +147,7 @@ function Addon:BuildBlockOrderArgs()
     local grids = {
         { orientation = "vertical", prefix = "v", cols = 3, width = 0.9 },
         { orientation = "horizontal", prefix = "h", cols = 5, width = 0.55 },
+        { orientation = "horizontal", prefix = "h7", cols = 7, width = 0.39 },
     }
     for _, grid in ipairs(grids) do
         for index = 1, MainWindow.MAX_ROWS do
@@ -142,6 +156,7 @@ function Addon:BuildBlockOrderArgs()
             -- Overflow rows only exist while full-row blocks exceed the grid.
             local function hidden()
                 return MainWindow:GetOrientation() ~= grid.orientation
+                    or MainWindow:GetGrid().cols ~= grid.cols
                     or MainWindow:GetBlockRows()[index] == nil
             end
             args[id .. "Num"] = {
@@ -177,6 +192,23 @@ function Addon:BuildBlockOrderArgs()
         type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.5, width = "full", name = " ",
         fontSize = "small",
         hidden = function() return MainWindow:GetOrientation() ~= "horizontal" end,
+    }
+
+    -- Share of the width per column; no page relayout, so a drag stays smooth.
+    for col = 1, MainWindow.MAX_COLS do
+        args["column" .. col .. "Width"] = {
+            type = "range", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.6 + 0.01 * col,
+            name = string.format(L["Column %d width"], col),
+            min = 25, max = 300, step = 5,
+            hidden = function() return col > MainWindow:GetGrid().cols end,
+            get = function() return MainWindow:GetColumnWidth(col) end,
+            set = function(_, v) MainWindow:SetColumnWidth(col, v) end,
+        }
+    end
+
+    args.columnWidthBreak = {
+        type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.9, width = "full", name = " ",
+        fontSize = "small",
     }
 
     args.resetOrder = {

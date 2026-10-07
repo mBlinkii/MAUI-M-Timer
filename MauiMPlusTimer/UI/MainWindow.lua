@@ -15,6 +15,7 @@ local PANEL_PAD = 8 -- inner padding when the background/border/title is shown
 local entryFrames, entryN = {}, {}
 local entryX, entryW, entryRight = {}, {}, {}
 local occupied = {}
+local colX, colW = {}, {}
 
 -- What the last Layout placed, to skip unchanged ones without building strings.
 local lastFrames, lastH, lastN, lastX, lastW = {}, {}, {}, {}, {}
@@ -71,14 +72,20 @@ function MainWindow:SavePosition()
     ui.point, ui.x, ui.y = point, x, y
 end
 
--- Columns 2 and 4 of the horizontal grid sit between two others, so they
--- may lean either way.
-MainWindow.ADJUSTABLE_COLUMNS = { 2, 4 }
+-- Columns of the horizontal grid that may lean either way: all but the outer
+-- ones and the middle one. Defaults lean towards the nearer edge.
+MainWindow.ADJUSTABLE_COLUMNS = { 2, 3, 4, 5, 6 }
+
+function MainWindow:IsAdjustableColumn(col)
+    local grid = self:GetGrid()
+    return self:GetOrientation() == "horizontal" and col > 1 and col < grid.cols
+        and col ~= (grid.cols + 1) / 2
+end
 
 function MainWindow:GetColumnAlign(col)
     local align = Addon.db.profile.ui["horizontalAlign" .. col]
     if align == "left" or align == "right" then return align end
-    return col == 2 and "left" or "right"
+    return col < (self:GetGrid().cols + 1) / 2 and "left" or "right"
 end
 
 function MainWindow:SetColumnAlign(col, align)
@@ -93,6 +100,23 @@ function MainWindow:GetColumnJustify(col)
     if col == grid.cols then return "RIGHT" end
     if col == (grid.cols + 1) / 2 then return "CENTER" end
     return self:GetColumnAlign(col) == "right" and "RIGHT" or "LEFT"
+end
+
+-- Share of the width per column in percent of an even split, per grid.
+function MainWindow:GetColumnWidth(col)
+    local widths = Addon.db.profile.ui.columnWidths
+    local w = widths and widths[self:GetGrid().id]
+    w = w and w[col]
+    return (type(w) == "number" and w > 0) and w or 100
+end
+
+function MainWindow:SetColumnWidth(col, percent)
+    local ui = Addon.db.profile.ui
+    local id = self:GetGrid().id
+    ui.columnWidths = ui.columnWidths or {}
+    ui.columnWidths[id] = ui.columnWidths[id] or {}
+    ui.columnWidths[id][col] = percent ~= 100 and percent or nil
+    self:Refresh()
 end
 
 -- blockKey defaults to the lowered module name. A block that is not in the
@@ -154,12 +178,13 @@ for _, key in ipairs(SEPARATOR_BLOCKS) do ORDERABLE[key] = true end
 
 -- Every block can have a row of its own in the vertical grid.
 local MAX_ROWS = #MODULE_BLOCKS + #SEPARATOR_BLOCKS
-local MAX_COLS = 5
+local MAX_COLS = 7
 MainWindow.MAX_ROWS, MainWindow.MAX_COLS = MAX_ROWS, MAX_COLS
 
--- Each orientation keeps its own layout and width.
+-- Each orientation keeps its own layout and width. The horizontal grid comes
+-- with 5 or 7 columns; both share one layout, so switching keeps it.
 local GRIDS = {
-    vertical   = { cols = 3, rows = MAX_ROWS, rowsKey = "blockRows", widthKey = "width", width = 220,
+    vertical   = { id = "vertical", cols = 3, rows = MAX_ROWS, rowsKey = "blockRows", widthKey = "width", width = 220,
         default = {
             { "dungeonicon", "dungeon" }, { nil, "affixes" },
             { "level", "timer", "deaths" }, { "timerbar" },
@@ -167,7 +192,7 @@ local GRIDS = {
             { "brez", nil, "bloodlust" }, { nil, nil, "checkpoints" },
         },
     },
-    horizontal = { cols = 5, rows = 3, rowsKey = "blockRowsHorizontal", widthKey = "widthHorizontal",
+    horizontal = { id = "horizontal", cols = 5, rows = 3, rowsKey = "blockRowsHorizontal", widthKey = "widthHorizontal",
         width = 560, pack = true,
         default = {
             { "dungeonicon", "level", "dungeon", "affixes", "timer" },
@@ -176,14 +201,28 @@ local GRIDS = {
         },
     },
 }
+GRIDS.horizontal7 = setmetatable({ id = "horizontal7", cols = 7, widthKey = "widthHorizontal7", width = 760 },
+    { __index = GRIDS.horizontal })
 MainWindow.GRIDS = GRIDS
 
 function MainWindow:GetOrientation()
     return Addon.db.profile.ui.orientation == "horizontal" and "horizontal" or "vertical"
 end
 
+function MainWindow:GetHorizontalColumns()
+    return Addon.db.profile.ui.horizontalColumns == 7 and 7 or 5
+end
+
+function MainWindow:SetHorizontalColumns(cols)
+    Addon.db.profile.ui.horizontalColumns = cols
+    self:InvalidateRows()
+    self:ApplyWidth()
+    self:Refresh()
+end
+
 function MainWindow:GetGrid()
-    return GRIDS[self:GetOrientation()]
+    if self:GetOrientation() == "vertical" then return GRIDS.vertical end
+    return self:GetHorizontalColumns() == 7 and GRIDS.horizontal7 or GRIDS.horizontal
 end
 
 function MainWindow:SetOrientation(orientation)
@@ -612,8 +651,17 @@ function MainWindow:Layout()
     local pad = snap(self:PanelInsets())
     local spacing = snap(Addon.db.profile.ui.spacing or 2)
     local cols = self:GetGrid().cols
-    local cell = snap((width - SPLIT_GAP * (cols - 1)) / cols)
-    local step = cell + SPLIT_GAP
+    -- Column slices from the per-column shares; the last one takes the
+    -- rounding remainder, so the columns always fill the width exactly.
+    local total = 0
+    for c = 1, cols do total = total + self:GetColumnWidth(c) end
+    local avail = width - SPLIT_GAP * (cols - 1)
+    local x = 0
+    for c = 1, cols do
+        colX[c] = x
+        colW[c] = c == cols and (width - x) or snap(avail * self:GetColumnWidth(c) / total)
+        x = x + colW[c] + SPLIT_GAP
+    end
 
     -- Every column owns a fixed slice of the width, so a block always sits
     -- where it was placed. It may reach into empty (or hidden) neighbors, but
@@ -655,9 +703,9 @@ function MainWindow:Layout()
                     while lo > 1 and occupied[lo - 1] == c do lo = lo - 1 end
                     while hi < cols and occupied[hi + 1] == c do hi = hi + 1 end
                 end
-                entryX[k] = (lo - 1) * step
+                entryX[k] = colX[lo]
                 -- Right edge as x; turned into a width below.
-                entryW[k] = hi == cols and width or hi * step - SPLIT_GAP
+                entryW[k] = colX[hi] + colW[hi]
                 entryRight[k] = hi == cols
                 -- Only a right-aligned block can overlap the one before it,
                 -- and only inside an empty gap: split that gap.

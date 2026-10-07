@@ -54,6 +54,7 @@ read_globals = {
     -- Timing
     "GetTime", "GetTimePreciseSec", "debugprofilestop",
     "GetWorldElapsedTime", "GetWorldElapsedTimers",
+    "issecretvalue",
 
     -- Frames / UI
     "CreateFrame", "UIParent", "GameTooltip", "UISpecialFrames",
