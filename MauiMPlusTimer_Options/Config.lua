@@ -72,6 +72,137 @@ local function blockLabels()
     }
 end
 
+-- The column strip: one cell per column at its real share of the width.
+-- Dragging a divider moves width between its two neighbors, clicking a cell
+-- flips its alignment, a right-click resets the widths. Fixed height, so it
+-- never moves the page while dragging.
+local STRIP_H = 40
+local STRIP_GAP = 2
+local DIVIDER_W = 10
+local MIN_SHARE, SHARE_STEP = 25, 5
+
+local strip
+
+local function cursorX()
+    return GetCursorPosition() / strip.frame:GetEffectiveScale()
+end
+
+local function layoutStrip()
+    local MainWindow, OT, L = Addon.MainWindow, ns.OT, ns.L
+    local cols, width = MainWindow:GetGrid().cols, strip.width
+    local total = 0
+    for c = 1, cols do total = total + MainWindow:GetColumnWidth(c) end
+    local avail = width - STRIP_GAP * (cols - 1)
+    strip.pps = avail / total
+    local labels = { LEFT = L["Left"], CENTER = L["Center"], RIGHT = L["Right"] }
+    local x = 0
+    for c = 1, MainWindow.MAX_COLS do
+        local cell, divider = strip.cells[c], strip.dividers[c]
+        if c <= cols then
+            local w = c == cols and (width - x) or math.floor(avail * MainWindow:GetColumnWidth(c) / total + 0.5)
+            cell:ClearAllPoints()
+            cell:SetPoint("TOPLEFT", strip.frame, "TOPLEFT", x, 0)
+            cell:SetSize(math.max(1, w), STRIP_H)
+            cell.adjustable = MainWindow:IsAdjustableColumn(c)
+            cell.bg:SetColorTexture(OT:Unpack(cell:IsMouseOver() and cell.adjustable and "hover" or "line"))
+            -- Share of the whole width, so equal columns are easy to set.
+            local percent = math.floor(MainWindow:GetColumnWidth(c) / total * 100 + 0.5)
+            cell.label:SetText(string.format("%d: %s\n%d %%", c, labels[MainWindow:GetColumnJustify(c)], percent))
+            cell.label:SetTextColor(OT:Unpack(cell.adjustable and "accent" or "muted"))
+            cell:Show()
+            x = x + w + STRIP_GAP
+            if divider then
+                -- Re-applied each time: the strip is re-parented on every redraw.
+                divider:SetFrameLevel(strip.frame:GetFrameLevel() + 5)
+                divider:SetShown(c < cols)
+                divider:ClearAllPoints()
+                divider:SetPoint("TOPLEFT", strip.frame, "TOPLEFT", x - STRIP_GAP / 2 - DIVIDER_W / 2, 0)
+            end
+        else
+            cell:Hide()
+            if divider then divider:Hide() end
+        end
+    end
+end
+
+local function newCell(c)
+    local MainWindow, OT = Addon.MainWindow, ns.OT
+    local cell = CreateFrame("Button", nil, strip.frame)
+    cell.bg = cell:CreateTexture(nil, "BACKGROUND")
+    cell.bg:SetAllPoints()
+    cell.label = OT:Text(cell, "small", "muted")
+    cell.label:SetPoint("CENTER")
+    cell.label:SetJustifyH("CENTER")
+    cell:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    cell:SetScript("OnClick", function(_, button)
+        if button == "RightButton" then
+            MainWindow:ResetColumnWidths()
+        elseif cell.adjustable then
+            MainWindow:SetColumnAlign(c, MainWindow:GetColumnAlign(c) == "left" and "right" or "left")
+        end
+        layoutStrip()
+    end)
+    cell:SetScript("OnEnter", layoutStrip)
+    cell:SetScript("OnLeave", layoutStrip)
+    return cell
+end
+
+-- The divider right of column c.
+local function newDivider(c)
+    local MainWindow, OT = Addon.MainWindow, ns.OT
+    local d = CreateFrame("Frame", nil, strip.frame)
+    d:SetSize(DIVIDER_W, STRIP_H)
+    d:SetFrameLevel(strip.frame:GetFrameLevel() + 5)
+    d:EnableMouse(true)
+    d.line = d:CreateTexture(nil, "OVERLAY")
+    d.line:SetWidth(2)
+    d.line:SetPoint("TOP")
+    d.line:SetPoint("BOTTOM")
+    d.line:SetColorTexture(OT:Unpack("muted"))
+    local function drag()
+        local delta = (cursorX() - d.startX) / strip.pps
+        local sum = d.a + d.b
+        local a = math.floor((d.a + delta) / SHARE_STEP + 0.5) * SHARE_STEP
+        a = math.max(MIN_SHARE, math.min(sum - MIN_SHARE, a))
+        if a ~= MainWindow:GetColumnWidth(c) then
+            MainWindow:SetColumnWidth(c, a, true)
+            MainWindow:SetColumnWidth(c + 1, sum - a, true)
+            layoutStrip()
+        end
+    end
+    d:SetScript("OnMouseDown", function(_, button)
+        if button == "RightButton" then
+            MainWindow:ResetColumnWidths()
+            layoutStrip()
+            return
+        end
+        if button ~= "LeftButton" then return end
+        d.startX, d.a, d.b = cursorX(), MainWindow:GetColumnWidth(c), MainWindow:GetColumnWidth(c + 1)
+        d:SetScript("OnUpdate", drag)
+    end)
+    d:SetScript("OnMouseUp", function()
+        d:SetScript("OnUpdate", nil)
+        MainWindow:Refresh()
+    end)
+    d:SetScript("OnEnter", function() d.line:SetColorTexture(OT:Unpack("accent")) end)
+    d:SetScript("OnLeave", function() d.line:SetColorTexture(OT:Unpack("muted")) end)
+    return d
+end
+
+function Addon.DrawColumnStrip(width)
+    if not strip then
+        strip = { frame = CreateFrame("Frame"), cells = {}, dividers = {} }
+        for c = 1, Addon.MainWindow.MAX_COLS do
+            strip.cells[c] = newCell(c)
+            if c < Addon.MainWindow.MAX_COLS then strip.dividers[c] = newDivider(c) end
+        end
+    end
+    strip.width = width
+    strip.frame:SetSize(width, STRIP_H)
+    layoutStrip()
+    return strip.frame, STRIP_H
+end
+
 -- One dropdown per grid cell of each HUD row. Clearing a slot re-adds the
 -- module in a free slot, so a module can never get lost.
 function Addon:BuildBlockOrderArgs()
@@ -128,20 +259,6 @@ function Addon:BuildBlockOrderArgs()
         },
     }
 
-    -- The outer columns and the middle one align fixed; the others lean either way.
-    for i, col in ipairs(MainWindow.ADJUSTABLE_COLUMNS) do
-        args["column" .. col .. "Align"] = {
-            type = "select", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.1 * i, -- below the grid
-            name = string.format(L["Column %d alignment"], col),
-            desc = L["Text alignment of this column in the horizontal grid. The outer columns align to their side, the middle one centers."],
-            values = { left = L["Left"], right = L["Right"] },
-            sorting = { "left", "right" },
-            hidden = function() return not MainWindow:IsAdjustableColumn(col) end,
-            get = function() return MainWindow:GetColumnAlign(col) end,
-            set = function(_, v) MainWindow:SetColumnAlign(col, v) end,
-        }
-    end
-
     -- One set of dropdowns per orientation; widths are static in AceConfig.
     -- Columns align their text, so full-row blocks may sit in any of them.
     local grids = {
@@ -188,27 +305,15 @@ function Addon:BuildBlockOrderArgs()
         end
     end
 
-    args.columnAlignBreak = {
-        type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.5, width = "full", name = " ",
-        fontSize = "small",
-        hidden = function() return MainWindow:GetOrientation() ~= "horizontal" end,
+    -- Widths and alignments of the columns in one strip instead of a slider
+    -- and a dropdown per column.
+    args.columnStrip = {
+        type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.1, width = "full", name = "",
+        arg = { preview = Addon.DrawColumnStrip },
     }
-
-    -- Share of the width per column; no page relayout, so a drag stays smooth.
-    for col = 1, MainWindow.MAX_COLS do
-        args["column" .. col .. "Width"] = {
-            type = "range", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.6 + 0.01 * col,
-            name = string.format(L["Column %d width"], col),
-            min = 25, max = 300, step = 5,
-            hidden = function() return col > MainWindow:GetGrid().cols end,
-            get = function() return MainWindow:GetColumnWidth(col) end,
-            set = function(_, v) MainWindow:SetColumnWidth(col, v) end,
-        }
-    end
-
-    args.columnWidthBreak = {
-        type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.9, width = "full", name = " ",
-        fontSize = "small",
+    args.columnHint = {
+        type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.2, fontSize = "small",
+        name = L["Drag a divider to make columns wider or narrower. Click a column to switch its alignment where it can lean either way. Right-click resets the widths."],
     }
 
     args.resetOrder = {
@@ -218,6 +323,14 @@ function Addon:BuildBlockOrderArgs()
         func = function()
             MainWindow:ResetBlockRows()
             notify()
+        end,
+    }
+    args.equalWidths = {
+        type = "execute", order = (MainWindow.MAX_ROWS + 1) * 10 + 2, width = 1.0,
+        name = L["Equal column widths"],
+        func = function()
+            MainWindow:ResetColumnWidths()
+            if strip then layoutStrip() end
         end,
     }
     return args

@@ -1430,11 +1430,15 @@ end
 
 -- The app's frame is reused across redraws; a pooled description that shows
 -- text next time must let go of it.
+-- Only while it is still ours: after a relayout another description may have
+-- taken the frame over, and hiding it then would blank that one.
 function Description:DetachPreview()
-    if self.previewFrame then
-        self.previewFrame:Hide()
-        self.previewFrame:SetParent(UIParent)
-        self.previewFrame = nil
+    local frame = self.previewFrame
+    if not frame then return end
+    self.previewFrame = nil
+    if frame:GetParent() == self.frame then
+        frame:Hide()
+        frame:SetParent(UIParent)
     end
 end
 

@@ -74,8 +74,6 @@ end
 
 -- Columns of the horizontal grid that may lean either way: all but the outer
 -- ones and the middle one. Defaults lean towards the nearer edge.
-MainWindow.ADJUSTABLE_COLUMNS = { 2, 3, 4, 5, 6 }
-
 function MainWindow:IsAdjustableColumn(col)
     local grid = self:GetGrid()
     return self:GetOrientation() == "horizontal" and col > 1 and col < grid.cols
@@ -110,12 +108,19 @@ function MainWindow:GetColumnWidth(col)
     return (type(w) == "number" and w > 0) and w or 100
 end
 
-function MainWindow:SetColumnWidth(col, percent)
+-- live only relayouts, for a drag; the full restyle follows on release.
+function MainWindow:SetColumnWidth(col, percent, live)
     local ui = Addon.db.profile.ui
     local id = self:GetGrid().id
     ui.columnWidths = ui.columnWidths or {}
     ui.columnWidths[id] = ui.columnWidths[id] or {}
     ui.columnWidths[id][col] = percent ~= 100 and percent or nil
+    if live then self:Layout() else self:Refresh() end
+end
+
+function MainWindow:ResetColumnWidths()
+    local widths = Addon.db.profile.ui.columnWidths
+    if widths then widths[self:GetGrid().id] = nil end
     self:Refresh()
 end
 
