@@ -79,4 +79,13 @@ Issues and pull requests are welcome. Please keep changes consistent with the mo
 
 ## License
 
-[MIT](LICENSE)
+The addon code is licensed under [MIT](LICENSE).
+
+### Fonts
+
+The bundled fonts are not covered by the MIT license. They are licensed under the [SIL Open Font License 1.1](https://openfontlicense.org); the license text ships next to each font.
+
+| Font | Copyright | License |
+|---|---|---|
+| Barlow Condensed | Copyright 2017 The Barlow Project Authors ([github.com/jpt/barlow](https://github.com/jpt/barlow)) | [OFL 1.1](MauiMPlusTimer/Assets/Fonts/BarlowCondensed/OFL.txt) |
+| Rajdhani | Copyright (c) 2014, Indian Type Foundry | [OFL 1.1](MauiMPlusTimer/Assets/Fonts/Rajdhani/OFL.txt) |

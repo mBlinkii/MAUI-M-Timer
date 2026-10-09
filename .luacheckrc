@@ -53,7 +53,7 @@ read_globals = {
 
     -- Timing
     "GetTime", "GetTimePreciseSec", "debugprofilestop",
-    "GetWorldElapsedTime", "GetWorldElapsedTimers",
+    "GetWorldElapsedTime", "GetWorldElapsedTimers", "IsMouseButtonDown",
     "issecretvalue",
 
     -- Frames / UI
@@ -100,6 +100,7 @@ read_globals = {
     -- Encounter Journal (boss name resolution)
     "EncounterJournal", "EncounterJournal_OpenJournal",
     "EJ_GetInstanceForMap", "EJ_GetEncounterInfoByIndex", "EJ_SelectInstance",
+    "EJ_GetCreatureInfo", "SetPortraitTextureFromCreatureDisplayID", "SetPortraitTexture",
 
     -- Sound kit + default font
     "SOUNDKIT", "STANDARD_TEXT_FONT",

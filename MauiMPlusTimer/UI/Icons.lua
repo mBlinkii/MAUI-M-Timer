@@ -11,19 +11,24 @@ local catalog = {
     pending = { "Interface\\RaidFrame\\ReadyCheck-Waiting" },
     death   = { "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8" },
     ready   = { "Interface\\RaidFrame\\ReadyCheck-Ready" }, -- reuses the done art
+    -- Index 1 stands for the spell's own icon.
+    brez    = { "Interface\\Icons\\Spell_Nature_Reincarnation", ASSET .. "Cooldowns\\brez_01", ASSET .. "Cooldowns\\brez_02" },
+    lust    = { "Interface\\Icons\\Spell_Nature_BloodLust", ASSET .. "Cooldowns\\lust_01" },
 }
 
-for i = 1, 9 do
+for i = 1, 11 do
     local n = string.format("%02d", i)
     table.insert(catalog.done,    ASSET .. "Done\\finished_" .. n)
     table.insert(catalog.pending, ASSET .. "Pending\\open_" .. n)
     table.insert(catalog.ready,   ASSET .. "Done\\finished_" .. n)
 end
-table.insert(catalog.death, ASSET .. "Death\\skull_01")
+for i = 1, 3 do
+    table.insert(catalog.death, ASSET .. string.format("Death\\skull_%02d", i))
+end
 
 ns.Icons = {}
 
--- category: "done" | "pending" | "death" | "ready".
+-- category: "done" | "pending" | "death" | "ready" | "brez" | "lust".
 function ns.Icons:Default(category)
     local list = catalog[category]
     return list and list[1] or nil

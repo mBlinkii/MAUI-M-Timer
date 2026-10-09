@@ -55,6 +55,16 @@ local function resolveStyle(elementKey)
         for k, v in pairs(override) do style[k] = v end
     end
 
+    -- Class color keeps the alpha of the configured text color.
+    if style.classColor then
+        local _, class = UnitClass("player")
+        local cc = class and (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
+        if cc then
+            local a = style.textColor and style.textColor[4] or 1
+            style.textColor = { cc.r, cc.g, cc.b, a }
+        end
+    end
+
     -- The chosen outline as saved, for the options. SHADOW is no font flag but a
     -- drop shadow, so it is split off before the flags reach SetFont.
     style.outline = style.fontFlags or ""
@@ -75,9 +85,12 @@ local function resolveStyle(elementKey)
 end
 Widgets.ResolveStyle = resolveStyle
 
+local lineHeightCache = {}
+
 -- Mandatory after any style or profile change.
 function Widgets:InvalidateStyle()
     wipe(styleCache)
+    wipe(lineHeightCache)
 end
 
 -- UI-layer API; the resolution lives in Core/Utilities so the Core formatters
@@ -96,9 +109,11 @@ function Widgets:Snap(region, value, minPixels)
     return PixelUtil.GetNearestPixelSize(value, region:GetEffectiveScale(), minPixels)
 end
 
--- Inline icons follow the element's font size rather than a fixed pixel size.
+-- An element's icons take its own icon size, or follow its font size.
 function Widgets:IconSize(elementKey)
-    return math.floor((resolveStyle(elementKey).fontSize or 14) + 0.5)
+    local s = resolveStyle(elementKey)
+    if (s.iconSize or 0) > 0 then return s.iconSize end
+    return math.floor((s.fontSize or 14) + 0.5)
 end
 
 -- size 0 matches the surrounding text height. A color forces the long
@@ -138,12 +153,9 @@ function Widgets:GetOffset(elementKey)
 end
 
 -- Measured with a hidden FontString rather than estimated, so blocks never
--- overlap when the font size grows.
+-- overlap when the font size grows; cached until the next style change.
 local measureFS
--- size overrides the element's own, for a part drawn in its face at another size.
-function Widgets:LineHeight(elementKey, fallback, size)
-    local s = resolveStyle(elementKey)
-    size = size or s.fontSize or fallback or 14
+local function measureLine(s, size)
     if s.font then
         if not measureFS then
             measureFS = UIParent:CreateFontString(nil, "ARTWORK")
@@ -155,6 +167,22 @@ function Widgets:LineHeight(elementKey, fallback, size)
         end
     end
     return math.ceil(size * 1.3) + 4
+end
+
+-- size overrides the element's own, for a part drawn in its face at another
+-- size. Without one, a larger own icon size makes the line taller.
+function Widgets:LineHeight(elementKey, fallback, size)
+    local s = resolveStyle(elementKey)
+    local own = size == nil
+    size = size or s.fontSize or fallback or 14
+    local cacheKey = (elementKey or "") .. ":" .. size .. (own and "" or "*")
+    local h = lineHeightCache[cacheKey]
+    if not h then
+        h = measureLine(s, size)
+        if own and (s.iconSize or 0) > 0 then h = math.max(h, s.iconSize) end
+        lineHeightCache[cacheKey] = h
+    end
+    return h
 end
 
 -- Replaces digits with the widest one, leaving |T/|c/|r escapes intact, so a
@@ -463,6 +491,135 @@ function Widgets:ApplyBarEdge(bar, style)
     updateEdgeShown(bar)
 end
 
+-- Rounded corners: a nineslice mask over fill, background and edge line, so the
+-- radius stays the same at any bar length. Every whole radius up to
+-- MAX_RADIUS ships as a file; the border becomes a matching ring, since a
+-- backdrop edge cannot curve.
+local MASK_DIR = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Masks\\Bar\\"
+local MAX_RADIUS = 24
+local MAX_RING = 6
+
+-- Slice margins count physical screen pixels, not UI units, so radii and the
+-- ring thickness are converted with the region's real pixel scale. Without
+-- it a small UI scale made the corners outgrow flat bars, which drops them.
+local function pixelsPerUnit(region)
+    local _, physicalHeight = GetPhysicalScreenSize()
+    return region:GetEffectiveScale() * (physicalHeight or 768) / 768
+end
+
+local function shippedRadius(want)
+    want = math.min(math.floor(want), MAX_RADIUS)
+    return want >= 1 and want or nil
+end
+
+local function sliced(tex, path, r)
+    tex:SetTexture(path, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    tex:SetTextureSliceMargins(r, r, r, r)
+end
+
+-- WoW drops nineslice corners that do not fit the region, so a rounded bar
+-- needs at least this height.
+Widgets.MIN_ROUNDED_HEIGHT = 15
+
+-- The bar height to draw with: a rounded bar never goes below the minimum.
+function Widgets:BarHeight(style, fallback)
+    local h = style.height or fallback or 14
+    if (style.cornerRadius or 0) > 0 then h = math.max(h, self.MIN_ROUNDED_HEIGHT) end
+    return h
+end
+
+-- Optional shapes for square icons (dungeon icon, objective icons).
+local ICON_MASK_DIR = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Masks\\Icon\\"
+Widgets.ICON_MASKS = { "circle", "square", "octagon", "diamond" }
+local ICON_MASK = { circle = true, square = true, octagon = true, diamond = true }
+
+-- shape "none" (or unknown) takes the mask off again. The mask belongs to the
+-- texture, created on its parent the first time it is needed.
+function Widgets:ApplyIconMask(tex, shape)
+    local mask = tex._shapeMask
+    if not ICON_MASK[shape] then
+        if mask and tex._shapeMasked then
+            tex:RemoveMaskTexture(mask)
+            tex._shapeMasked = nil
+        end
+        return
+    end
+    if not mask then
+        mask = tex:GetParent():CreateMaskTexture()
+        mask:SetAllPoints(tex)
+        tex._shapeMask = mask
+    end
+    mask:SetTexture(ICON_MASK_DIR .. shape, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    if not tex._shapeMasked then
+        tex:AddMaskTexture(mask)
+        tex._shapeMasked = true
+    end
+end
+
+-- A solid fill with rounded corners (radius in UI units, at most half the
+-- height), for badges; tinted afterwards with SetVertexColor.
+function Widgets:PaintRounded(tex, radius, height)
+    local k = pixelsPerUnit(tex:GetParent())
+    local r = shippedRadius(math.min((radius or 0) * k, (height or 0) * k / 2))
+    if r then
+        sliced(tex, MASK_DIR .. "round" .. r, r)
+    else
+        tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+        tex:SetTextureSliceMargins(0, 0, 0, 0)
+    end
+end
+
+function Widgets:ApplyBarRounding(bar, style)
+    if bar._maskedTex then
+        for _, tex in ipairs(bar._maskedTex) do tex:RemoveMaskTexture(bar.roundMask) end
+        bar._maskedTex = nil
+    end
+    -- Before the first layout the bar may not have a height yet.
+    local height = self:BarHeight(style, (bar:GetHeight() or 0) > 0 and bar:GetHeight() or 14)
+    local k = pixelsPerUnit(bar)
+    -- In pixels; never more than half the bar, or the corners overlap.
+    local r = shippedRadius(math.min((style.cornerRadius or 0) * k, height * k / 2))
+    if not (r and bar.CreateMaskTexture) then
+        if bar.roundBorder then bar.roundBorder:Hide() end
+        return
+    end
+
+    if not bar.roundMask then
+        bar.roundMask = bar:CreateMaskTexture()
+        bar.roundMask:SetAllPoints(bar)
+    end
+    sliced(bar.roundMask, MASK_DIR .. "round" .. r, r)
+    -- The fill texture can be replaced by SetStatusBarTexture, so it is
+    -- fetched anew each time.
+    bar._maskedTex = {}
+    for _, tex in ipairs({ bar:GetStatusBarTexture(), bar.bg, bar.edge }) do
+        tex:AddMaskTexture(bar.roundMask)
+        table.insert(bar._maskedTex, tex)
+    end
+
+    local size = style.borderSize or 0
+    if not (borderEnabled(style) and size > 0) then
+        if bar.roundBorder then bar.roundBorder:Hide() end
+        return
+    end
+    if bar.borderFrame then bar.borderFrame:Hide() end
+    local off = style.borderOffset or 0
+    -- Concentric with the bar's corners. Rings ship only for thicknesses
+    -- below their radius, so from 2 up.
+    local outer = math.max(2, shippedRadius(r + off * k) or 2)
+    local thick = math.max(1, math.min(math.floor(size * k + 0.5), MAX_RING, outer - 1))
+    if not bar.roundBorder then
+        bar.roundBorder = bar:CreateTexture(nil, "OVERLAY", nil, 7)
+    end
+    local ring = bar.roundBorder
+    sliced(ring, MASK_DIR .. "ring" .. outer .. "_" .. thick, outer)
+    ring:SetVertexColor(unpack(style.borderColor or { 0, 0, 0, 1 }))
+    ring:ClearAllPoints()
+    ring:SetPoint("TOPLEFT", bar, "TOPLEFT", -off, off)
+    ring:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", off, -off)
+    ring:Show()
+end
+
 -- Not the fill color; that one is dynamic.
 function Widgets:ApplyBarStyle(bar, elementKey)
     local style = resolveStyle(elementKey)
@@ -473,6 +630,7 @@ function Widgets:ApplyBarStyle(bar, elementKey)
     end
     self:ApplyBorder(bar, style)
     self:ApplyBarEdge(bar, style)
+    self:ApplyBarRounding(bar, style)
     self:ApplyBarGradient(bar, style)
     return style
 end
@@ -495,10 +653,6 @@ function Widgets:CreateBar(parent, elementKey)
 
     self:ApplyBarStyle(bar, elementKey)
     return bar
-end
-
-function Widgets:CreateRowPool(parent, template, resetFn)
-    return CreateFramePool("Frame", parent, template, resetFn)
 end
 
 -- Shared base for a module's UI table; modules override Build, Update and
@@ -541,11 +695,17 @@ function TextBlock:Build()
     Addon.MainWindow:AddBlock(self.name:lower(), block, self.order)
 end
 
+-- The last Update arguments, so a restyle can rebuild text with inline icons.
+function TextBlock:Remember(a, b)
+    self._a, self._b, self._remembered = a, b, true
+end
+
 function TextBlock:Restyle()
     if not (self.frame and self.text) then return end
     Widgets:ApplyTextStyle(self.text, self.element)
     self.frame:SetHeight(Widgets:LineHeight(self.element))
     Widgets:LayoutText(self.text, self.frame, self.element, Addon.MainWindow:GetJustifyH(self.name))
+    if self._remembered then self:Update(self._a, self._b) end
 end
 
 -- spec: name (module name, also the block key), element (style key), order.

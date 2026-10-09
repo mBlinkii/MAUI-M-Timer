@@ -32,7 +32,7 @@ end
 function UI:LayoutBar()
     if not self.bar then return end
     local s = Addon.Widgets.ResolveStyle(ns.E.forcesBar)
-    local h = s.height or 16
+    local h = Addon.Widgets:BarHeight(s, 16)
 
     -- Space claimed by texts above/below the bar. Shifting the bar by the
     -- difference keeps them inside the block, off the neighbouring ones.

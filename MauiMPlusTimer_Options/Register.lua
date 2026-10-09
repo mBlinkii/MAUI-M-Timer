@@ -9,6 +9,7 @@ Addon:RegisterModuleOptions("globalfont", Addon:BuildGlobalFontOptions(), "root"
 Addon:RegisterModuleOptions("colors", Addon:BuildColorsOptions(), "root")
 Addon:RegisterModuleOptions("window", Addon:BuildWindowOptions(), "root")
 Addon:RegisterModuleOptions("about", Addon:BuildAboutOptions(), "root")
+Addon:RegisterModuleOptions("separators", Addon:BuildSeparatorOptions(), "modules")
 
 for _, module in Addon:IterateModules() do
     local group = module.optionsKey and module:GetOptions()

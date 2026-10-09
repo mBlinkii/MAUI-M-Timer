@@ -73,7 +73,7 @@ Plain Lua tables in the shape of AceConfig option tables. No Ace code is involve
 | `args` | children of a group |
 | `inline` | group drawn as a card on its parent page instead of a sidebar entry |
 | `width` | flow layout units: number, `"half"`, `"double"`, `"full"` |
-| `controlWidth` | `"xs"`, `"sm"`, `"md"`, `"lg"` for the widget in a labelled row |
+| `controlWidth` | `"xs"`, `"sm"`, `"md"`, `"lg"` for the widget in a labelled row, and the minimum width of an `execute` button (also read from `arg.controlWidth`) |
 | `get`, `set` | function(info, ...) or the name of a method on `handler` |
 | `handler` | object for string callbacks; inherited by the subtree |
 | `hidden`, `disabled` | boolean or function(info) |

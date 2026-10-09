@@ -59,17 +59,19 @@ end
 -- Keys match MainWindow's block keys.
 local function blockLabels()
     local L = ns.L
-    return {
+    local labels = {
         dungeon = L["Dungeon name"], dungeonicon = L["Dungeon icon"],
         level = L["Keystone level"], affixes = L["Affixes"],
         timer = L["Timer"], timerbar = L["Timer bar"],
         forces = L["Enemy Forces"],
-        objectives = L["Objectives"], deaths = L["Deaths"], splits = L["Splits"],
+        objectives = L["Objectives"], deaths = L["Deaths"], splits = L["Time difference"],
         checkpoints = L["Checkpoints"],
         brez = L["Battle resurrections"], bloodlust = L["Heroism"],
-        separator1 = L["Separator line"] .. " 1",
-        separator2 = L["Separator line"] .. " 2",
     }
+    for i = 1, Addon.MainWindow.MAX_SEPARATORS do
+        labels["separator" .. i] = L["Separator line"] .. " " .. i
+    end
+    return labels
 end
 
 -- The column strip: one cell per column at its real share of the width.
@@ -87,28 +89,27 @@ local function cursorX()
     return GetCursorPosition() / strip.frame:GetEffectiveScale()
 end
 
+-- Scratch for the geometry, the same the HUD uses.
+local stripShares, stripX, stripW = {}, {}, {}
+
 local function layoutStrip()
     local MainWindow, OT, L = Addon.MainWindow, ns.OT, ns.L
     local cols, width = MainWindow:GetGrid().cols, strip.width
-    local total = 0
-    for c = 1, cols do total = total + MainWindow:GetColumnWidth(c) end
     local avail = width - STRIP_GAP * (cols - 1)
-    strip.pps = avail / total
+    MainWindow:ColumnGeometry(width, STRIP_GAP, MainWindow:GetColumnShares(stripShares), stripX, stripW)
     local labels = { LEFT = L["Left"], CENTER = L["Center"], RIGHT = L["Right"] }
-    local x = 0
     for c = 1, MainWindow.MAX_COLS do
         local cell, divider = strip.cells[c], strip.dividers[c]
         if c <= cols then
-            local w = c == cols and (width - x) or math.floor(avail * MainWindow:GetColumnWidth(c) / total + 0.5)
+            local x, w = stripX[c], stripW[c]
             cell:ClearAllPoints()
             cell:SetPoint("TOPLEFT", strip.frame, "TOPLEFT", x, 0)
             cell:SetSize(math.max(1, w), STRIP_H)
-            cell.adjustable = MainWindow:IsAdjustableColumn(c)
-            cell.bg:SetColorTexture(OT:Unpack(cell:IsMouseOver() and cell.adjustable and "hover" or "line"))
+            cell.bg:SetColorTexture(OT:Unpack(cell:IsMouseOver() and "hover" or "line"))
             -- Share of the whole width, so equal columns are easy to set.
-            local percent = math.floor(MainWindow:GetColumnWidth(c) / total * 100 + 0.5)
+            local percent = math.floor(w / avail * 100 + 0.5)
             cell.label:SetText(string.format("%d: %s\n%d %%", c, labels[MainWindow:GetColumnJustify(c)], percent))
-            cell.label:SetTextColor(OT:Unpack(cell.adjustable and "accent" or "muted"))
+            cell.label:SetTextColor(OT:Unpack("accent"))
             cell:Show()
             x = x + w + STRIP_GAP
             if divider then
@@ -125,6 +126,9 @@ local function layoutStrip()
     end
 end
 
+-- A click on a column steps through its alignments.
+local NEXT_ALIGN = { left = "center", center = "right", right = "left" }
+
 local function newCell(c)
     local MainWindow, OT = Addon.MainWindow, ns.OT
     local cell = CreateFrame("Button", nil, strip.frame)
@@ -137,8 +141,8 @@ local function newCell(c)
     cell:SetScript("OnClick", function(_, button)
         if button == "RightButton" then
             MainWindow:ResetColumnWidths()
-        elseif cell.adjustable then
-            MainWindow:SetColumnAlign(c, MainWindow:GetColumnAlign(c) == "left" and "right" or "left")
+        else
+            MainWindow:SetColumnAlign(c, NEXT_ALIGN[MainWindow:GetColumnAlign(c)])
         end
         layoutStrip()
     end)
@@ -159,11 +163,20 @@ local function newDivider(c)
     d.line:SetPoint("TOP")
     d.line:SetPoint("BOTTOM")
     d.line:SetColorTexture(OT:Unpack("muted"))
+    -- Picks the share split whose divider lands nearest the cursor. Solved
+    -- through the geometry rather than a fixed pixels-per-share, because a
+    -- centered middle column moves both its edges at once.
     local function drag()
-        local delta = (cursorX() - d.startX) / strip.pps
+        local target = d.startPos + (cursorX() - d.startX)
         local sum = d.a + d.b
-        local a = math.floor((d.a + delta) / SHARE_STEP + 0.5) * SHARE_STEP
-        a = math.max(MIN_SHARE, math.min(sum - MIN_SHARE, a))
+        MainWindow:GetColumnShares(stripShares)
+        local a, bestDist = MainWindow:GetColumnWidth(c), math.huge
+        for try = MIN_SHARE, sum - MIN_SHARE, SHARE_STEP do
+            stripShares[c], stripShares[c + 1] = try, sum - try
+            MainWindow:ColumnGeometry(strip.width, STRIP_GAP, stripShares, stripX, stripW)
+            local dist = math.abs(stripX[c] + stripW[c] + STRIP_GAP / 2 - target)
+            if dist < bestDist then a, bestDist = try, dist end
+        end
         if a ~= MainWindow:GetColumnWidth(c) then
             MainWindow:SetColumnWidth(c, a, true)
             MainWindow:SetColumnWidth(c + 1, sum - a, true)
@@ -178,6 +191,8 @@ local function newDivider(c)
         end
         if button ~= "LeftButton" then return end
         d.startX, d.a, d.b = cursorX(), MainWindow:GetColumnWidth(c), MainWindow:GetColumnWidth(c + 1)
+        MainWindow:ColumnGeometry(strip.width, STRIP_GAP, MainWindow:GetColumnShares(stripShares), stripX, stripW)
+        d.startPos = stripX[c] + stripW[c] + STRIP_GAP / 2
         d:SetScript("OnUpdate", drag)
     end)
     d:SetScript("OnMouseUp", function()
@@ -203,6 +218,20 @@ function Addon.DrawColumnStrip(width)
     return strip.frame, STRIP_H
 end
 
+-- Relaying the page out re-creates the slider under the cursor and ends a
+-- drag, so sliders that change which options exist wait until the mouse
+-- button is up again.
+local releaseWait
+function Addon:NotifyAfterRelease()
+    if releaseWait then return end
+    releaseWait = C_Timer.NewTicker(0.1, function()
+        if IsMouseButtonDown("LeftButton") then return end
+        releaseWait:Cancel()
+        releaseWait = nil
+        LibStub("AceConfigRegistry-3.0"):NotifyChange(ns.ADDON_NAME)
+    end)
+end
+
 -- One dropdown per grid cell of each HUD row. Clearing a slot re-adds the
 -- module in a free slot, so a module can never get lost.
 function Addon:BuildBlockOrderArgs()
@@ -210,70 +239,78 @@ function Addon:BuildBlockOrderArgs()
     local MainWindow = Addon.MainWindow
     local labels = blockLabels()
 
-    local values, sorting = { none = "-" }, { "none" }
-    for _, key in ipairs(MainWindow.MODULE_BLOCKS) do
-        values[key] = labels[key]
-        sorting[#sorting + 1] = key
-    end
-    for i = 1, 2 do
-        if MainWindow:IsSeparatorEnabled(i) then
-            local key = "separator" .. i
-            values[key] = labels[key]
-            sorting[#sorting + 1] = key
+    -- Evaluated on every draw, so added separators show up at once; rebuilt
+    -- only when their count changed.
+    local values, sorting, builtFor
+    local function choices()
+        local count = MainWindow:GetSeparatorCount()
+        if builtFor ~= count then
+            builtFor = count
+            values, sorting = { none = "-" }, { "none" }
+            for _, key in ipairs(MainWindow.MODULE_BLOCKS) do
+                values[key] = labels[key]
+                sorting[#sorting + 1] = key
+            end
+            for i = 1, count do
+                local key = "separator" .. i
+                values[key] = labels[key]
+                sorting[#sorting + 1] = key
+            end
         end
     end
+    local function getValues() choices(); return values end
+    local function getSorting() choices(); return sorting end
 
     local function notify()
         LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
     end
 
+    local function notifyAfterRelease() Addon:NotifyAfterRelease() end
+
     local args = {
-        orientation = {
-            type = "select", order = 0,
-            name = L["Orientation"],
-            desc = L["Vertical stacks the elements in a narrow grid with 3 columns, horizontal lays them out in a wide grid with 5 columns and 3 rows. Each orientation keeps its own element order and width."],
-            values = { vertical = L["Vertical"], horizontal = L["Horizontal"] },
-            sorting = { "vertical", "horizontal" },
-            get = function() return MainWindow:GetOrientation() end,
+        columns = {
+            type = "range", order = 0, min = 1, max = MainWindow.MAX_COLS, step = 1, width = 1.5,
+            name = L["Columns"],
+            get = function() return MainWindow:GetGrid().cols end,
             set = function(_, v)
-                MainWindow:SetOrientation(v)
-                notify()
+                MainWindow:SetGridSize(v, nil)
+                notifyAfterRelease()
             end,
         },
-        columns = {
-            type = "select", order = 0.5,
-            name = L["Columns"],
-            desc = L["Number of columns of the horizontal grid. Both share one element order; elements in columns 6 and 7 move to a free slot with 5 columns."],
-            values = { ["5"] = "5", ["7"] = "7" },
-            sorting = { "5", "7" },
-            hidden = function() return MainWindow:GetOrientation() ~= "horizontal" end,
-            get = function() return tostring(MainWindow:GetHorizontalColumns()) end,
+        rows = {
+            type = "range", order = 0.5, min = 1, max = MainWindow.MAX_ROWS, step = 1, width = 1.5,
+            name = L["Rows"],
+            get = function() return MainWindow:GetGrid().rows end,
             set = function(_, v)
-                MainWindow:SetHorizontalColumns(tonumber(v))
-                notify()
+                MainWindow:SetGridSize(nil, v)
+                notifyAfterRelease()
             end,
+        },
+        guides = {
+            type = "toggle", order = 0.7, width = "full",
+            name = L["Show cell guides"],
+            get = function() return Addon.db.profile.ui.showGuides == true end,
+            set = function(_, v) MainWindow:SetShowGuides(v) end,
         },
         desc = {
             type = "description", order = 1,
-            name = L["Assign each element to a grid slot (top to bottom). A row holds several blocks side by side, depending on the orientation; cleared modules re-appear in a free slot. Bars, objectives and separator lines always take a whole row."],
+            name = L["Only elements placed here are shown, from top to bottom; switching a module on does not add it. A row holds several elements side by side. Bars, separator lines and the objectives as a text list take a whole row."],
         },
     }
 
-    -- One set of dropdowns per orientation; widths are static in AceConfig.
+    -- One set of dropdowns per column count; widths are static in AceConfig.
     -- Columns align their text, so full-row blocks may sit in any of them.
-    local grids = {
-        { orientation = "vertical", prefix = "v", cols = 3, width = 0.9 },
-        { orientation = "horizontal", prefix = "h", cols = 5, width = 0.55 },
-        { orientation = "horizontal", prefix = "h7", cols = 7, width = 0.39 },
-    }
+    local grids = {}
+    for cols = 1, MainWindow.MAX_COLS do
+        grids[cols] = { prefix = "g" .. cols, cols = cols, width = math.min(0.9, 2.7 / cols) }
+    end
     for _, grid in ipairs(grids) do
         for index = 1, MainWindow.MAX_ROWS do
             local base = index * 10
             local id = grid.prefix .. "row" .. index
             -- Overflow rows only exist while full-row blocks exceed the grid.
             local function hidden()
-                return MainWindow:GetOrientation() ~= grid.orientation
-                    or MainWindow:GetGrid().cols ~= grid.cols
+                return MainWindow:GetGrid().cols ~= grid.cols
                     or MainWindow:GetBlockRows()[index] == nil
             end
             args[id .. "Num"] = {
@@ -289,7 +326,7 @@ function Addon:BuildBlockOrderArgs()
             for col = 1, grid.cols do
                 args[id .. "Col" .. col] = {
                     type = "select", order = base + col, width = grid.width, name = "",
-                    values = values, sorting = sorting,
+                    values = getValues, sorting = getSorting,
                     hidden = hidden,
                     get = function()
                         local row = MainWindow:GetBlockRows()[index]
@@ -311,6 +348,13 @@ function Addon:BuildBlockOrderArgs()
         type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.1, width = "full", name = "",
         arg = { preview = Addon.DrawColumnStrip },
     }
+    args.centerColumn = {
+        type = "toggle", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.15, width = "full",
+        name = L["Keep the middle column centered"],
+        desc = L["The middle column stays on the HUD's center line, whatever the other columns' widths are; both sides get the same room."],
+        get = function() return MainWindow:IsCenterLocked() end,
+        set = function(_, v) MainWindow:SetCenterLocked(v) end,
+    }
     args.columnHint = {
         type = "description", order = (MainWindow.MAX_ROWS + 1) * 10 + 0.2, fontSize = "small",
         name = L["Drag a divider to make columns wider or narrower. Click a column to switch its alignment where it can lean either way. Right-click resets the widths."],
@@ -319,6 +363,7 @@ function Addon:BuildBlockOrderArgs()
     args.resetOrder = {
         type = "execute", order = (MainWindow.MAX_ROWS + 1) * 10 + 1, width = 1.0,
         name = L["Reset order"],
+        arg = { controlWidth = "lg" },
         confirm = function() return L["Reset the element order to the default layout?"] end,
         func = function()
             MainWindow:ResetBlockRows()
@@ -328,9 +373,20 @@ function Addon:BuildBlockOrderArgs()
     args.equalWidths = {
         type = "execute", order = (MainWindow.MAX_ROWS + 1) * 10 + 2, width = 1.0,
         name = L["Equal column widths"],
+        arg = { controlWidth = "lg" },
         func = function()
             MainWindow:ResetColumnWidths()
             if strip then layoutStrip() end
+        end,
+    }
+    args.clearOrder = {
+        type = "execute", order = (MainWindow.MAX_ROWS + 1) * 10 + 3, width = 1.0,
+        name = L["Clear table"],
+        arg = { controlWidth = "lg" },
+        confirm = function() return L["Remove every element from the table? Nothing is shown until you place elements again."] end,
+        func = function()
+            MainWindow:ClearBlockRows()
+            notify()
         end,
     }
     return args
@@ -698,7 +754,7 @@ function Addon:ModuleEnableOption(module, order)
     }
 end
 
--- On/off of one HUD block; switching it on keeps the slot the grid gives it.
+-- On/off of one HUD block. It only shows once it has a slot in the element order.
 function Addon:BlockEnableOption(blockKey, order)
     local L = ns.L
     local MainWindow = Addon.MainWindow
@@ -710,7 +766,6 @@ function Addon:BlockEnableOption(blockKey, order)
         set = function(_, v)
             MainWindow:SetBlockActive(blockKey, v)
             MainWindow:InvalidateRows()
-            if v then MainWindow:SaveRows() end
             MainWindow:Refresh()
         end,
     }

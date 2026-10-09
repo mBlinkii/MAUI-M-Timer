@@ -68,7 +68,7 @@ function Checkpoints:GetOptions()
                     },
                 },
             },
-            text = Addon:ElementTextOptions(self, ns.E.checkpointsText, 20, { color = true }),
+            text = Addon:ElementTextOptions(self, ns.E.checkpointsText, 20, { color = true, icon = true }),
         },
     }
 end

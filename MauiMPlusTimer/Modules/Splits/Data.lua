@@ -158,16 +158,6 @@ function Data.DeleteRun(mapID, keyLevel, run)
     end
 end
 
-function Data.ClearHistory(mapID, keyLevel)
-    local e = levelEntry(mapID, keyLevel, false)
-    if e then e.history = nil end
-end
-
-function Data.Wipe()
-    Addon.db.global.splits = {}
-end
-
--- Sorted mapIDs that have data, for the Manager tree.
 -- Map IDs that have stored runs, in no particular order.
 function Data.GetDungeons()
     local list = {}

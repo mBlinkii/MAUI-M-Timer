@@ -12,16 +12,6 @@ Timer.Data = Data
 Data.PLUS3_FRACTION = 0.6
 Data.PLUS2_FRACTION = 0.8
 
--- Absolute threshold times in seconds.
-function Data.GetThresholds(timeLimit)
-    timeLimit = timeLimit or 0
-    return {
-        plus3 = timeLimit * Data.PLUS3_FRACTION,
-        plus2 = timeLimit * Data.PLUS2_FRACTION,
-        plus1 = timeLimit,
-    }
-end
-
 -- Bonus level still achievable: 3, 2, 1, or 0 for depleted.
 function Data.GetBonusLevel(elapsed, timeLimit)
     if not timeLimit or timeLimit <= 0 then return 0 end

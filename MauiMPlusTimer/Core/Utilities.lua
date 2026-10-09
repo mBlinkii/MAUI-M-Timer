@@ -228,18 +228,6 @@ function Utils.CopyIntoTyped(dst, src)
     return dst
 end
 
--- Inline texture escape for FontStrings; 0/0 makes the icon scale with the
--- line's font height. Expects 64x64 textures.
-function Utils.IconTag(path, color)
-    local function byte(x)
-        return math.floor(math.min(math.max(x or 1, 0), 1) * 255 + 0.5)
-    end
-    local r = byte(color and color[1])
-    local g = byte(color and color[2])
-    local b = byte(color and color[3])
-    return string.format("|T%s:0:0:0:0:64:64:0:64:0:64:%d:%d:%d|t", path, r, g, b)
-end
-
 -- Export strings carry a readable prefix ("!MAUI:<kind>:<v>!") AND this marker
 -- inside the envelope; import requires both, so foreign strings built on the
 -- same libraries, wrong kinds and corrupted data are all rejected.
@@ -451,10 +439,6 @@ function Utils.FormatPctDelta(delta)
     local hex = Utils.ColorHex(Utils.GetDeltaColor(ahead))
     local sign = ahead and "+" or "-"
     return string.format("|c%s%s%.1f%%|r", hex, sign, math.abs(rounded))
-end
-
-function Utils.Lerp(a, b, t)
-    return a + (b - a) * t
 end
 
 function Utils.Clamp(value, minValue, maxValue)

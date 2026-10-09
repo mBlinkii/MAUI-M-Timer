@@ -8,14 +8,19 @@ local Addon = ns.Addon
 local Profiles = {}
 Addon.Profiles = Profiles
 
+-- Layout generation of exported profiles. Strings from before the element grid
+-- carry none and are refused: their layout cannot be carried over.
+local FORMAT = 2
+
 -- The payload carries the profile name so an import can recreate it under that
--- name, and `meta` for the import preview; older strings have no meta.
+-- name, `meta` for the import preview and the layout format.
 -- Returns the string, or nil plus an error message.
 function Profiles:Export()
     return Addon.Utils.EncodeShare("profile", {
         name = Addon.db:GetCurrentProfile(),
         profile = Addon.db.profile,
         meta = Addon.Utils.ShareMeta(),
+        format = FORMAT,
     })
 end
 
@@ -30,8 +35,6 @@ end
 function Profiles:ApplyTable(tbl)
     Addon.db:ResetProfile() -- fires OnProfileReset -> Addon:OnProfileChanged
     if type(tbl) == "table" then
-        -- The reset already migrated the empty profile; tbl may need it again.
-        Addon.db.profile.ui.blocksSplit = nil
         Addon.Utils.CopyIntoTyped(Addon.db.profile, tbl)
         Addon:OnProfileChanged()
     end
@@ -45,6 +48,9 @@ function Profiles:DecodeImport(str)
     if not payload then return nil, err end
     if type(payload.profile) ~= "table" then
         return nil, "no profile data"
+    end
+    if payload.format ~= FORMAT then
+        return nil, ns.L["This profile was made for the old layout and cannot be imported."]
     end
     if type(payload.name) ~= "string" or payload.name == "" then
         payload.name = "Imported"

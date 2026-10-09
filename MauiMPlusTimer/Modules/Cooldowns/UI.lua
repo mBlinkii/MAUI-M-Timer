@@ -22,9 +22,16 @@ end
 -- The spell icons are textures rather than text escapes: only a texture can be
 -- desaturated, and an escape can only darken an unavailable spell. The fallback
 -- matters outside an instance, where the lookup can fail.
-local function paintIcon(icon, spellID, fallback, greyed, size)
-    local tex = C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(spellID)
-    icon:SetTexture(tex or fallback)
+local function paintIcon(icon, spellID, fallback, greyed, size, custom)
+    if custom and custom ~= fallback then
+        -- Own art has no baked border to cut off.
+        icon:SetTexture(custom)
+        icon:SetTexCoord(0, 1, 0, 1)
+    else
+        local tex = C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(spellID)
+        icon:SetTexture(tex or fallback)
+        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    end
     icon:SetSize(size, size)
     icon:SetDesaturated(greyed)
     icon:SetVertexColor(greyed and 0.7 or 1, greyed and 0.7 or 1, greyed and 0.7 or 1)
@@ -82,11 +89,21 @@ local function setText(part, text)
     part.textW = w
 end
 
+-- Whole seconds are all the text shows; the 0.5s refresh skips the rest.
+local function sec(v)
+    return v and math.floor(v) or nil
+end
+
 function UI:Update(brezOn, charges, recharge, lustOn, lustCd)
     self:Build()
     -- Restyle rebuilds from this: the layout depends on the alignment.
     local last = self._last or {}
     self._last = last
+    if last.valid and last.brezOn == brezOn and last.charges == charges and sec(last.recharge) == sec(recharge)
+        and last.lustOn == lustOn and sec(last.lustCd) == sec(lustCd) then
+        return
+    end
+    last.valid = true
     last.brezOn, last.charges, last.recharge, last.lustOn, last.lustCd = brezOn, charges, recharge, lustOn, lustCd
 
     if brezOn then
@@ -100,7 +117,8 @@ function UI:Update(brezOn, charges, recharge, lustOn, lustCd)
         else
             text = string.format("%d", charges)
         end
-        paintIcon(self.brez.icon, Cooldowns.SPELL_REBIRTH, BREZ_FALLBACK, charges == 0, Addon.Widgets:IconSize(ns.E.brezText))
+        paintIcon(self.brez.icon, Cooldowns.SPELL_REBIRTH, BREZ_FALLBACK, charges == 0, Addon.Widgets:IconSize(ns.E.brezText),
+            Cooldowns:GetSettings().brezIcon)
         setText(self.brez, text)
         self:PlacePart(self.brez)
     end
@@ -110,7 +128,8 @@ function UI:Update(brezOn, charges, recharge, lustOn, lustCd)
         local e = Addon:GetElementSetting(ns.E.lustText)
         local cdHex = Addon.Utils.ColorHex(e.cdColor or { 1, 0.38, 0.38, 1 })
         local text = lustCd and ("|c" .. cdHex .. Addon.Utils.FormatTime(lustCd) .. "|r") or readyIcon()
-        paintIcon(self.lust.icon, Cooldowns.SPELL_BLOODLUST, LUST_FALLBACK, lustCd ~= nil, Addon.Widgets:IconSize(ns.E.lustText))
+        paintIcon(self.lust.icon, Cooldowns.SPELL_BLOODLUST, LUST_FALLBACK, lustCd ~= nil, Addon.Widgets:IconSize(ns.E.lustText),
+            Cooldowns:GetSettings().lustIcon)
         setText(self.lust, text)
         self:PlacePart(self.lust)
     end
@@ -126,7 +145,10 @@ function UI:Restyle()
         part.frame:SetHeight(Addon.Widgets:LineHeight(part.element))
     end
     local l = self._last
-    if l then self:Update(l.brezOn, l.charges, l.recharge, l.lustOn, l.lustCd) end
+    if l then
+        l.valid = false
+        self:Update(l.brezOn, l.charges, l.recharge, l.lustOn, l.lustCd)
+    end
 end
 
 -- Visibility is Update's decision (it depends on which parts are on), so this
@@ -141,5 +163,7 @@ function UI:Hide()
         self.brez.frame:Hide()
         self.lust.frame:Hide()
     end
+    -- The next Update has to show the parts again.
+    if self._last then self._last.valid = false end
     Addon.MainWindow:Layout()
 end

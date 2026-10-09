@@ -16,6 +16,8 @@ Objectives.Data = Data
 local ejInstanceID            -- EJ instance the current cache was built for
 local ejByEncounter = {}      -- dungeonEncounterID -> clean boss name
 local ejByIndex = {}          -- 1-based boss order -> clean boss name
+local ejDisplayByEncounter = {} -- dungeonEncounterID -> creature display id (portrait)
+local ejDisplayByIndex = {}     -- 1-based boss order -> creature display id
 
 -- Only reliable inside the instance, which is where boss names are needed.
 local function currentEJInstance()
@@ -32,11 +34,19 @@ end
 local function queryEJ(instanceID)
     wipe(ejByEncounter)
     wipe(ejByIndex)
+    wipe(ejDisplayByEncounter)
+    wipe(ejDisplayByIndex)
     for i = 1, 20 do -- well above the boss count of any dungeon
-        local name, _, _, _, _, _, dungeonEncounterID = EJ_GetEncounterInfoByIndex(i, instanceID)
+        local name, _, journalID, _, _, _, dungeonEncounterID = EJ_GetEncounterInfoByIndex(i, instanceID)
         if name then
             ejByIndex[i] = name
             if dungeonEncounterID then ejByEncounter[dungeonEncounterID] = name end
+            -- The first creature is the boss itself; its portrait marks the boss.
+            local display = journalID and EJ_GetCreatureInfo and select(4, EJ_GetCreatureInfo(1, journalID))
+            if display then
+                ejDisplayByIndex[i] = display
+                if dungeonEncounterID then ejDisplayByEncounter[dungeonEncounterID] = display end
+            end
         end
     end
     return next(ejByIndex) ~= nil
@@ -78,7 +88,12 @@ local function bossName(description, order, encounterID)
     return description
 end
 
--- Ordered list of { name, done, encounterID, time }.
+-- Creature display id for the boss portrait, same lookup order as the name.
+local function bossDisplay(order, encounterID)
+    return (encounterID and ejDisplayByEncounter[encounterID]) or ejDisplayByIndex[order]
+end
+
+-- Ordered list of { name, done, encounterID, displayInfo, time }.
 function Data.Read()
     local result = {}
     if not (C_Scenario and C_Scenario.GetStepInfo) then return result end
@@ -95,10 +110,12 @@ function Data.Read()
                 local _, elapsed = GetWorldElapsedTime(1)
                 time = (elapsed or 0) - (info.elapsed or 0)
             end
-            result[#result + 1] = {
-                name = bossName(info.description, #result + 1, encounterID) or ("Boss " .. i),
+            local order = #result + 1
+            result[order] = {
+                name = bossName(info.description, order, encounterID) or ("Boss " .. i),
                 done = info.completed and true or false,
                 encounterID = encounterID,
+                displayInfo = bossDisplay(order, encounterID),
                 time = time,
             }
         end

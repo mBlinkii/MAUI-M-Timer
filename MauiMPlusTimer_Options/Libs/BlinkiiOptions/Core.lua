@@ -3,7 +3,7 @@
 -- lib share one global table; the newest MINOR wins, older copies stop here and
 -- every later file of theirs returns at its first line.
 
-local MAJOR, MINOR = "BlinkiiOptions-1", 3
+local MAJOR, MINOR = "BlinkiiOptions-1", 4
 
 local lib = _G.BlinkiiOptions
 if lib and lib.MINOR and lib.MINOR >= MINOR then

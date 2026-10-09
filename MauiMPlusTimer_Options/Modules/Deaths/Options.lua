@@ -9,7 +9,7 @@ function Deaths:GetOptions()
     local L = ns.L
 
     -- Text styling + a dedicated color for the time-penalty "(+mm:ss)" part.
-    local textOpts = Addon:ElementTextOptions(self, ns.E.deathsText, 20, { color = true })
+    local textOpts = Addon:ElementTextOptions(self, ns.E.deathsText, 20, { color = true, icon = true })
     textOpts.args.penaltyColor = Addon:ElementColorOption(
         self, ns.E.deathsText, "penaltyColor", L["Time penalty color"], 14, { 1, 0.38, 0.38, 1 })
 

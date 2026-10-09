@@ -1395,7 +1395,13 @@ function Execute:Refresh()
     self.button:SetPoint(self.rowMode and "TOPRIGHT" or "TOPLEFT")
     self.label:SetText(nodeName(node, info))
     self.label:SetTextColor(OT:Unpack(disabled and "faint" or "text"))
-    self.button:SetWidth(OT:SnapWidth(self.label:GetStringWidth() + EXECUTE_PAD * 2))
+    -- A named step keeps buttons that belong together equally wide; otherwise
+    -- the label decides, snapped to the next step.
+    local want = self.label:GetStringWidth() + EXECUTE_PAD * 2
+    -- Also read from arg, which AceConfig validation accepts on any node.
+    local key = node.controlWidth or (type(node.arg) == "table" and node.arg.controlWidth)
+    local step = key and OT.width[key]
+    self.button:SetWidth(step and max(step, OT:SnapWidth(want)) or OT:SnapWidth(want))
     self.button:SetEnabled(not disabled)
     self:PaintEdge()
 end

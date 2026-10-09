@@ -21,18 +21,19 @@ local defaults = {
             },
             Dungeon     = {
                 -- One block each: "dungeon", "affixes", "level", "dungeonicon".
-                enabled = true, showName = true, showAffixes = true,
+                enabled = true, showName = true, nameShort = false, showAffixes = true,
                 showLevel = true, levelColor = false, -- keystone level
+                -- Optional badge: "none" | "square" | "rounded" | "pill" | "circle".
+                levelBg = "none", levelBgColorBy = "rarity", levelBgPadX = 6, levelBgPadY = 2, levelBgRadius = 4,
                 showIcon = false, iconSize = 20, -- optional map icon
-                bg = {
-                    show = false, color = { 0, 0, 0, 0.5 },
-                    border = false, borderTexture = "Solid",
-                    borderSize = 1, borderColor = { 0, 0, 0, 1 },
-                },
+                affixStyle = "text", affixIconSize = 20, affixIconGap = 4, -- "text" | "icons"
             },
             EnemyForces = { enabled = true, showMarkers = false }, -- checkpoint markers on the bar
             Objectives  = {
                 enabled = true, rowSpacing = 0,
+                -- "text" list, or icons: "row" | "column" | "grid" (perRow per line).
+                layout = "text", perRow = 3, iconStyle = "portrait", iconSize = 24, iconGap = 4,
+                shapePendingColor = { 1, 1, 1 }, shapeDoneColor = { 0.2, 1, 0.6 }, -- shape icon styles
                 -- Boss-name shortening for display: "off" | "truncate" (with
                 -- nameMaxLength characters + ellipsis) | "firstword" | "abbrev".
                 nameShorten = "off", nameMaxLength = 12,
@@ -59,12 +60,11 @@ local defaults = {
             x       = 0,
             y       = 0,
             scale   = 1,
-            orientation = "vertical", -- "vertical" (3 x 11 grid) | "horizontal" (5 x 3 grid)
+            -- gridCols/gridRows size the element grid; unset, MainWindow.GetGrid
+            -- falls back to its defaults.
             width   = 220,      -- HUD width in pixels (configurable)
-            widthHorizontal = 560, -- HUD width of the horizontal grid
             spacing = 2,        -- vertical gap (px) between stacked HUD blocks
             theme   = "default",
-            align   = "center", -- "left" | "center" | "right"
             locked  = true,     -- locked by default; unlock to drag the HUD
             demo    = false,
             showBest = false,    -- show the stored best run's split times behind live elements
@@ -78,11 +78,9 @@ local defaults = {
             window  = { font = false, slug = true, alpha = 1 },
             font = {},           -- global font baseline (font, fontSize, fontFlags)
             elements = {},       -- per-element style overrides, keyed by elementKey
-            -- No `after` key here: a legacy anchor in the DEFAULTS would be
-            -- re-injected on every login and re-trigger MigrateProfile forever.
+            separatorCount = 0,  -- separators 1..count exist; each shows once placed
             separators = {
-                { enabled = false, width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
-                { enabled = false, width = 180, height = 2, color = { 1, 1, 1, 0.5 } },
+                ["*"] = { width = 180, height = 2, color = { 1, 1, 1, 0.5 } }, -- width 0 = whole row
             },
             bg = {
                 show        = false,
@@ -126,11 +124,9 @@ local preset = {
             hideTracker = true,
         },
         Checkpoints = {
-            align = "right",
             enabled = true,
         },
         Cooldowns = {
-            align = "right",
             brez = {
                 on = true,
             },
@@ -140,20 +136,10 @@ local preset = {
             },
         },
         Deaths = {
-            align = "right",
             enabled = true,
             icon = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8",
         },
         Dungeon = {
-            align = "right",
-            bg = {
-                border = true,
-                borderColor = { 0, 0, 0, 1 },
-                borderSize = 1,
-                borderTexture = "Interface\\Buttons\\WHITE8X8",
-                color = { 0.1373, 0.2706, 0.4784, 0.5 },
-                show = true,
-            },
             enabled = true,
             iconSize = 42,
             levelColor = true,
@@ -167,7 +153,6 @@ local preset = {
             showMarkers = true,
         },
         Objectives = {
-            align = "right",
             doneIcon = "Interface\\RaidFrame\\ReadyCheck-Ready",
             doneIconColor = { 1, 1, 1 },
             enabled = true,
@@ -176,7 +161,6 @@ local preset = {
             rowSpacing = 0,
             showDoneIcon = true,
             showPendingIcon = true,
-            timeSide = "auto",
         },
         Sound = {
             enabled = true,
@@ -208,23 +192,19 @@ local preset = {
             },
         },
         Splits = {
-            align = "right",
             enabled = true,
             storeMode = "all",
         },
         Timer = {
-            align = "center",
             enabled = true,
             sectionCountdown = true,
             sectionCountdownAll = true,
             showBar = true,
-            showLevel = true,
             splitBar = true,
             splitGap = 6,
         },
     },
     ui = {
-        align = "center",
         bestPrefix = "",
         bestSuffix = "",
         -- ui.blockRows is deliberately absent: AceDB merges defaults index-wise
@@ -325,7 +305,6 @@ local preset = {
                 xOffset = 0,
                 yOffset = 0,
             },
-            hudTitle = {},
             objectiveText = {
                 doneColor = { 0.2, 1, 0.6, 1 },
                 fontSize = 18,
@@ -364,12 +343,6 @@ local preset = {
             timerBest = {
                 fontSize = 18,
             },
-            timerBonus = {
-                fontSize = 16,
-            },
-            timerLevel = {
-                fontSize = 16,
-            },
             timerSection = {
                 countdownPos = "left",
                 font = "Fonts\\FRIZQT__.TTF",
@@ -394,34 +367,9 @@ local preset = {
         locked = true,
         point = "RIGHT",
         scale = 1,
-        separators = {
-            {
-                color = { 0.6784, 0.6784, 0.6784, 1 },
-                enabled = false,
-                height = 2,
-                width = 400,
-            },
-            {
-                color = { 1, 1, 1, 0.5 },
-                enabled = false,
-                height = 2,
-                width = 180,
-            },
-        },
         showBest = true,
         spacing = 5,
-        style = {
-            barTexture = "Interface\\AddOns\\BigWigs\\Media\\Textures\\Smoothv2",
-            borderSize = 4,
-            fontFlags = "OUTLINE",
-            fontSize = 14,
-            sectionDividerColor = { 1, 1, 1, 0.65 },
-        },
         theme = "default",
-        title = {
-            show = true,
-            text = "",
-        },
         width = 400,
         x = -22,
         y = 265,
@@ -442,7 +390,7 @@ function Addon:SetupDB()
     end
 
     self:MigrateDB()
-    self:MigrateProfile()
+    self:CleanProfile()
 
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
@@ -450,7 +398,7 @@ function Addon:SetupDB()
 end
 
 function Addon:OnProfileChanged()
-    self:MigrateProfile() -- a switched/imported profile may carry legacy keys
+    self:CleanProfile() -- a switched/imported profile may carry stale keys
     if self.Widgets then self.Widgets:InvalidateStyle() end
     if self.RefreshMinimapButton then self:RefreshMinimapButton() end
 
@@ -469,214 +417,40 @@ function Addon:OnProfileChanged()
     end
 end
 
+-- Settings of earlier HUD layouts that nothing reads anymore. Profiles from
+-- before the grid are not carried over; this only keeps them from piling up.
+local OBSOLETE_UI = {
+    "align", "blocksSplit", "blockOrder", "orientation", "horizontalColumns", "blockRowsHorizontal",
+    "widthHorizontal", "widthHorizontal7", "widthHorizontal9", "title", "style",
+    "horizontalAlign2", "horizontalAlign3", "horizontalAlign4", "horizontalAlign5",
+    "horizontalAlign6", "horizontalAlign7", "horizontalAlign8",
+}
+local OBSOLETE_ELEMENTS = { "hudTitle", "timerBonus", "timerLevel", "cooldownsText" }
+local OBSOLETE_MODULE = {
+    Timer = { "showLevel" },
+    Dungeon = { "bg", "levelPos", "levelSep", "iconPos", "levelBgRarity" },
+    EnemyForces = { "position" },
+    Objectives = { "timeSide" },
+    Deaths = { "iconSize" },
+    Cooldowns = { "brezIconSize", "lustIconSize" },
+}
+
 -- Idempotent: also runs after every profile switch, copy, reset and import.
-function Addon:MigrateProfile()
+function Addon:CleanProfile()
     local p = self.db.profile
-
-    local function writeRows(keys) -- one block per row, from a flat key list
-        local rows = {}
-        for i, key in ipairs(keys) do
-            rows[i] = { key }
-        end
-        p.ui.blockRows = rows
+    for _, key in ipairs(OBSOLETE_UI) do p.ui[key] = nil end
+    if p.ui.elements then
+        for _, key in ipairs(OBSOLETE_ELEMENTS) do p.ui.elements[key] = nil end
     end
-
-    local maxCols = (self.MainWindow and self.MainWindow.MAX_COLS) or 5
-
-    -- Rows were { left = key, right = key } before the grid got more columns.
-    for _, rowsKey in ipairs({ "blockRows", "blockRowsHorizontal" }) do
-        local rows = p.ui[rowsKey]
-        if type(rows) == "table" then
-            for i, row in ipairs(rows) do
-                if type(row) == "table" and (row.left ~= nil or row.right ~= nil) then
-                    rows[i] = { row[1] or row.left, row[2] or row.right }
-                end
-            end
+    for name, settings in pairs(p.modules or {}) do
+        if type(settings) == "table" then
+            settings.align = nil
+            for _, key in ipairs(OBSOLETE_MODULE[name] or {}) do settings[key] = nil end
         end
     end
-
-    -- Never-released intermediate format of the row layout; drop it.
-    if p.ui.blockOrder ~= nil then
-        p.ui.blockOrder = nil
+    for _, sep in pairs(p.ui.separators or {}) do
+        if type(sep) == "table" then sep.after, sep.enabled = nil, nil end
     end
-
-    -- "Bar position" became the free row ordering. The default rows already
-    -- match the old default, so only a saved "top" needs carrying over.
-    local forces = p.modules and p.modules.EnemyForces
-    if forces then
-        if forces.position ~= nil then
-            if forces.position == "top" then
-                writeRows({ "dungeon", "timer", "forces", "objectives",
-                    "deaths", "splits", "checkpoints", "cooldowns" })
-            end
-            forces.position = nil
-        end
-        forces.align = nil
-    end
-
-    -- Separators lost their "after <element>" anchor and are ordinary row
-    -- entries now; rebuild the rows once so each keeps its old position.
-    local seps = p.ui.separators
-    if seps and ((seps[1] and seps[1].after ~= nil)
-        or (seps[2] and seps[2].after ~= nil)) then
-        -- Strip exactly the anchored ones from the base so they cannot end up
-        -- duplicated; an unanchored separator keeps its current row.
-        local migrating = {}
-        for i = 1, 2 do
-            if seps[i] and seps[i].after ~= nil then
-                migrating["separator" .. i] = true
-            end
-        end
-        local base = {}
-        if type(p.ui.blockRows) == "table" then
-            for _, row in ipairs(p.ui.blockRows) do
-                if type(row) == "table" then
-                    for c = 1, maxCols do
-                        if row[c] and not migrating[row[c]] then
-                            base[#base + 1] = row[c]
-                        end
-                    end
-                end
-            end
-        end
-        if #base == 0 then
-            base = { "dungeon", "timer", "objectives", "forces",
-                "deaths", "splits", "checkpoints", "cooldowns" }
-        end
-        local keys = {}
-        for _, key in ipairs(base) do
-            keys[#keys + 1] = key
-            for i = 1, 2 do
-                if seps[i] and seps[i].after == key then
-                    keys[#keys + 1] = "separator" .. i
-                end
-            end
-        end
-        writeRows(keys)
-        for i = 1, 2 do
-            if seps[i] then seps[i].after = nil end
-        end
-    end
-
-    -- The stacked timer layouts became a position of the second value.
-    local timer = p.modules and p.modules.Timer
-    if timer then
-        if timer.textLayout == "stacked" then
-            timer.textLayout, timer.secondPos = "inline", "below"
-        elseif timer.textLayout == "stackedRemaining" then
-            timer.textLayout, timer.secondPos = "elapsedRemaining", "below"
-        end
-        if timer.bestPos == "beside" then timer.bestPos = nil end
-    end
-
-    -- Dungeon and Cooldowns became one block per part. The new parts go next
-    -- to where the old block sat, so a saved layout keeps its look.
-    local dungeon = p.modules and p.modules.Dungeon or {}
-    local horizontalCols = p.ui.horizontalColumns == 7 and 7 or 5
-    for _, grid in ipairs({ { "blockRows", 3 }, { "blockRowsHorizontal", horizontalCols } }) do
-        local rowsKey, cols = grid[1], grid[2]
-        local rows = p.ui[rowsKey]
-        if type(rows) == "table" then
-            local function find(key)
-                for i, row in ipairs(rows) do
-                    if type(row) == "table" then
-                        for c = 1, cols do
-                            if row[c] == key then return i, c end
-                        end
-                    end
-                end
-            end
-            local function putNear(key, i, c, side)
-                local row = rows[i]
-                for _, cc in ipairs({ c + side, c - side }) do
-                    if cc >= 1 and cc <= cols and row[cc] == nil then row[cc] = key; return end
-                end
-                for cc = 1, cols do
-                    if row[cc] == nil then row[cc] = key; return end
-                end
-                table.insert(rows, i + 1, { [c] = key })
-            end
-
-            local i, c = find("cooldowns")
-            if i then
-                rows[i][c] = "brez"
-                putNear("bloodlust", i, c, 1)
-            end
-
-            i, c = find("dungeon")
-            if i and not (find("level") or find("affixes") or find("dungeonicon")) then
-                if dungeon.showIcon == true then
-                    putNear("dungeonicon", i, c, dungeon.iconPos == "right" and 1 or -1)
-                end
-                if dungeon.showLevel ~= false then
-                    putNear("level", i, c, dungeon.levelPos == "right" and 1 or -1)
-                end
-                if dungeon.showAffixes ~= false then
-                    table.insert(rows, i + 1, { [c] = "affixes" })
-                end
-            end
-        end
-    end
-    dungeon.levelPos, dungeon.levelSep, dungeon.iconPos = nil, nil, nil
-
-    -- The parts take over the old shared text style once.
-    local elements = p.ui.elements
-    if elements then
-        local function copyOnto(from, to)
-            local target = elements[to] or {}
-            for k, v in pairs(from) do
-                target[k] = type(v) == "table" and Addon.Utils.CopyTable(v) or v
-            end
-            elements[to] = target
-        end
-        if type(elements.cooldownsText) == "table" then
-            copyOnto(elements.cooldownsText, "brezText")
-            copyOnto(elements.cooldownsText, "lustText")
-            elements.cooldownsText = nil
-        end
-        if not p.ui.blocksSplit and type(elements.dungeonName) == "table" then
-            copyOnto(elements.dungeonName, "dungeonLevel")
-        end
-    end
-    p.ui.blocksSplit = true
-
-    -- Earlier pre-release iterations of the migration above accumulated
-    -- duplicates and overlong layouts. Only rewrite when actually damaged, so
-    -- intentional row gaps survive.
-    local maxRows = (self.MainWindow and self.MainWindow.MAX_ROWS) or 11
-    for _, rowsKey in ipairs({ "blockRows", "blockRowsHorizontal" }) do
-        local rows = p.ui[rowsKey]
-        if type(rows) == "table" then
-            local seen, damaged = {}, #rows > maxRows
-            for _, row in ipairs(rows) do
-                if type(row) == "table" then
-                    for c = 1, maxCols do
-                        if row[c] ~= nil then
-                            if seen[row[c]] then damaged = true end
-                            seen[row[c]] = true
-                        end
-                    end
-                end
-            end
-            if damaged then
-                local clean, taken = {}, {}
-                for _, row in ipairs(rows) do
-                    if type(row) == "table" and #clean < maxRows then
-                        local out, any = {}, false
-                        for c = 1, maxCols do
-                            local key = row[c]
-                            if type(key) == "string" and not taken[key] then
-                                taken[key], out[c], any = true, key, true
-                            end
-                        end
-                        if any then clean[#clean + 1] = out end
-                    end
-                end
-                p.ui[rowsKey] = clean
-            end
-        end
-    end
-
     if self.MainWindow and self.MainWindow.InvalidateRows then
         self.MainWindow:InvalidateRows()
     end

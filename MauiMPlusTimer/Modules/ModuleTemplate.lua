@@ -8,9 +8,6 @@ local Addon = ns.Addon
 local ModuleBase = {}
 ns.ModuleBase = ModuleBase
 
-function ModuleBase:RegisterEvents() end
-function ModuleBase:UnregisterEvents() end
-function ModuleBase:SaveSettings() end
 function ModuleBase:SetDemo(state) end
 function ModuleBase:GetOptions() return nil end
 

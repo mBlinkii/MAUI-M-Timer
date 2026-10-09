@@ -59,7 +59,6 @@ ns.E = {
     deathsText      = "deathsText",
     splitsText      = "splitsText",
     checkpointsText = "checkpointsText",
-    cooldownsText   = "cooldownsText", -- legacy, copied into brezText/lustText
     brezText        = "brezText",
     lustText        = "lustText",
     -- Shared color buckets

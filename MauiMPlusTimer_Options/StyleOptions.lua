@@ -438,7 +438,7 @@ function Addon:BuildColorsOptions()
                 },
             },
             splits = {
-                type = "group", inline = true, name = L["Splits"], order = 50,
+                type = "group", inline = true, name = L["Time difference"], order = 50,
                 args = { text = areaColor(ns.E.splitsText, "textColor", L["Text"], 1) },
             },
             checkpoints = {
@@ -515,60 +515,100 @@ function Addon:BuildWindowOptions()
     }
     Addon:AddBackgroundGroups(page.args, bg, apply, 1)
 
+    return page
+end
+
+-- Shape of a square icon via the icon masks; "none" keeps it square.
+function Addon:IconShapeOption(get, set, order, disabled)
+    local L = ns.L
+    return {
+        type = "select", name = L["Shape"], order = order, disabled = disabled,
+        values = {
+            none = L["None"], circle = L["Circle"], square = L["Rounded square"],
+            octagon = L["Octagon"], diamond = L["Diamond"],
+        },
+        sorting = { "none", "circle", "square", "octagon", "diamond" },
+        get = function() return get() or "none" end,
+        set = function(_, v) set(v ~= "none" and v or nil) end,
+    }
+end
+
+-- Separator lines: a page of their own among the modules. Each one exists
+-- while its number is within the count and shows once placed in the grid.
+function Addon:BuildSeparatorOptions()
+    local L = ns.L
+    local MainWindow = Addon.MainWindow
     local function sepCfg(i)
         local ui = Addon.db.profile.ui
         ui.separators = ui.separators or {}
         ui.separators[i] = ui.separators[i] or {}
         return ui.separators[i]
     end
-    -- Toggling a separator changes which entries the row layout has to place.
-    local function sepApply()
-        Addon.MainWindow:InvalidateRows()
-        Addon.MainWindow:Layout()
+    local function apply()
+        MainWindow:InvalidateRows()
+        MainWindow:Layout()
     end
-    local function separatorGroup(i, order)
-        local function off() return sepCfg(i).enabled ~= true end
-        return {
-            type = "group", inline = true, name = L["Separator line"] .. " " .. i, order = order,
+
+    local page = {
+        type = "group", name = L["Separator lines"], order = 80,
+        icon = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Menu\\window",
+        args = {
+            count = {
+                type = "range", name = L["Number of lines"], order = 1, min = 0, max = MainWindow.MAX_SEPARATORS, step = 1,
+                desc = L["Each line is an element of its own in the element order; it shows once you place it there."],
+                get = function() return MainWindow:GetSeparatorCount() end,
+                set = function(_, v)
+                    Addon.db.profile.ui.separatorCount = v
+                    apply()
+                    Addon:NotifyAfterRelease()
+                end,
+            },
+        },
+    }
+    for i = 1, MainWindow.MAX_SEPARATORS do
+        page.args["sep" .. i] = {
+            type = "group", inline = true, name = L["Separator line"] .. " " .. i, order = 10 + i,
+            hidden = function() return i > MainWindow:GetSeparatorCount() end,
             args = {
-                enabled = {
-                    type = "toggle", name = L["Enable"], order = 1,
-                    get = function() return sepCfg(i).enabled == true end,
-                    set = function(_, v) sepCfg(i).enabled = v; sepApply() end,
-                },
                 width = {
-                    type = "range", name = L["Width"], order = 3, min = 10, max = 600, step = 2,
-                    disabled = off,
+                    type = "range", name = L["Width (0 = full width)"], order = 1, min = 0, max = 1000, step = 1,
+                    width = 1.5,
                     get = function() return sepCfg(i).width or 180 end,
-                    set = function(_, v) sepCfg(i).width = v; sepApply() end,
+                    set = function(_, v) sepCfg(i).width = v; apply() end,
                 },
                 height = {
-                    type = "range", name = L["Height"], order = 4, min = 1, max = 20, step = 1,
-                    disabled = off,
+                    type = "range", name = L["Height"], order = 2, min = 1, max = 50, step = 1,
+                    width = 1.5,
                     get = function() return sepCfg(i).height or 2 end,
-                    set = function(_, v) sepCfg(i).height = v; sepApply() end,
+                    set = function(_, v) sepCfg(i).height = v; apply() end,
+                },
+                fullRow = {
+                    type = "toggle", name = L["Take a whole row"], order = 4, width = "full",
+                    desc = L["Keep the row to this line alone; otherwise it sits in its column like any other element."],
+                    get = function() return sepCfg(i).fullRow == true end,
+                    set = function(_, v)
+                        sepCfg(i).fullRow = v or nil
+                        MainWindow:InvalidateRows()
+                        MainWindow:Refresh()
+                    end,
                 },
                 color = {
-                    type = "color", name = L["Color"], order = 5, hasAlpha = true,
-                    disabled = off,
+                    type = "color", name = L["Color"], order = 3, hasAlpha = true,
                     get = function()
                         local c = sepCfg(i).color or { 1, 1, 1, 0.5 }
                         return c[1], c[2], c[3], c[4] or 1
                     end,
-                    set = function(_, r, g, b, a) sepCfg(i).color = { r, g, b, a }; sepApply() end,
+                    set = function(_, r, g, b, a) sepCfg(i).color = { r, g, b, a }; apply() end,
                 },
             },
         }
     end
-    page.args.separators = {
-        type = "group", inline = true, name = L["Separator lines"], order = 10,
-        args = { sep1 = separatorGroup(1, 1), sep2 = separatorGroup(2, 2) },
-    }
     return page
 end
 
 -- Flat args, so the same controls can be a group of their own or merged into a
--- larger one. Occupies orders base+1 .. base+13.
+-- larger one. Occupies orders base+1 .. base+13; opts.icon adds the size of
+-- the element's icons, opts.color its text color.
 function Addon:ElementTextArgs(module, key, base, opts)
     base = base or 0
     opts = opts or {}
@@ -584,6 +624,10 @@ function Addon:ElementTextArgs(module, key, base, opts)
         fontSize = { type = "range", name = L["Font size"], order = base + 4, min = 8, max = 64, step = 1,
             get = function() return eff(key, "fontSize") end,
             set = function(_, v) element(key).fontSize = v; restyle(module) end },
+        iconSize = opts.icon and { type = "range", name = L["Icon size"], order = base + 4.5, min = 0, max = 64, step = 1,
+            desc = L["0 = follows the font size."],
+            get = function() return elementRead(key).iconSize or 0 end,
+            set = function(_, v) element(key).iconSize = v > 0 and v or nil; restyle(module) end } or nil,
         nlOffset = Addon:OptLine(base + 9),
         xOffset = { type = "range", name = L["X offset"], order = base + 10, min = -150, max = 150, step = 1,
             get = function() return elementRead(key).xOffset or 0 end,
@@ -595,8 +639,13 @@ function Addon:ElementTextArgs(module, key, base, opts)
     }
     if opts.color then
         args.textColor = { type = "color", name = L["Text color"], order = base + 13, hasAlpha = true,
+            disabled = function() return elementRead(key).classColor == true end,
             get = function() local c = eff(key, "textColor") or { 1, 1, 1, 1 }; return c[1], c[2], c[3], c[4] or 1 end,
             set = function(_, r, g, b, a) element(key).textColor = { r, g, b, a }; restyle(module) end }
+        args.classColor = { type = "toggle", name = L["Class color"], order = base + 13.5,
+            desc = L["Colors the text in your class color instead of the text color."],
+            get = function() return elementRead(key).classColor == true end,
+            set = function(_, v) element(key).classColor = v or nil; restyle(module) end }
     end
     return args
 end
@@ -631,8 +680,23 @@ function Addon:ElementBarOptions(module, key, order, opts)
             get = function() return elementRead(key).width or 0 end,
             set = function(_, v) element(key).width = (v > 0 and v or nil); restyle(module) end },
         height = { type = "range", name = L["Bar height"], order = 5, min = 4, max = 48, step = 1,
-            get = function() return elementRead(key).height or 14 end,
-            set = function(_, v) element(key).height = v; restyle(module) end },
+            -- A rounded bar keeps the minimum height its corners need.
+            get = function() return Addon.Widgets:BarHeight(elementRead(key), 14) end,
+            set = function(_, v)
+                local e = element(key)
+                e.height = v
+                e.height = Addon.Widgets:BarHeight(e, 14)
+                restyle(module)
+            end },
+        cornerRadius = { type = "range", name = L["Corner rounding"], order = 5.5, min = 0, max = 16, step = 1,
+            desc = L["Radius of the rounded corners in pixels, 0 = square. At most half the bar height; with rounding the border follows the corners. Rounded bars are at least 15 px high."],
+            get = function() return elementRead(key).cornerRadius or 0 end,
+            set = function(_, v)
+                local e = element(key)
+                e.cornerRadius = v > 0 and v or nil
+                if e.cornerRadius then e.height = Addon.Widgets:BarHeight(e, 14) end
+                restyle(module)
+            end },
         nlColor = Addon:OptLine(6),
         edge = {
             type = "group", inline = true, name = L["Edge line"], order = 15,

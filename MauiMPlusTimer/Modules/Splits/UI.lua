@@ -10,10 +10,12 @@ Splits.UI = UI
 
 -- Optional replacement for the "Run vs best" label.
 local ICON_PATH = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Labels\\vsbest.tga"
+local WHITE = { 1, 1, 1 }
 
 -- delta in seconds, negative is ahead. nil hides the block.
 function UI:Update(delta)
     self:Build()
+    self:Remember(delta)
     -- showText only hides the line; recording continues for the other displays.
     if delta == nil or Splits:GetSettings().showText == false then
         self.frame:Hide()
@@ -26,7 +28,8 @@ function UI:Update(delta)
         if settings.showLabel == false then
             label = nil
         elseif settings.labelIcon == true then
-            label = Addon.Utils.IconTag(ICON_PATH, settings.labelIconColor)
+            label = Addon.Widgets:IconEscape(ICON_PATH, ICON_PATH, Addon.Widgets:IconSize(ns.E.splitsText),
+                settings.labelIconColor or WHITE)
         else
             label = ns.L["Run vs best"] .. ":"
         end

@@ -16,7 +16,13 @@ function Cooldowns:GetOptionPages()
 
     -- The charge count follows the base text color, the recharge timer its own.
     local brezArgs = head("brez")
-    brezArgs.text = Addon:ElementTextOptions(self, ns.E.brezText, 20, { color = true })
+    brezArgs.symbols = {
+        type = "group", inline = true, name = L["Symbols"], order = 10,
+        args = {
+            icon = Addon:IconSelectOption(self, "brez", "brezIcon", L["Icon"], 1),
+        },
+    }
+    brezArgs.text = Addon:ElementTextOptions(self, ns.E.brezText, 20, { color = true, icon = true })
     brezArgs.text.args.rechargeColor = Addon:ElementColorOption(self, ns.E.brezText, "rechargeColor",
         L["Recharge color"], 15, { 0.60, 0.60, 0.60, 1 })
 
@@ -24,12 +30,14 @@ function Cooldowns:GetOptionPages()
     lustArgs.symbols = {
         type = "group", inline = true, name = L["Symbols"], order = 10,
         args = {
+            icon = Addon:IconSelectOption(self, "lust", "lustIcon", L["Icon"], 0.5),
+            nlReady = Addon:OptLine(0.7),
             readyIcon = Addon:IconSelectOption(self, "ready", "readyIcon", L["Heroism ready icon"], 1),
             nl = Addon:OptLine(2),
             readyIconColor = Addon:IconColorOption(self, "readyIconColor", L["Heroism ready icon color"], 3),
         },
     }
-    lustArgs.text = Addon:ElementTextOptions(self, ns.E.lustText, 20, { color = true })
+    lustArgs.text = Addon:ElementTextOptions(self, ns.E.lustText, 20, { color = true, icon = true })
     lustArgs.text.args.cdColor = Addon:ElementColorOption(self, ns.E.lustText, "cdColor",
         L["Cooldown color"], 14, { 1, 0.38, 0.38, 1 })
 

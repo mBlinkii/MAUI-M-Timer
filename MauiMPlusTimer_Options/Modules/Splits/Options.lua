@@ -1,6 +1,6 @@
 -- Modules/Splits/Options.lua
--- AceConfig options group for the Splits module: enable, the times manager, the
--- best-time display options (global: show + bracket style) and text styling.
+-- AceConfig pages for the Splits module: recording (enable, the times manager,
+-- storage, best-time display) and the time difference line in the HUD.
 
 local _, ns = ...
 local Addon = ns.Addon
@@ -48,55 +48,6 @@ function Splits:GetOptions()
             settings = {
                 type = "group", inline = true, name = L["Settings"], order = 3,
                 args = {
-                    showText = {
-                        type = "toggle", name = L["Show run vs best line"], order = 1.3, width = "full",
-                        desc = L["Show the run-vs-best line in the HUD. When off, best times are still recorded for the timer, forces and objectives - only this line is hidden. Removing 'Splits' in General -> Element order does the same."],
-                        get = function() return Splits:GetSettings().showText ~= false end,
-                        set = function(_, v)
-                            Splits:GetSettings().showText = v
-                            if Splits.ApplyBlocksShown then Splits:ApplyBlocksShown() end
-                            Addon.MainWindow:InvalidateRows()
-                            Addon.MainWindow:Layout()
-                        end,
-                    },
-                    showLabel = {
-                        type = "toggle", name = L["Show label"], order = 1.4,
-                        desc = L["Show the 'Run vs best' label before the delta. When off, only the +/- delta is shown."],
-                        disabled = function() return Splits:GetSettings().showText == false end,
-                        get = function() return Splits:GetSettings().showLabel ~= false end,
-                        set = function(_, v)
-                            Splits:GetSettings().showLabel = v
-                            Addon.MainWindow:Refresh()
-                        end,
-                    },
-                    labelIcon = {
-                        type = "toggle", name = L["Icon instead of label"], order = 1.5,
-                        desc = L["Replace the 'Run vs best' text with a compact icon."],
-                        disabled = function()
-                            local s = Splits:GetSettings()
-                            return s.showText == false or s.showLabel == false
-                        end,
-                        get = function() return Splits:GetSettings().labelIcon == true end,
-                        set = function(_, v)
-                            Splits:GetSettings().labelIcon = v
-                            Addon.MainWindow:Refresh()
-                        end,
-                    },
-                    labelIconColor = {
-                        type = "color", name = L["Icon color"], order = 1.6,
-                        disabled = function()
-                            local s = Splits:GetSettings()
-                            return s.showText == false or s.showLabel == false or s.labelIcon ~= true
-                        end,
-                        get = function()
-                            local c = Splits:GetSettings().labelIconColor or { 1, 1, 1 }
-                            return c[1], c[2], c[3]
-                        end,
-                        set = function(_, r, g, b)
-                            Splits:GetSettings().labelIconColor = { r, g, b }
-                            Addon.MainWindow:Refresh()
-                        end,
-                    },
                     storeMode = {
                         type = "select", name = L["Storage mode"], order = 2,
                         desc = L["Keep only the best time per dungeon/level, or a full history."],
@@ -136,7 +87,61 @@ function Splits:GetOptions()
                     },
                 },
             },
-            text = Addon:ElementTextOptions(self, ns.E.splitsText, 20, { color = true }),
+        },
+    }
+end
+
+-- The HUD line with the time saved or lost against the best run is an element
+-- of its own; the Splits page keeps the recording.
+function Splits:GetOptionPages()
+    local L = ns.L
+    local function labelOff() return Splits:GetSettings().showLabel == false end
+    return {
+        timedelta = {
+            type = "group",
+            name = L["Time difference"],
+            order = 51,
+            icon = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Modules\\splits",
+            args = {
+                enabled = Addon:BlockEnableOption("splits", 1),
+                label = {
+                    type = "group", inline = true, name = L["Label"], order = 2,
+                    args = {
+                        showLabel = {
+                            type = "toggle", name = L["Show label"], order = 1,
+                            desc = L["Show the 'Run vs best' label before the delta. When off, only the +/- delta is shown."],
+                            get = function() return Splits:GetSettings().showLabel ~= false end,
+                            set = function(_, v)
+                                Splits:GetSettings().showLabel = v
+                                Addon.MainWindow:Refresh()
+                            end,
+                        },
+                        labelIcon = {
+                            type = "toggle", name = L["Icon instead of label"], order = 2,
+                            desc = L["Replace the 'Run vs best' text with a compact icon."],
+                            disabled = labelOff,
+                            get = function() return Splits:GetSettings().labelIcon == true end,
+                            set = function(_, v)
+                                Splits:GetSettings().labelIcon = v
+                                Addon.MainWindow:Refresh()
+                            end,
+                        },
+                        labelIconColor = {
+                            type = "color", name = L["Icon color"], order = 3,
+                            disabled = function() return labelOff() or Splits:GetSettings().labelIcon ~= true end,
+                            get = function()
+                                local c = Splits:GetSettings().labelIconColor or { 1, 1, 1 }
+                                return c[1], c[2], c[3]
+                            end,
+                            set = function(_, r, g, b)
+                                Splits:GetSettings().labelIconColor = { r, g, b }
+                                Addon.MainWindow:Refresh()
+                            end,
+                        },
+                    },
+                },
+                text = Addon:ElementTextOptions(self, ns.E.splitsText, 20, { color = true, icon = true }),
+            },
         },
     }
 end

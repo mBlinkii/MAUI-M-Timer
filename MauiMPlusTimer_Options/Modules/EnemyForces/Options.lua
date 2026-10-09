@@ -8,7 +8,7 @@ local Forces = Addon:GetModule("EnemyForces")
 function Forces:GetOptions()
     local L = ns.L
 
-    local textOpts = Addon:ElementTextOptions(self, ns.E.forcesText, 20, { color = true })
+    local textOpts = Addon:ElementTextOptions(self, ns.E.forcesText, 20, { color = true, icon = true })
     textOpts.args.showText = {
         type = "toggle", name = L["Show percentage text"], order = 13, width = "full",
         desc = L["Show the forces percentage (and remaining count) text on the bar."],

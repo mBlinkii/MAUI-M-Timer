@@ -12,6 +12,10 @@ Objectives.UI = UI
 local DEFAULT_DONE    = "Interface\\RaidFrame\\ReadyCheck-Ready"
 local DEFAULT_PENDING = "Interface\\RaidFrame\\ReadyCheck-Waiting"
 
+-- Icon styles drawn as a shape: outline while pending, filled once defeated.
+local SHAPE_DIR = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Shapes\\"
+local SHAPES = { circle = true, square = true, octagon = true, diamond = true }
+
 local function alignH()
     return Addon.MainWindow:GetJustifyH("Objectives")
 end
@@ -29,6 +33,10 @@ function UI:Build()
     block:SetSize(Addon.MainWindow:GetWidth(), rowHeight())
     self.frame = block
     self.rows = {}
+    -- The column width arrives after the first placement.
+    block:SetScript("OnSizeChanged", function()
+        if UI._lastBosses then UI:Update(UI._lastBosses) end
+    end)
     block:Hide()
     Addon.MainWindow:AddBlock("objectives", block, 30)
 end
@@ -69,10 +77,123 @@ function UI:LayoutRow(row, mode, x, y, rowH)
     end
 end
 
+-- Icon layouts: how many icons share one line, nil for the text list.
+local function iconsPerLine(count)
+    local s = Objectives:GetSettings()
+    if s.layout == "row" then return math.max(1, count) end
+    if s.layout == "column" then return 1 end
+    if s.layout == "grid" then return math.max(1, s.perRow or 3) end
+    return nil
+end
+
+function UI:GetIcon(i)
+    self.icons = self.icons or {}
+    local icon = self.icons[i]
+    if not icon then
+        icon = self.frame:CreateTexture(nil, "ARTWORK")
+        -- Marks a defeated boss on its portrait.
+        icon.check = self.frame:CreateTexture(nil, "OVERLAY")
+        self.icons[i] = icon
+    end
+    return icon
+end
+
+-- One icon per boss: its portrait (grey until defeated, then marked) or the
+-- status icon, laid out in lines and aligned as a block like any HUD text.
+function UI:UpdateIcons(bosses, perLine)
+    local s = Objectives:GetSettings()
+    local size = s.iconSize or 24
+    local gap = s.iconGap or 4
+    local style = s.iconStyle or "portrait"
+    local shape = SHAPES[style] and style
+    local portrait = style == "portrait" and SetPortraitTextureFromCreatureDisplayID
+    -- The demo has no Journal creatures, so it shows the player instead.
+    local demoPortrait = portrait and Objectives.state.demo and SetPortraitTexture
+
+    local list = self._iconList or {}
+    self._iconList = list
+    for i = #list, 1, -1 do list[i] = nil end
+    for _, boss in ipairs(bosses) do
+        if not boss.forces then list[#list + 1] = boss end
+    end
+
+    local count = #list
+    perLine = math.min(perLine, math.max(1, count))
+    local lines = math.max(1, math.ceil(count / perLine))
+    local blockW = perLine * size + (perLine - 1) * gap
+    local frameW = self.frame:GetWidth() or 0
+    local mode = alignH()
+    local x0 = 0
+    if mode == "RIGHT" then
+        x0 = frameW - blockW
+    elseif mode == "CENTER" then
+        x0 = (frameW - blockW) / 2
+    end
+    local ox, oy = Addon.Widgets:GetOffset(ns.E.objectiveText)
+    x0 = Addon.Widgets:Snap(self.frame, x0 + ox)
+
+    for i, boss in ipairs(list) do
+        local icon = self:GetIcon(i)
+        local col, line = (i - 1) % perLine, math.floor((i - 1) / perLine)
+        icon:ClearAllPoints()
+        icon:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x0 + col * (size + gap), -line * (size + gap) + oy)
+        icon:SetSize(size, size)
+        Addon.Widgets:ApplyIconMask(icon, not shape and s.iconMask or nil)
+        icon.check:Hide()
+        if shape then
+            local c = boss.done and s.shapeDoneColor or s.shapePendingColor
+            icon:SetTexture(SHAPE_DIR .. shape .. (boss.done and "_filled" or ""))
+            icon:SetTexCoord(0, 1, 0, 1)
+            icon:SetDesaturated(false)
+            icon:SetAlpha(1)
+            icon:SetVertexColor(c and c[1] or 1, c and c[2] or 1, c and c[3] or 1)
+        elseif (portrait and boss.displayInfo) or demoPortrait then
+            if boss.displayInfo then portrait(icon, boss.displayInfo) else demoPortrait(icon, "player") end
+            icon:SetTexCoord(0, 1, 0, 1)
+            icon:SetVertexColor(1, 1, 1)
+            icon:SetDesaturated(not boss.done)
+            icon:SetAlpha(boss.done and 1 or 0.5)
+            if boss.done then
+                local c = s.doneIconColor
+                icon.check:SetTexture(s.doneIcon or DEFAULT_DONE)
+                icon.check:SetVertexColor(c and c[1] or 1, c and c[2] or 1, c and c[3] or 1)
+                icon.check:SetSize(math.floor(size * 0.5), math.floor(size * 0.5))
+                icon.check:ClearAllPoints()
+                icon.check:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 2, -2)
+                icon.check:Show()
+            end
+        else
+            local c = boss.done and s.doneIconColor or s.pendingIconColor
+            icon:SetTexture(boss.done and (s.doneIcon or DEFAULT_DONE) or (s.pendingIcon or DEFAULT_PENDING))
+            icon:SetDesaturated(false)
+            icon:SetAlpha(1)
+            icon:SetVertexColor(c and c[1] or 1, c and c[2] or 1, c and c[3] or 1)
+        end
+        icon:Show()
+    end
+    for i = count + 1, #(self.icons or {}) do
+        self.icons[i]:Hide()
+        self.icons[i].check:Hide()
+    end
+    for _, row in ipairs(self.rows) do
+        row.name:Hide()
+        row.time:Hide()
+    end
+
+    self.frame:SetHeight(math.max(1, lines * size + (lines - 1) * gap))
+    Addon.MainWindow:Layout()
+end
+
 function UI:Update(bosses)
     if not self.frame then return end
     bosses = bosses or {}
     self._lastBosses = bosses -- Restyle rebuilds from this on an alignment change
+    local perLine = iconsPerLine(#bosses)
+    if perLine then return self:UpdateIcons(bosses, perLine) end
+    for _, icon in ipairs(self.icons or {}) do
+        icon:Hide()
+        icon.check:Hide()
+    end
     local mode = alignH()
     local x, y = Addon.Widgets:GetOffset(ns.E.objectiveText)
     local rowH = rowHeight()
@@ -154,7 +275,7 @@ function UI:Update(bosses)
         self.rows[i].time:Hide()
     end
 
-    self.frame:SetSize(Addon.MainWindow:GetWidth(), math.max(#bosses * rowH, 1))
+    self.frame:SetHeight(math.max(#bosses * rowH, 1)) -- the width is the grid's
     Addon.MainWindow:Layout()
 end
 

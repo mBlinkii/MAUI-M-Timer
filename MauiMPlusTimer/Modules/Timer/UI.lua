@@ -40,7 +40,7 @@ end
 function UI:LayoutBar()
     if not (self.bar and self.barFrame) then return end
     local s = Addon.Widgets.ResolveStyle(ns.E.timerBar)
-    local h = s.height or 14
+    local h = Addon.Widgets:BarHeight(s, 14)
     local topExtra, bottomExtra = self:CountdownExtra()
     self._barBottom = bottomExtra
     self.barFrame:SetHeight(topExtra + h + bottomExtra)
@@ -130,12 +130,13 @@ UI.TEXT_LAYOUTS = {
 }
 UI.TEXT_LAYOUT_ORDER = { "inline", "elapsedRemaining", "elapsed", "remaining", "remainingMax" }
 -- Where the second value and the best time sit relative to the time.
-UI.PART_POSITIONS = { "left", "right", "above", "below" }
+-- The stacked ones share one column beside the time, second value on top.
+UI.PART_POSITIONS = { "left", "right", "above", "below", "leftStack", "rightStack" }
+local KNOWN_POS = { left = true, above = true, below = true, leftStack = true, rightStack = true }
 
 local function partPos(key)
     local pos = Timer:GetSettings()[key]
-    if pos == "left" or pos == "above" or pos == "below" then return pos end
-    return "right"
+    return KNOWN_POS[pos] and pos or "right"
 end
 
 local PART_GAP = 6 -- between the parts on one line
@@ -207,8 +208,11 @@ function UI:FillText(t, elapsed, timeLimit, best)
     end
 end
 
--- Lines top to bottom, each a run of parts aligned as a whole.
+-- Lines top to bottom, each a run of items aligned as a whole. An item is a
+-- FontString or a stack of them (a column beside the time).
 local lines = { {}, {}, {}, {}, {} }
+local leftStack, rightStack = {}, {}
+local lineWs, lineHs = {}, {}
 
 -- Returns the height the parts need; the caller sizes its frame to it.
 function UI:PlaceText(t, justify)
@@ -219,6 +223,31 @@ function UI:PlaceText(t, justify)
     for _, l in ipairs(lines) do
         for i = #l, 1, -1 do l[i] = nil end
     end
+    for i = #leftStack, 1, -1 do leftStack[i] = nil end
+    for i = #rightStack, 1, -1 do rightStack[i] = nil end
+    leftStack.alignRight, rightStack.alignRight = true, false
+
+    local function heightOf(fs)
+        if fs == t.main then return Addon.Widgets:LineHeight(ns.E.timerText, 16) end
+        return Addon.Widgets:LineHeight(ns.E.timerText, 16, fs == t.second and secondSize or bestSize)
+    end
+    local function widthOf(item)
+        if item.GetWidth then return item:GetWidth() end
+        local w = 0
+        for _, fs in ipairs(item) do w = math.max(w, fs:GetWidth()) end
+        return w
+    end
+    local function itemHeight(item)
+        if item.GetWidth then return heightOf(item) end
+        local h = 0
+        for _, fs in ipairs(item) do h = h + heightOf(fs) end
+        return h
+    end
+
+    if hasSecond and secondPos == "leftStack" then leftStack[#leftStack + 1] = t.second end
+    if hasBest and bestPos == "leftStack" then leftStack[#leftStack + 1] = t.best end
+    if hasSecond and secondPos == "rightStack" then rightStack[#rightStack + 1] = t.second end
+    if hasBest and bestPos == "rightStack" then rightStack[#rightStack + 1] = t.best end
 
     -- Outermost first: the best time frames the time and its second value.
     local n = 0
@@ -228,39 +257,67 @@ function UI:PlaceText(t, justify)
     local first = newLine()
     if hasBest and bestPos == "left" then first[#first + 1] = t.best end
     if hasSecond and secondPos == "left" then first[#first + 1] = t.second end
+    if #leftStack > 0 then first[#first + 1] = leftStack end
     first[#first + 1] = t.main
+    if #rightStack > 0 then first[#first + 1] = rightStack end
     if hasSecond and secondPos == "right" then first[#first + 1] = t.second end
     if hasBest and bestPos == "right" then first[#first + 1] = t.best end
     if hasSecond and secondPos == "below" then table.insert(newLine(), t.second) end
     if hasBest and bestPos == "below" then table.insert(newLine(), t.best) end
 
-    local function heightOf(fs)
-        if fs == t.main then return Addon.Widgets:LineHeight(ns.E.timerText, 16) end
-        return Addon.Widgets:LineHeight(ns.E.timerText, 16, fs == t.second and secondSize or bestSize)
+    -- The block is aligned as a whole: its widest line sets its width, and
+    -- narrower lines (best time or max above/below) center within it.
+    local blockW = 0
+    for li = 1, n do
+        local lineW, lineH = 0, 0
+        for i, item in ipairs(lines[li]) do
+            lineW = lineW + widthOf(item) + (i > 1 and PART_GAP or 0)
+            lineH = math.max(lineH, itemHeight(item))
+        end
+        lineWs[li], lineHs[li] = lineW, lineH
+        blockW = math.max(blockW, lineW)
     end
-
     local frameW = t.frame:GetWidth() or 0
     local ox, oy = Addon.Widgets:GetOffset(ns.E.timerText)
+    local blockX = 0
+    if justify == "RIGHT" then
+        blockX = frameW - blockW
+    elseif justify == "CENTER" then
+        blockX = (frameW - blockW) / 2
+    end
+
     local top = 0
     for li = 1, n do
-        local l = lines[li]
-        local lineW, lineH = 0, 0
-        for i, fs in ipairs(l) do
-            lineW = lineW + fs:GetWidth() + (i > 1 and PART_GAP or 0)
-            lineH = math.max(lineH, heightOf(fs))
-        end
-        local x = 0
-        if justify == "RIGHT" then
-            x = frameW - lineW
-        elseif justify == "CENTER" then
-            x = (frameW - lineW) / 2
-        end
-        x = Addon.Widgets:Snap(t.frame, x + ox)
-        for _, fs in ipairs(l) do
-            fs:SetJustifyH("LEFT")
-            fs:ClearAllPoints()
-            fs:SetPoint("LEFT", t.frame, "TOPLEFT", x, -(top + lineH / 2) + oy)
-            x = x + fs:GetWidth() + PART_GAP
+        local l, lineW, lineH = lines[li], lineWs[li], lineHs[li]
+        local x = Addon.Widgets:Snap(t.frame, blockX + (blockW - lineW) / 2 + ox)
+        -- The widest line meets the block's edge; the others are centered.
+        local lineJustify = lineW < blockW and "CENTER" or justify
+        local mid = -(top + lineH / 2) + oy
+        for _, item in ipairs(l) do
+            local w = widthOf(item)
+            -- Each part keeps a fixed-width box so ticking digits never move
+            -- it; the text inside follows the alignment, so the block really
+            -- ends flush instead of on the box's empty slack.
+            if item.GetWidth then
+                item:SetJustifyH(lineJustify)
+                item:ClearAllPoints()
+                item:SetPoint("LEFT", t.frame, "TOPLEFT", x, mid)
+            else
+                -- The column is centered on the line. Centered, each side hugs
+                -- the time; otherwise it follows the block's edge.
+                local inner = lineJustify
+                if inner == "CENTER" then inner = item.alignRight and "RIGHT" or "LEFT" end
+                local y = mid + itemHeight(item) / 2
+                for _, fs in ipairs(item) do
+                    local h = heightOf(fs)
+                    local dx = inner == "RIGHT" and (w - fs:GetWidth()) or 0
+                    fs:SetJustifyH(inner)
+                    fs:ClearAllPoints()
+                    fs:SetPoint("LEFT", t.frame, "TOPLEFT", x + dx, y - h / 2)
+                    y = y - h
+                end
+            end
+            x = x + w + PART_GAP
         end
         top = top + lineH
     end
@@ -390,7 +447,7 @@ function UI:LayoutDividers()
     local fillElapsed = barStyle.barFill ~= "remaining"
     local dc = barStyle.sectionDividerColor or { 1, 1, 1, 0.65 }
     local dw = Addon.Widgets:Snap(self.barFrame, barStyle.dividerWidth or 1, 1)
-    local h = barStyle.height or 14
+    local h = Addon.Widgets:BarHeight(barStyle, 14)
 
     local barW = (barStyle.width and barStyle.width > 0) and barStyle.width or frameW
     local barLeft = Addon.Widgets:Snap(self.barFrame, (frameW - barW) / 2)

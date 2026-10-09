@@ -87,7 +87,8 @@ function Timer:GetOptions()
         inline = L["Time and max"], elapsedRemaining = L["Time and remaining"],
         elapsed = L["Time only"], remaining = L["Remaining only"], remainingMax = L["Remaining and max"],
     }
-    local positions = { left = L["Left"], right = L["Right"], above = L["Above"], below = L["Below"] }
+    local positions = { left = L["Left"], right = L["Right"], above = L["Above"], below = L["Below"],
+        leftStack = L["Left, stacked"], rightStack = L["Right, stacked"] }
     local function position(key, name, order)
         return {
             type = "select", name = name, order = order,

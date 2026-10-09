@@ -15,7 +15,9 @@ local PANEL_PAD = 8 -- inner padding when the background/border/title is shown
 local entryFrames, entryN = {}, {}
 local entryX, entryW, entryRight = {}, {}, {}
 local occupied = {}
-local colX, colW = {}, {}
+local colX, colW, colShares = {}, {}, {}
+local rowEnds = {} -- y of the boundary below each laid-out row, for the guides
+local placed = {}
 
 -- What the last Layout placed, to skip unchanged ones without building strings.
 local lastFrames, lastH, lastN, lastX, lastW = {}, {}, {}, {}, {}
@@ -23,6 +25,11 @@ local lastCount, lastPad, lastSpacing, lastWidth
 
 local function roundedHeight(frame)
     return frame and math.floor((frame:GetHeight() or 0) + 0.5) or 0
+end
+
+-- Whole HUD pixels; a file-level function, as Layout runs on every module update.
+local function snap(v)
+    return Addon.Widgets:Snap(MainWindow.frame, v)
 end
 
 -- Created lazily on first use.
@@ -72,32 +79,30 @@ function MainWindow:SavePosition()
     ui.point, ui.x, ui.y = point, x, y
 end
 
--- Columns of the horizontal grid that may lean either way: all but the outer
--- ones and the middle one. Defaults lean towards the nearer edge.
-function MainWindow:IsAdjustableColumn(col)
-    local grid = self:GetGrid()
-    return self:GetOrientation() == "horizontal" and col > 1 and col < grid.cols
-        and col ~= (grid.cols + 1) / 2
-end
+local ALIGNS = { left = true, center = true, right = true }
 
+-- Every column picks its own alignment. Unset, the outer ones lean outwards,
+-- the middle one centers and the rest lean towards the nearer edge.
 function MainWindow:GetColumnAlign(col)
-    local align = Addon.db.profile.ui["horizontalAlign" .. col]
-    if align == "left" or align == "right" then return align end
-    return col < (self:GetGrid().cols + 1) / 2 and "left" or "right"
+    local aligns = Addon.db.profile.ui.columnAlign
+    local align = aligns and aligns[col]
+    if ALIGNS[align] then return align end
+    local cols = self:GetGrid().cols
+    local mid = (cols + 1) / 2
+    if cols == 1 or col == mid then return "center" end
+    return col < mid and "left" or "right"
 end
 
 function MainWindow:SetColumnAlign(col, align)
-    Addon.db.profile.ui["horizontalAlign" .. col] = align
+    local ui = Addon.db.profile.ui
+    ui.columnAlign = ui.columnAlign or {}
+    ui.columnAlign[col] = align
     self:Refresh()
 end
 
 -- The grid column decides the alignment, not the module.
 function MainWindow:GetColumnJustify(col)
-    local grid = self:GetGrid()
-    if col == 1 then return "LEFT" end
-    if col == grid.cols then return "RIGHT" end
-    if col == (grid.cols + 1) / 2 then return "CENTER" end
-    return self:GetColumnAlign(col) == "right" and "RIGHT" or "LEFT"
+    return string.upper(self:GetColumnAlign(col))
 end
 
 -- Share of the width per column in percent of an even split, per grid.
@@ -124,6 +129,60 @@ function MainWindow:ResetColumnWidths()
     self:Refresh()
 end
 
+-- With an odd column count the middle column can stay on the HUD's center
+-- line, whatever the other columns' shares are.
+function MainWindow:IsCenterLocked()
+    return Addon.db.profile.ui.centerColumn ~= false and self:GetGrid().cols % 2 == 1
+end
+
+function MainWindow:SetCenterLocked(locked)
+    Addon.db.profile.ui.centerColumn = locked
+    self:Refresh()
+end
+
+-- Fills outX/outW (1..cols) with each column's offset and width. shares holds
+-- the per-column shares; centered, the middle column sits on the center line
+-- and both sides get the same room, split by their own shares. The last
+-- column of a side takes the rounding remainder.
+-- Columns first..last share room by their shares, starting at x.
+local function fillColumns(first, last, room, x, gap, shares, outX, outW, round)
+    local sum = 0
+    for c = first, last do sum = sum + shares[c] end
+    local used = 0
+    for c = first, last do
+        outX[c] = x
+        outW[c] = c == last and (room - used) or round(room * shares[c] / sum)
+        used = used + outW[c]
+        x = x + outW[c] + gap
+    end
+    return x
+end
+
+function MainWindow:ColumnGeometry(width, gap, shares, outX, outW, round)
+    round = round or math.floor
+    local cols = self:GetGrid().cols
+    local avail = width - gap * (cols - 1)
+    local total = 0
+    for c = 1, cols do total = total + shares[c] end
+
+    if self:IsCenterLocked() and cols > 1 then
+        local mid = (cols + 1) / 2
+        local midW = round(avail * shares[mid] / total)
+        local leftRoom = round((avail - midW) / 2)
+        local x = fillColumns(1, mid - 1, leftRoom, 0, gap, shares, outX, outW, round)
+        outX[mid], outW[mid] = x, midW
+        fillColumns(mid + 1, cols, avail - midW - leftRoom, x + midW + gap, gap, shares, outX, outW, round)
+    else
+        fillColumns(1, cols, avail, 0, gap, shares, outX, outW, round)
+    end
+end
+
+-- The current shares of the active grid, into out (1..cols).
+function MainWindow:GetColumnShares(out)
+    for c = 1, self:GetGrid().cols do out[c] = self:GetColumnWidth(c) end
+    return out
+end
+
 -- blockKey defaults to the lowered module name. A block that is not in the
 -- grid is hidden anyway.
 function MainWindow:GetJustifyH(moduleKey, blockKey)
@@ -142,6 +201,8 @@ end
 -- Restyles every module and relayouts.
 function MainWindow:Refresh()
     Addon.Widgets:InvalidateStyle()
+    -- First, so styles that depend on the real pixel scale see the new one.
+    self:ApplyPosition()
     for _, module in Addon:IterateModules() do
         -- Enabled only: a disabled module's Restyle can re-show its hidden
         -- block from cached values.
@@ -158,7 +219,6 @@ function MainWindow:Refresh()
     if Addon.Demo and Addon.Demo:IsActive() then
         Addon.Demo:Refresh()
     end
-    self:ApplyPosition()
     self:Layout()
 end
 
@@ -175,63 +235,54 @@ local MODULE_BLOCKS = {
 MainWindow.MODULE_BLOCKS = MODULE_BLOCKS
 
 -- Pseudo keys; the frames are registered by UpdateSeparators.
-local SEPARATOR_BLOCKS = { "separator1", "separator2" }
+local MAX_SEPARATORS = 8
+local SEPARATOR_BLOCKS = {}
+for i = 1, MAX_SEPARATORS do SEPARATOR_BLOCKS[i] = "separator" .. i end
+local SEPARATOR_COLOR = { 1, 1, 1, 0.5 }
+local NO_CONFIG = {}
+MainWindow.MAX_SEPARATORS = MAX_SEPARATORS
 
 local ORDERABLE = {}
 for _, key in ipairs(MODULE_BLOCKS) do ORDERABLE[key] = true end
 for _, key in ipairs(SEPARATOR_BLOCKS) do ORDERABLE[key] = true end
 
--- Every block can have a row of its own in the vertical grid.
-local MAX_ROWS = #MODULE_BLOCKS + #SEPARATOR_BLOCKS
-local MAX_COLS = 7
+local MAX_ROWS = 15
+local MAX_COLS = 9
 MainWindow.MAX_ROWS, MainWindow.MAX_COLS = MAX_ROWS, MAX_COLS
+local DEFAULT_COLS = 3
 
--- Each orientation keeps its own layout and width. The horizontal grid comes
--- with 5 or 7 columns; both share one layout, so switching keeps it.
-local GRIDS = {
-    vertical   = { id = "vertical", cols = 3, rows = MAX_ROWS, rowsKey = "blockRows", widthKey = "width", width = 220,
-        default = {
-            { "dungeonicon", "dungeon" }, { nil, "affixes" },
-            { "level", "timer", "deaths" }, { "timerbar" },
-            { nil, nil, "objectives" }, { "forces" }, { nil, nil, "splits" },
-            { "brez", nil, "bloodlust" }, { nil, nil, "checkpoints" },
-        },
-    },
-    horizontal = { id = "horizontal", cols = 5, rows = 3, rowsKey = "blockRowsHorizontal", widthKey = "widthHorizontal",
-        width = 560, pack = true,
-        default = {
-            { "dungeonicon", "level", "dungeon", "affixes", "timer" },
-            { "timerbar" }, { "forces" },
-            { "deaths", "splits", "brez", "bloodlust", "checkpoints" }, { "objectives" },
-        },
-    },
+-- Starting layouts when nothing is saved: a narrow stack for few columns, a
+-- wide band for many.
+local NARROW_DEFAULT = {
+    { "dungeonicon", "dungeon" }, { nil, "affixes" },
+    { "level", "timer", "deaths" }, { "timerbar" },
+    { nil, nil, "objectives" }, { "forces" }, { nil, nil, "splits" },
+    { "brez", nil, "bloodlust" }, { nil, nil, "checkpoints" },
 }
-GRIDS.horizontal7 = setmetatable({ id = "horizontal7", cols = 7, widthKey = "widthHorizontal7", width = 760 },
-    { __index = GRIDS.horizontal })
-MainWindow.GRIDS = GRIDS
+local WIDE_DEFAULT = {
+    { "dungeonicon", "level", "dungeon", "affixes", "timer" },
+    { "timerbar" }, { "forces" },
+    { "deaths", "splits", "brez", "bloodlust", "checkpoints" }, { "objectives" },
+}
 
-function MainWindow:GetOrientation()
-    return Addon.db.profile.ui.orientation == "horizontal" and "horizontal" or "vertical"
-end
-
-function MainWindow:GetHorizontalColumns()
-    return Addon.db.profile.ui.horizontalColumns == 7 and 7 or 5
-end
-
-function MainWindow:SetHorizontalColumns(cols)
-    Addon.db.profile.ui.horizontalColumns = cols
-    self:InvalidateRows()
-    self:ApplyWidth()
-    self:Refresh()
-end
+-- One grid, sized by the user. Reused, so callers may compare it by identity;
+-- the row cache keys on cols/rows as well.
+local GRID = { id = "grid", rowsKey = "blockRows", widthKey = "width", width = 220 }
 
 function MainWindow:GetGrid()
-    if self:GetOrientation() == "vertical" then return GRIDS.vertical end
-    return self:GetHorizontalColumns() == 7 and GRIDS.horizontal7 or GRIDS.horizontal
+    local ui = Addon.db.profile.ui
+    local cols = math.max(1, math.min(MAX_COLS, tonumber(ui.gridCols) or DEFAULT_COLS))
+    GRID.cols = cols
+    GRID.rows = math.max(1, math.min(MAX_ROWS, tonumber(ui.gridRows) or MAX_ROWS))
+    -- Wide grids fill the last used row before opening a new one.
+    GRID.pack = cols > 3
+    GRID.default = cols > 3 and WIDE_DEFAULT or NARROW_DEFAULT
+    return GRID
 end
 
-function MainWindow:SetOrientation(orientation)
-    Addon.db.profile.ui.orientation = orientation
+function MainWindow:SetGridSize(cols, rows)
+    local ui = Addon.db.profile.ui
+    ui.gridCols, ui.gridRows = cols or ui.gridCols, rows or ui.gridRows
     self:InvalidateRows()
     self:ApplyWidth()
     self:Refresh()
@@ -269,25 +320,43 @@ end
 local SPLIT_GAP = 10 -- horizontal gap between two grid columns
 
 -- The timer TEXT block can share a row; only the BAR stays full-row.
-local FULL_ROW_BLOCKS = {
-    timerbar = true, forces = true, objectives = true,
-    separator1 = true, separator2 = true,
-}
+local FULL_ROW_BLOCKS = { timerbar = true, forces = true, objectives = true }
+
+-- The objectives only need a whole row for their text list; as icons they
+-- fit a cell. Separators share rows unless set otherwise.
+local function fullRowKey(key)
+    if key == "objectives" then
+        local settings = Addon.db.profile.modules.Objectives
+        return not (settings and settings.layout and settings.layout ~= "text")
+    end
+    -- A separator takes a whole row only when asked to.
+    local sep = type(key) == "string" and tonumber(key:match("^separator(%d)$"))
+    if sep then
+        local cfgs = Addon.db.profile.ui.separators
+        return (cfgs and cfgs[sep] and cfgs[sep].fullRow) == true
+    end
+    return key ~= nil and FULL_ROW_BLOCKS[key] == true
+end
 
 function MainWindow:IsFullRowKey(key)
-    return key ~= nil and FULL_ROW_BLOCKS[key] == true
+    return fullRowKey(key)
 end
 
 -- The column of the row's full-row block, or nil when the row has none.
 function MainWindow:GetFullRowColumn(row, cols)
     for c = 1, cols or self:GetGrid().cols do
-        if row[c] and FULL_ROW_BLOCKS[row[c]] then return c end
+        if row[c] and fullRowKey(row[c]) then return c end
     end
     return nil
 end
 
+-- The separator's number for a "separatorN" key, else nil.
 function MainWindow:IsSeparatorKey(key)
-    return key == "separator1" or key == "separator2"
+    return type(key) == "string" and tonumber(key:match("^separator(%d)$")) or nil
+end
+
+function MainWindow:GetSeparatorCount()
+    return math.max(0, math.min(MAX_SEPARATORS, tonumber(Addon.db.profile.ui.separatorCount) or 0))
 end
 
 -- Blocks that are a whole module of their own.
@@ -318,18 +387,17 @@ local function subFlag(settings, sub)
     return v ~= false
 end
 
+-- A separator exists while its number is within the configured count.
 function MainWindow:IsSeparatorEnabled(i)
-    local cfgs = Addon.db.profile.ui.separators
-    return (cfgs and cfgs[i] and cfgs[i].enabled == true) or false
+    return i <= self:GetSeparatorCount()
 end
 
 -- Inactive blocks are dropped from the rows and never auto-placed, so the
 -- element order doubles as the enable/disable control.
 function MainWindow:IsBlockActive(key)
     if not key then return false end
-    if self:IsSeparatorKey(key) then
-        return self:IsSeparatorEnabled(key == "separator1" and 1 or 2)
-    end
+    local sep = self:IsSeparatorKey(key)
+    if sep then return self:IsSeparatorEnabled(sep) end
     local sub = SUB_BLOCKS[key]
     if sub then
         local module = Addon:GetModule(sub.module, true)
@@ -344,12 +412,8 @@ end
 -- module maps to its flag, enabling the module first if needed.
 function MainWindow:SetBlockActive(key, active)
     if not key then return end
-    if self:IsSeparatorKey(key) then
-        local i = key == "separator1" and 1 or 2
-        local cfgs = Addon.db.profile.ui.separators
-        if cfgs and cfgs[i] then cfgs[i].enabled = active end
-        return
-    end
+    -- Separators exist by count; placing one is all it takes to show it.
+    if self:IsSeparatorKey(key) then return end
     local sub = SUB_BLOCKS[key]
     if sub then
         local module = Addon:GetModule(sub.module, true)
@@ -401,20 +465,60 @@ local function rowEmpty(row, cols)
     return true
 end
 
--- At least grid.rows entries, more only while full-row blocks overflow the
--- grid. Unknown and duplicate keys are dropped, missing active blocks go into
--- free slots so nothing can get lost. Cached.
+local function rowHasFullBlock(row, cols)
+    for c = 1, cols do
+        if row[c] and fullRowKey(row[c]) then return true end
+    end
+    return false
+end
+
+-- Finds a free slot for a block that lost its own: vertical takes the first
+-- empty row below the used ones, horizontal packs into the last used row
+-- first. Then any free slot, else a new row.
+local function placeKey(rows, grid, key)
+    local cols = grid.cols
+    local full = fullRowKey(key)
+    local lastUsed = 0
+    for i = #rows, 1, -1 do
+        if not rowEmpty(rows[i], cols) then lastUsed = i; break end
+    end
+    if grid.pack and not full and lastUsed > 0 and not rowHasFullBlock(rows[lastUsed], cols) then
+        local row = rows[lastUsed]
+        for c = 1, cols do
+            if not row[c] then row[c] = key; return end
+        end
+    end
+    for i = lastUsed + 1, #rows do
+        if rowEmpty(rows[i], cols) then rows[i][1] = key; return end
+    end
+    for i = 1, #rows do
+        local row = rows[i]
+        if full then
+            if rowEmpty(row, cols) then row[1] = key; return end
+        elseif not rowHasFullBlock(row, cols) then
+            for c = 1, cols do
+                if not row[c] then row[c] = key; return end
+            end
+        end
+    end
+    rows[#rows + 1] = { key }
+end
+
+-- Only what was placed shows: switching a module on adds nothing here. At
+-- least grid.rows entries, more only while full-row blocks overflow the grid.
+-- Unknown and duplicate keys are dropped; a block pushed out of its row by a
+-- full-row block moves to a free slot instead. Cached.
 function MainWindow:GetBlockRows()
     local grid = self:GetGrid()
     local cols = grid.cols
     local saved = Addon.db.profile.ui[grid.rowsKey]
-    if self._rowsCache and self._rowsCacheSource == saved and self._rowsCacheGrid == grid then
+    if self._rowsCache and self._rowsCacheSource == saved and self._rowsCacheSize == grid.cols * 100 + grid.rows then
         return self._rowsCache
     end
 
     local rows, seen = {}, {}
     local function claim(key)
-        if key and ORDERABLE[key] and not seen[key] and self:IsBlockActive(key) then
+        if key and ORDERABLE[key] and not seen[key] then
             seen[key] = true
             return key
         end
@@ -433,15 +537,16 @@ function MainWindow:GetBlockRows()
         rows[i] = row
     end
 
-    -- A full-row block keeps its row alone, its neighbors are placed again
-    -- below. It keeps its column, which aligns it.
+    -- A full-row block keeps its row alone, its neighbors move. It keeps its
+    -- column, which aligns it.
+    local displaced = {}
     for i = 1, count do
         local row = rows[i]
         for c = 1, cols do
             local key = row[c]
-            if key and FULL_ROW_BLOCKS[key] then
+            if key and fullRowKey(key) then
                 for o = 1, cols do
-                    if row[o] and o ~= c then seen[row[o]] = nil end
+                    if row[o] and o ~= c then displaced[#displaced + 1] = row[o] end
                     row[o] = nil
                 end
                 row[c] = key
@@ -449,102 +554,41 @@ function MainWindow:GetBlockRows()
             end
         end
     end
-
-    local function isFullRow(row)
-        return self:GetFullRowColumn(row, cols) ~= nil
-    end
-
-    -- Vertical takes the first empty row below the used ones, horizontal packs
-    -- into the last used row first. Then any free slot, else a new row.
-    local function place(key)
-        if seen[key] then return end
-        seen[key] = true
-        local full = FULL_ROW_BLOCKS[key]
-        local lastUsed = 0
-        for i = #rows, 1, -1 do
-            if not rowEmpty(rows[i], cols) then lastUsed = i; break end
-        end
-        if grid.pack and not full and lastUsed > 0 and not isFullRow(rows[lastUsed]) then
-            local row = rows[lastUsed]
-            for c = 1, cols do
-                if not row[c] then row[c] = key; return end
-            end
-        end
-        for i = lastUsed + 1, #rows do
-            if rowEmpty(rows[i], cols) then rows[i][1] = key; return end
-        end
-        for i = 1, #rows do
-            local row = rows[i]
-            if full then
-                if rowEmpty(row, cols) then row[1] = key; return end
-            elseif not isFullRow(row) then
-                for c = 1, cols do
-                    if not row[c] then row[c] = key; return end
-                end
-            end
-        end
-        rows[#rows + 1] = { key }
-    end
-
-    -- Keeps the bar on its own row below the timer text, including for layouts
-    -- saved before the two were split.
-    local function placeTimerBar()
-        if seen["timerbar"] then return end
-        local idx
-        for i = 1, #rows do
-            for c = 1, cols do
-                if rows[i][c] == "timer" then idx = i end
-            end
-            if idx then break end
-        end
-        if not idx then place("timerbar"); return end
-        seen["timerbar"] = true
-        if rows[idx + 1] and rowEmpty(rows[idx + 1], cols) then
-            rows[idx + 1][1] = "timerbar"
-        else
-            table.insert(rows, idx + 1, { "timerbar" })
-        end
-    end
-
-    for _, key in ipairs(MODULE_BLOCKS) do
-        if key ~= "timerbar" and self:IsBlockActive(key) then place(key) end
-    end
-    if self:IsBlockActive("timerbar") then placeTimerBar() end
-    for i, key in ipairs(SEPARATOR_BLOCKS) do
-        if self:IsSeparatorEnabled(i) then place(key) end
-    end
+    for _, key in ipairs(displaced) do placeKey(rows, grid, key) end
 
     for i = #rows, grid.rows + 1, -1 do
         if not rowEmpty(rows[i], cols) then break end
         rows[i] = nil
     end
 
-    self._rowsCache, self._rowsCacheSource, self._rowsCacheGrid = rows, saved, grid
+    self._rowsCache, self._rowsCacheSource, self._rowsCacheSize = rows, saved, grid.cols * 100 + grid.rows
     return rows
 end
 
 function MainWindow:InvalidateRows()
-    self._rowsCache, self._rowsCacheSource, self._rowsCacheGrid = nil, nil, nil
+    self._rowsCache, self._rowsCacheSource, self._rowsCacheSize = nil, nil, nil
 end
 
--- Clearing the saved rows makes the normalization fall back to MODULE_BLOCKS.
+-- Clearing the saved rows makes the normalization fall back to the default.
 function MainWindow:ResetBlockRows()
     Addon.db.profile.ui[self:GetGrid().rowsKey] = nil
     self:InvalidateRows()
     self:Refresh() -- grid columns may justify the moved text differently
 end
 
--- Keeps where the normalization just placed a block switched on elsewhere.
-function MainWindow:SaveRows()
-    Addon.db.profile.ui[self:GetGrid().rowsKey] = self:GetBlockRows()
+-- An empty layout, unlike nil, which means the default one.
+function MainWindow:ClearBlockRows()
+    Addon.db.profile.ui[self:GetGrid().rowsKey] = {}
     self:InvalidateRows()
+    self:Refresh()
 end
 
 -- nil clears the slot. The key is removed from any other slot first, so each
--- block exists exactly once; a full-row block clears the rest of its row.
+-- block exists exactly once. Whatever the new block covers leaves the table:
+-- the block it replaces, the rest of the row for a full-row block, a full-row
+-- neighbor for a normal one. Modules stay as they are, only the HUD drops them.
 function MainWindow:SetBlockSlot(rowIndex, col, key)
-    -- Must run before reading the rows, or the normalization drops the block
-    -- as inactive.
+    -- Placing shows the block, so a part or module that was off comes on.
     if key then self:SetBlockActive(key, true) end
 
     local grid = self:GetGrid()
@@ -554,13 +598,6 @@ function MainWindow:SetBlockSlot(rowIndex, col, key)
     if not row or col > cols then return end
     local fullCol = self:GetFullRowColumn(row, cols)
     local full = self:IsFullRowKey(key)
-    -- A block placed next to a full-row block pushes it to another row; it
-    -- stays active, so the normalization places it again.
-    if key and not full and fullCol and fullCol ~= col then
-        row[fullCol] = nil
-    end
-
-    local prev = row[col]
 
     if key then
         for _, r in ipairs(rows) do
@@ -569,16 +606,13 @@ function MainWindow:SetBlockSlot(rowIndex, col, key)
             end
         end
     end
+    if key and not full and fullCol and fullCol ~= col then
+        row[fullCol] = nil
+    end
     if full then
         for c = 1, cols do row[c] = nil end
     end
     row[col] = key
-
-    -- Clearing deactivates the previous block instead of re-placing it; a
-    -- replacement leaves it active so it restacks elsewhere.
-    if not key and prev then
-        self:SetBlockActive(prev, false)
-    end
 
     Addon.db.profile.ui[grid.rowsKey] = rows
     self:InvalidateRows()
@@ -614,34 +648,89 @@ function MainWindow:UpdateSeparators()
     -- never float on their own outside a key.
     local active = (Addon.RunState and Addon.RunState:Get())
         or (Addon.Demo and Addon.Demo:IsActive()) or false
-    for i = 1, 2 do
-        local cfg = cfgs and cfgs[i]
+    for i = 1, MAX_SEPARATORS do
+        local cfg = cfgs and cfgs[i] or NO_CONFIG
         local sep = self.separators[i]
-        if cfg and cfg.enabled and active then
+        if self:IsSeparatorEnabled(i) and active then
             sep = sep or self:CreateSeparator(i)
             self.separators[i] = sep
             local h = math.max(1, cfg.height or 2)
-            local w = math.max(1, cfg.width or 180)
-            local c = cfg.color or { 1, 1, 1, 0.5 }
-            sep.frame:SetHeight(h)
-            sep.line:SetSize(w, h)
-            sep.line:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
-            local key = "separator" .. i
-            local justify = self:GetJustifyH(key)
-            if sep.justify ~= justify then -- Layout runs every tick
-                sep.justify = justify
+            local w = math.max(0, cfg.width or 180)
+            local c = cfg.color or SEPARATOR_COLOR
+            if sep.c ~= c then
+                sep.c = c
+                sep.line:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
+            end
+            local justify = self:GetJustifyH(SEPARATOR_BLOCKS[i])
+            -- Re-anchored only on a change: Layout runs every tick. Width 0
+            -- spans the whole row.
+            if sep.justify ~= justify or sep.w ~= w or sep.h ~= h then
+                sep.justify, sep.w, sep.h = justify, w, h
+                sep.frame:SetHeight(h)
                 sep.line:ClearAllPoints()
-                sep.line:SetPoint(justify, sep.frame, justify, 0, 0)
+                if w == 0 then
+                    sep.line:SetHeight(h)
+                    sep.line:SetPoint("LEFT", sep.frame, "LEFT", 0, 0)
+                    sep.line:SetPoint("RIGHT", sep.frame, "RIGHT", 0, 0)
+                else
+                    sep.line:SetSize(w, h)
+                    sep.line:SetPoint(justify, sep.frame, justify, 0, 0)
+                end
             end
             sep.frame:Show()
             -- Register directly; AddBlock would recurse back into Layout.
             self.blocks = self.blocks or {}
-            self.blocks["separator" .. i] = self.blocks["separator" .. i]
-                or { frame = sep.frame, order = 100 }
+            local key = SEPARATOR_BLOCKS[i]
+            self.blocks[key] = self.blocks[key] or { frame = sep.frame, order = 100 }
         elseif sep then
             sep.frame:Hide()
         end
     end
+end
+
+-- Setup aid: thin lines on the column and row boundaries, so blocks can be
+-- lined up against their cells. Drawn only after a real relayout.
+local GUIDE_COLOR = { 1, 0.82, 0, 0.6 }
+
+function MainWindow:SetShowGuides(show)
+    Addon.db.profile.ui.showGuides = show or nil
+    lastCount = nil -- forces the next Layout to redraw
+    self:Layout()
+end
+
+function MainWindow:UpdateGuides(count, pad, width, cols)
+    local hud = self.frame
+    self.guides = self.guides or {}
+    local n = 0
+    local function line(x1, y1, x2, y2)
+        n = n + 1
+        local g = self.guides[n]
+        if not g then
+            g = hud:CreateTexture(nil, "OVERLAY", nil, 7)
+            g:SetColorTexture(unpack(GUIDE_COLOR))
+            self.guides[n] = g
+        end
+        g:ClearAllPoints()
+        g:SetPoint("TOPLEFT", hud, "TOPLEFT", x1, -y1)
+        g:SetSize(math.max(1, x2 - x1), math.max(1, y2 - y1))
+        g:Show()
+    end
+    if Addon.db.profile.ui.showGuides and count > 0 then
+        local bottom = rowEnds[count]
+        -- Outline of the content area, then the column and row boundaries.
+        line(pad, pad, pad + width, pad + 1)
+        line(pad, bottom, pad + width, bottom + 1)
+        line(pad, pad, pad + 1, bottom)
+        line(pad + width - 1, pad, pad + width, bottom)
+        for c = 1, cols - 1 do
+            local x = pad + colX[c] + colW[c] + SPLIT_GAP / 2
+            line(x, pad, x + 1, bottom)
+        end
+        for i = 1, count - 1 do
+            line(pad, rowEnds[i], pad + width, rowEnds[i] + 1)
+        end
+    end
+    for i = n + 1, #self.guides do self.guides[i]:Hide() end
 end
 
 -- Stacks the visible rows, resizes the container and shows or hides it.
@@ -651,21 +740,29 @@ function MainWindow:Layout()
 
     self:UpdateSeparators()
 
-    local function snap(v) return Addon.Widgets:Snap(hud, v) end
     local width = snap(self:GetWidth())
     local pad = snap(self:PanelInsets())
     local spacing = snap(Addon.db.profile.ui.spacing or 2)
     local cols = self:GetGrid().cols
-    -- Column slices from the per-column shares; the last one takes the
-    -- rounding remainder, so the columns always fill the width exactly.
-    local total = 0
-    for c = 1, cols do total = total + self:GetColumnWidth(c) end
-    local avail = width - SPLIT_GAP * (cols - 1)
-    local x = 0
-    for c = 1, cols do
-        colX[c] = x
-        colW[c] = c == cols and (width - x) or snap(avail * self:GetColumnWidth(c) / total)
-        x = x + colW[c] + SPLIT_GAP
+    self:ColumnGeometry(width, SPLIT_GAP, self:GetColumnShares(colShares), colX, colW, snap)
+
+    -- A block without a slot may still be switched on and shown by its module;
+    -- parked on a hidden frame it stays invisible instead of lingering where
+    -- it was last placed.
+    local rows = self:GetBlockRows()
+    wipe(placed)
+    for _, row in ipairs(rows) do
+        for c = 1, cols do
+            if row[c] then placed[row[c]] = true end
+        end
+    end
+    if not self.parking then
+        self.parking = CreateFrame("Frame", nil, hud)
+        self.parking:Hide()
+    end
+    for key, b in pairs(self.blocks) do
+        local parent = placed[key] and hud or self.parking
+        if b.frame:GetParent() ~= parent then b.frame:SetParent(parent) end
     end
 
     -- Every column owns a fixed slice of the width, so a block always sits
@@ -683,7 +780,7 @@ function MainWindow:Layout()
         end
         -- Centered spans first, so the others stop at them.
         for c = 1, cols do
-            if occupied[c] == true and not FULL_ROW_BLOCKS[row[c]] and self:GetColumnJustify(c) == "CENTER" then
+            if occupied[c] == true and not fullRowKey(row[c]) and self:GetColumnJustify(c) == "CENTER" then
                 local lo, hi = c, c
                 while lo > 1 and hi < cols and not occupied[lo - 1] and not occupied[hi + 1] do
                     lo, hi = lo - 1, hi + 1
@@ -698,7 +795,7 @@ function MainWindow:Layout()
                 entryFrames[k] = self.blocks[row[c]].frame
                 local lo, hi = c, c
                 local justify = self:GetColumnJustify(c)
-                if FULL_ROW_BLOCKS[row[c]] then
+                if fullRowKey(row[c]) then
                     lo, hi = 1, cols
                 elseif justify == "LEFT" then
                     while hi < cols and not occupied[hi + 1] do hi = hi + 1 end
@@ -784,13 +881,16 @@ function MainWindow:Layout()
             end
         end
         y = y + h + spacing
+        rowEnds[i] = y - spacing / 2
     end
+    for i = count + 1, #rowEnds do rowEnds[i] = nil end
 
     if count > 0 then
         -- Even pixel counts, so the centered HUD and its centered rows keep
         -- whole-pixel edges.
         hud:SetSize(snap((width + pad * 2) / 2) * 2, snap(((y - spacing) + pad) / 2) * 2)
         self:ApplyPanel()
+        self:UpdateGuides(count, pad, width, cols)
         hud:Show()
     else
         hud:Hide()

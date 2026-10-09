@@ -18,6 +18,9 @@ function Objectives:OnEnable()
     self:RegisterMessage("MMT_PROFILE_CHANGED", "LoadSettings")
     self:RegisterMessage("MMT_MODULE_TOGGLED", "OnModuleToggled")
     self:RegisterMessage("MMT_FORCES_UPDATED", "OnForcesUpdated")
+    -- The player portrait of the demo icons is empty until the model has loaded.
+    self:RegisterEvent("UNIT_PORTRAIT_UPDATE", "OnPortraitUpdate")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnPortraitUpdate")
 
     self.UI:Build()
     if Addon.Demo:IsActive() then
@@ -26,6 +29,17 @@ function Objectives:OnEnable()
         self:RegisterRunEvents() -- enabled mid-key
         self.UI:Show()
         self:Refresh()
+    end
+end
+
+-- UNIT_PORTRAIT_UPDATE passes the unit, PLAYER_ENTERING_WORLD a boolean; after
+-- entering the world the model can still be loading, so it retries once.
+function Objectives:OnPortraitUpdate(event, unit)
+    if event == "UNIT_PORTRAIT_UPDATE" and unit ~= "player" then return end
+    if not (self.state.demo and self.UI._lastBosses) then return end
+    self.UI:Update(self.UI._lastBosses)
+    if event == "PLAYER_ENTERING_WORLD" then
+        C_Timer.After(1, function() self:OnPortraitUpdate("RETRY") end)
     end
 end
 
@@ -160,7 +174,7 @@ function Objectives:ForcesRow()
     local L = ns.L
     if self.state.demo then
         return {
-            name = L["Enemy Forces"], done = false, progress = "65.0%",
+            name = L["Enemy Forces"], done = false, progress = "65.0%", forces = true,
             best = self:TimesVisible() and 720 or nil,
         }
     end
@@ -172,6 +186,7 @@ function Objectives:ForcesRow()
 
     local row = {
         name = L["Enemy Forces"],
+        forces = true, -- no boss: left out of the icon layouts
         done = done,
         progress = (not done) and string.format("%.1f%%", percent * 100) or nil,
     }
@@ -243,7 +258,9 @@ function Objectives:SetDemo(state)
         self.UI:Update(self:ForDisplay({
             { name = L["Boss"] .. " 1", done = true, time = 312, delta = -8, best = 320 },
             { name = L["Boss"] .. " 2", done = true, time = 640, delta = 12, best = 628 },
-            { name = L["Boss"] .. " 3", done = false, best = 940 },
+            { name = L["Boss"] .. " 3", done = true, time = 955, delta = 15, best = 940 },
+            { name = L["Boss"] .. " 4", done = false, best = 1260 },
+            { name = L["Boss"] .. " 5", done = false, best = 1580 },
         }))
     elseif self:IsRunActive() then
         self.UI:Show()
