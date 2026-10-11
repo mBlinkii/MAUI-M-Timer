@@ -156,23 +156,24 @@ L["Pick a starting look - every element (fonts, colors, bars, modules) can be fi
     "Wähle einen Start-Look – jedes Element (Schriften, Farben, Balken, Module) lässt sich später in den Optionen anpassen."
 L["Use this profile"] = "Dieses Profil verwenden"
 L["Profile applied: %s"] = "Profil angewendet: %s"
-L["The author's personal MAUI look."] = "Der persönliche MAUI-Look des Autors."
-L["A reduced, minimal look: only dungeon, timer, objectives and deaths (checkpoints, cooldowns and enemy forces off; the run-vs-best line is hidden but still recorded)."] =
-    "Ein reduzierter, minimaler Look: nur Dungeon, Timer, Ziele und Tode (Checkpoints, Cooldowns und Streitkräfte aus; die Lauf-vs-Best-Zeile ist ausgeblendet, wird aber weiter aufgezeichnet)."
-L["A compact full layout with a separator line and a slim enemy-forces bar (forces countdown below the bar)."] =
-    "Ein kompaktes, vollständiges Layout mit einer Trennlinie und einem schmalen Streitkräfte-Balken (Streitkräfte-Countdown unter dem Balken)."
+L["The standard layout: keystone, dungeon and affix icons on top, a large timer with its bar, the objectives as a list, the enemy-forces bar, then deaths, splits, checkpoints and cooldowns."] =
+    "Das Standard-Layout: Schlüsselstein, Dungeon und Affix-Icons oben, ein großer Timer mit Balken, die Ziele als Liste, der Streitkräfte-Balken, darunter Tode, Splits, Checkpoints und Cooldowns."
+L["A wide horizontal layout: dungeon, objectives, timer, deaths and splits side by side in one row, timer and enemy-forces bars below, cooldowns and checkpoints at the bottom."] =
+    "Ein breites horizontales Layout: Dungeon, Ziele, Timer, Tode und Splits nebeneinander in einer Zeile, darunter Timer- und Streitkräfte-Balken, unten Cooldowns und Checkpoints."
+L["A narrow centered layout: keystone, dungeon and affix icons on top, a large timer with both bars in the middle, the objectives as a list, deaths, splits, checkpoints and cooldowns at the bottom."] =
+    "Ein schmales, zentriertes Layout: Schlüsselstein, Dungeon und Affix-Icons oben, ein großer Timer mit beiden Balken in der Mitte, die Ziele als Liste, unten Tode, Splits, Checkpoints und Cooldowns."
 L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] =
     "Benötigt das Addon !mMT_MediaPack für die Schriftarten; ohne es wird die Standardschrift verwendet."
 L["Download media pack"] = "Media-Pack herunterladen"
 L["Copy the link to download the media pack (%s), then open it in your web browser:"] =
     "Kopiere den Link, um das Media-Pack (%s) herunterzuladen, und öffne ihn in deinem Webbrowser:"
-L["Back"] = "Zurück"
+L["Welcome"] = "Willkommen"
 L["Next"] = "Weiter"
-L["Skip"] = "Überspringen"
+L["Setup"] = "Einrichtung"
 L["Finish"] = "Fertigstellen"
 L["Setup complete! Open the options anytime with /mauimpt."] = "Setup abgeschlossen! Öffne die Optionen jederzeit mit /mauimpt."
 L["Run setup wizard"] = "Setup-Assistent starten"
-L["Steps"] = "Schritte"
+L["Step %d of %d"] = "Schritt %d von %d"
 L["Reopen the first-start setup wizard to pick a profile and load the recommended checkpoint targets."] =
     "Öffnet den Ersteinrichtungs-Assistenten erneut, um ein Profil zu wählen und die empfohlenen Checkpoint-Ziele zu laden."
 L["Automatically open the changelog once after the addon has been updated to a new version."] =
@@ -223,8 +224,8 @@ L["Use a fixed end color instead of the multiplied bar color."] = "Verwendet ein
 L["Background"] = "Hintergrund"
 L["Show background"] = "Hintergrund anzeigen"
 L["Element order"] = "Element-Anordnung"
-L["Only elements placed here are shown, from top to bottom; switching a module on does not add it. A row holds several elements side by side. Bars, separator lines and the objectives as a text list take a whole row."] =
-    "Angezeigt wird nur, was hier platziert ist, von oben nach unten; das Einschalten eines Moduls fügt es nicht hinzu. Eine Zeile nimmt mehrere Elemente nebeneinander auf. Balken, Trennlinien und die Ziele als Textliste belegen eine ganze Zeile."
+L["Only elements placed here are shown, from top to bottom; switching a module on does not add it. A row holds several elements side by side. Bars and the objectives as a text list take a whole row."] =
+    "Angezeigt wird nur, was hier platziert ist, von oben nach unten; das Einschalten eines Moduls fügt es nicht hinzu. Eine Zeile nimmt mehrere Elemente nebeneinander auf. Balken und die Ziele als Textliste belegen eine ganze Zeile."
 L["Reset order"] = "Anordnung zurücksetzen"
 L["Reset the element order to the default layout?"] = "Element-Anordnung auf das Standard-Layout zurücksetzen?"
 L["Icon instead of label"] = "Icon statt Beschriftung"
@@ -449,9 +450,9 @@ L["Each line is an element of its own in the element order; it shows once you pl
 L["Rounded square"] = "Abgerundetes Quadrat"
 L["Octagon"] = "Achteck"
 L["Diamond"] = "Raute"
-L["Take a whole row"] = "Ganze Zeile belegen"
-L["Keep the row to this line alone; otherwise it sits in its column like any other element."] = "Die Zeile gehört nur dieser Linie; sonst sitzt sie wie jedes andere Element in ihrer Spalte."
 L["Width (0 = full width)"] = "Breite (0 = volle Breite)"
 L["Show cell guides"] = "Zellen-Hilfslinien anzeigen"
 L["This profile was made for the old layout and cannot be imported."] = "Dieses Profil stammt aus dem alten Layout und kann nicht importiert werden."
 L["Icons"] = "Icons"
+L["Boss icon"] = "Boss-Icon"
+L["PoNR icon"] = "PoNR-Icon"

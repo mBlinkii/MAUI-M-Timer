@@ -78,6 +78,7 @@ Plain Lua tables in the shape of AceConfig option tables. No Ace code is involve
 | `handler` | object for string callbacks; inherited by the subtree |
 | `hidden`, `disabled` | boolean or function(info) |
 | `values`, `sorting` | select entries `{ key = label }` and optional key order |
+| `marked` | select: `{ key = true }` (or function(info)) for entries drawn in the accent colour in the list |
 | `min`, `max`, `step`, `isPercent` | range |
 | `hasAlpha` | color |
 | `multiline`, `validate`, `usage` | input |

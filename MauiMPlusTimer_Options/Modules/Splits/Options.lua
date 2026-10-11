@@ -96,6 +96,7 @@ end
 function Splits:GetOptionPages()
     local L = ns.L
     local function labelOff() return Splits:GetSettings().showLabel == false end
+    local function iconOff() return labelOff() or Splits:GetSettings().labelIcon ~= true end
     return {
         timedelta = {
             type = "group",
@@ -126,9 +127,13 @@ function Splits:GetOptionPages()
                                 Addon.MainWindow:Refresh()
                             end,
                         },
+                        nlIcon = Addon:OptLine(2.5),
+                        icon = Addon:IconSelectOption(self, "splitsLabel", "labelIconPath", L["Icon"], 2.6,
+                            { width = "normal", disabled = iconOff }),
+                        iconSize = Addon:ElementIconSizeOption(self, ns.E.splitsText, 2.7, iconOff),
                         labelIconColor = {
                             type = "color", name = L["Icon color"], order = 3,
-                            disabled = function() return labelOff() or Splits:GetSettings().labelIcon ~= true end,
+                            disabled = iconOff,
                             get = function()
                                 local c = Splits:GetSettings().labelIconColor or { 1, 1, 1 }
                                 return c[1], c[2], c[3]
@@ -140,7 +145,7 @@ function Splits:GetOptionPages()
                         },
                     },
                 },
-                text = Addon:ElementTextOptions(self, ns.E.splitsText, 20, { color = true, icon = true }),
+                text = Addon:ElementTextOptions(self, ns.E.splitsText, 20, { color = true }),
             },
         },
     }

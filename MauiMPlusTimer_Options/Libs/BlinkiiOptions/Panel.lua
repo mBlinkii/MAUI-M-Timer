@@ -164,13 +164,15 @@ end
 
 function Panel:DrawBanner(width)
     local banner = self.banner
+    -- Sized even when hidden: the page anchors to it, and a frame that never
+    -- had a width gives the anchored page no place, so it stays blank.
+    banner:SetWidth(width)
     local data = self.config.BuildBanner and self.config.BuildBanner(self, self.selected)
     if not data then
         banner:Hide()
         return false
     end
 
-    banner:SetWidth(width)
     banner.title:SetText(data.title or "")
     banner.tag:SetText(data.tag or "")
     banner.sub:SetText(data.sub or "")
@@ -235,7 +237,9 @@ function Panel:DrawAction()
 
     local textWidth = max(60, self.body:GetWidth() - PAD * 2 - buttonWidth - OT.space.lg)
     bar.title:SetWidth(textWidth)
-    bar.title:SetText(Controls.NameOf(node))
+    -- arg.title, when the button's own label would only repeat itself.
+    local title = type(node.arg) == "table" and node.arg.title
+    bar.title:SetText(title or Controls.NameOf(node))
     bar.desc:SetWidth(textWidth)
     bar.desc:SetText(Controls.DescOf(node) or "")
 
@@ -393,7 +397,8 @@ end
 -- BuildList, BuildPage, Default, and optional BuildBanner and BuildAction.
 -- BuildPage returns an AceConfig-shaped group; BuildBanner nil or
 -- { title, tag, sub, big, bigColor, bigSub, progress }; BuildAction nil or an
--- execute node for the bar pinned to the bottom.
+-- execute node for the bar pinned to the bottom; its arg.title, if set, heads
+-- the bar instead of the button's name.
 function Panel.New(app, id, config)
     return setmetatable({ app = app, id = id, config = config, rows = {}, headings = {} },
         { __index = Panel })

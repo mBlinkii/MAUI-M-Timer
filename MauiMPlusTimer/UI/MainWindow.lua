@@ -105,30 +105,6 @@ function MainWindow:GetColumnJustify(col)
     return string.upper(self:GetColumnAlign(col))
 end
 
--- Share of the width per column in percent of an even split, per grid.
-function MainWindow:GetColumnWidth(col)
-    local widths = Addon.db.profile.ui.columnWidths
-    local w = widths and widths[self:GetGrid().id]
-    w = w and w[col]
-    return (type(w) == "number" and w > 0) and w or 100
-end
-
--- live only relayouts, for a drag; the full restyle follows on release.
-function MainWindow:SetColumnWidth(col, percent, live)
-    local ui = Addon.db.profile.ui
-    local id = self:GetGrid().id
-    ui.columnWidths = ui.columnWidths or {}
-    ui.columnWidths[id] = ui.columnWidths[id] or {}
-    ui.columnWidths[id][col] = percent ~= 100 and percent or nil
-    if live then self:Layout() else self:Refresh() end
-end
-
-function MainWindow:ResetColumnWidths()
-    local widths = Addon.db.profile.ui.columnWidths
-    if widths then widths[self:GetGrid().id] = nil end
-    self:Refresh()
-end
-
 -- With an odd column count the middle column can stay on the HUD's center
 -- line, whatever the other columns' shares are.
 function MainWindow:IsCenterLocked()
@@ -249,10 +225,19 @@ for _, key in ipairs(SEPARATOR_BLOCKS) do ORDERABLE[key] = true end
 local MAX_ROWS = 15
 local MAX_COLS = 9
 MainWindow.MAX_ROWS, MainWindow.MAX_COLS = MAX_ROWS, MAX_COLS
-local DEFAULT_COLS = 3
+local DEFAULT_COLS = 5
 
--- Starting layouts when nothing is saved: a narrow stack for few columns, a
--- wide band for many.
+-- Starting layouts when nothing is saved: the standard layout at the default
+-- column count, otherwise a narrow stack for few columns, a wide band for many.
+local STANDARD_DEFAULT = {
+    { "level", "dungeon", nil, nil, "affixes" },
+    { nil, nil, "timer" }, { nil, nil, "timerbar" },
+    { "objectives" }, { nil, nil, "forces" },
+    { "deaths", nil, "splits", nil, "checkpoints" },
+    { "brez", nil, nil, nil, "bloodlust" },
+}
+-- Column shares of the standard layout until the user sets their own.
+local STANDARD_WIDTHS = { 50, 150 }
 local NARROW_DEFAULT = {
     { "dungeonicon", "dungeon" }, { nil, "affixes" },
     { "level", "timer", "deaths" }, { "timerbar" },
@@ -276,7 +261,8 @@ function MainWindow:GetGrid()
     GRID.rows = math.max(1, math.min(MAX_ROWS, tonumber(ui.gridRows) or MAX_ROWS))
     -- Wide grids fill the last used row before opening a new one.
     GRID.pack = cols > 3
-    GRID.default = cols > 3 and WIDE_DEFAULT or NARROW_DEFAULT
+    GRID.default = (cols == DEFAULT_COLS and STANDARD_DEFAULT)
+        or (cols > 3 and WIDE_DEFAULT) or NARROW_DEFAULT
     return GRID
 end
 
@@ -285,6 +271,42 @@ function MainWindow:SetGridSize(cols, rows)
     ui.gridCols, ui.gridRows = cols or ui.gridCols, rows or ui.gridRows
     self:InvalidateRows()
     self:ApplyWidth()
+    self:Refresh()
+end
+
+-- The saved shares of the current grid; nothing saved means the standard
+-- layout's at the default column count, even ones otherwise. An empty table
+-- stands for even columns.
+local function savedWidths(self)
+    local widths = Addon.db.profile.ui.columnWidths
+    local saved = widths and widths[self:GetGrid().id]
+    if saved then return saved end
+    return self:GetGrid().cols == DEFAULT_COLS and STANDARD_WIDTHS or nil
+end
+
+-- Share of the width per column in percent of an even split, per grid.
+function MainWindow:GetColumnWidth(col)
+    local w = savedWidths(self)
+    w = w and w[col]
+    return (type(w) == "number" and w > 0) and w or 100
+end
+
+-- live only relayouts, for a drag; the full restyle follows on release.
+function MainWindow:SetColumnWidth(col, percent, live)
+    local ui = Addon.db.profile.ui
+    local id = self:GetGrid().id
+    ui.columnWidths = ui.columnWidths or {}
+    -- The first change starts from what is shown, the standard shares included.
+    ui.columnWidths[id] = ui.columnWidths[id] or Addon.Utils.CopyTable(savedWidths(self) or {})
+    ui.columnWidths[id][col] = percent ~= 100 and percent or nil
+    if live then self:Layout() else self:Refresh() end
+end
+
+-- Even columns, not the standard shares.
+function MainWindow:ResetColumnWidths()
+    local ui = Addon.db.profile.ui
+    ui.columnWidths = ui.columnWidths or {}
+    ui.columnWidths[self:GetGrid().id] = {}
     self:Refresh()
 end
 
@@ -323,17 +345,11 @@ local SPLIT_GAP = 10 -- horizontal gap between two grid columns
 local FULL_ROW_BLOCKS = { timerbar = true, forces = true, objectives = true }
 
 -- The objectives only need a whole row for their text list; as icons they
--- fit a cell. Separators share rows unless set otherwise.
+-- fit a cell. Separators share rows like any other element.
 local function fullRowKey(key)
     if key == "objectives" then
         local settings = Addon.db.profile.modules.Objectives
         return not (settings and settings.layout and settings.layout ~= "text")
-    end
-    -- A separator takes a whole row only when asked to.
-    local sep = type(key) == "string" and tonumber(key:match("^separator(%d)$"))
-    if sep then
-        local cfgs = Addon.db.profile.ui.separators
-        return (cfgs and cfgs[sep] and cfgs[sep].fullRow) == true
     end
     return key ~= nil and FULL_ROW_BLOCKS[key] == true
 end

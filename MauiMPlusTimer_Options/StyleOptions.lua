@@ -582,16 +582,6 @@ function Addon:BuildSeparatorOptions()
                     get = function() return sepCfg(i).height or 2 end,
                     set = function(_, v) sepCfg(i).height = v; apply() end,
                 },
-                fullRow = {
-                    type = "toggle", name = L["Take a whole row"], order = 4, width = "full",
-                    desc = L["Keep the row to this line alone; otherwise it sits in its column like any other element."],
-                    get = function() return sepCfg(i).fullRow == true end,
-                    set = function(_, v)
-                        sepCfg(i).fullRow = v or nil
-                        MainWindow:InvalidateRows()
-                        MainWindow:Refresh()
-                    end,
-                },
                 color = {
                     type = "color", name = L["Color"], order = 3, hasAlpha = true,
                     get = function()
@@ -624,10 +614,7 @@ function Addon:ElementTextArgs(module, key, base, opts)
         fontSize = { type = "range", name = L["Font size"], order = base + 4, min = 8, max = 64, step = 1,
             get = function() return eff(key, "fontSize") end,
             set = function(_, v) element(key).fontSize = v; restyle(module) end },
-        iconSize = opts.icon and { type = "range", name = L["Icon size"], order = base + 4.5, min = 0, max = 64, step = 1,
-            desc = L["0 = follows the font size."],
-            get = function() return elementRead(key).iconSize or 0 end,
-            set = function(_, v) element(key).iconSize = v > 0 and v or nil; restyle(module) end } or nil,
+        iconSize = opts.icon and Addon:ElementIconSizeOption(module, key, base + 4.5) or nil,
         nlOffset = Addon:OptLine(base + 9),
         xOffset = { type = "range", name = L["X offset"], order = base + 10, min = -150, max = 150, step = 1,
             get = function() return elementRead(key).xOffset or 0 end,
@@ -648,6 +635,17 @@ function Addon:ElementTextArgs(module, key, base, opts)
             set = function(_, v) element(key).classColor = v or nil; restyle(module) end }
     end
     return args
+end
+
+-- Size of an element's icons; 0 follows its font size.
+function Addon:ElementIconSizeOption(module, key, order, disabled)
+    local L = ns.L
+    return {
+        type = "range", name = L["Icon size"], order = order, min = 0, max = 64, step = 1,
+        desc = L["0 = follows the font size."], disabled = disabled,
+        get = function() return elementRead(key).iconSize or 0 end,
+        set = function(_, v) element(key).iconSize = v > 0 and v or nil; restyle(module) end,
+    }
 end
 
 -- ElementTextArgs in its own inline group. Modules may inject extra size

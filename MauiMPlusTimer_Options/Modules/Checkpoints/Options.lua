@@ -7,6 +7,8 @@ local Checkpoints = Addon:GetModule("Checkpoints")
 
 function Checkpoints:GetOptions()
     local L = ns.L
+    -- Icon, size and colors only matter while the labels are icons.
+    local function iconsOff() return Checkpoints:GetSettings().labelIcons ~= true end
     return {
         type = "group",
         name = L["Checkpoints"],
@@ -42,9 +44,16 @@ function Checkpoints:GetOptions()
                             Addon.MainWindow:Refresh()
                         end,
                     },
+                    nlIcons = Addon:OptLine(2.5),
+                    bossIcon = Addon:IconSelectOption(self, "bossLabel", "bossIcon", L["Boss icon"], 2.6,
+                        { width = "normal", disabled = iconsOff }),
+                    ponrIcon = Addon:IconSelectOption(self, "ponrLabel", "ponrIcon", L["PoNR icon"], 2.7,
+                        { width = "normal", disabled = iconsOff }),
+                    iconSize = Addon:ElementIconSizeOption(self, ns.E.checkpointsText, 2.8, iconsOff),
+                    nlColors = Addon:OptLine(2.9),
                     bossIconColor = {
                         type = "color", name = L["Boss icon color"], order = 3,
-                        disabled = function() return Checkpoints:GetSettings().labelIcons ~= true end,
+                        disabled = iconsOff,
                         get = function()
                             local c = Checkpoints:GetSettings().bossIconColor or { 1, 1, 1 }
                             return c[1], c[2], c[3]
@@ -56,7 +65,7 @@ function Checkpoints:GetOptions()
                     },
                     ponrIconColor = {
                         type = "color", name = L["PoNR icon color"], order = 4,
-                        disabled = function() return Checkpoints:GetSettings().labelIcons ~= true end,
+                        disabled = iconsOff,
                         get = function()
                             local c = Checkpoints:GetSettings().ponrIconColor or { 1, 1, 1 }
                             return c[1], c[2], c[3]
@@ -68,7 +77,7 @@ function Checkpoints:GetOptions()
                     },
                 },
             },
-            text = Addon:ElementTextOptions(self, ns.E.checkpointsText, 20, { color = true, icon = true }),
+            text = Addon:ElementTextOptions(self, ns.E.checkpointsText, 20, { color = true }),
         },
     }
 end

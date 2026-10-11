@@ -151,23 +151,24 @@ L["Pick a starting look - every element (fonts, colors, bars, modules) can be fi
     "选择一个起始外观——每个元素（字体、颜色、进度条、模块）之后都可在选项中微调。"
 L["Use this profile"] = "使用此配置文件"
 L["Profile applied: %s"] = "已应用配置文件：%s"
-L["The author's personal MAUI look."] = "作者个人的 MAUI 外观。"
-L["A reduced, minimal look: only dungeon, timer, objectives and deaths (checkpoints, cooldowns and enemy forces off; the run-vs-best line is hidden but still recorded)."] =
-    "精简的极简外观：仅显示地下城、计时器、目标和死亡（检查点、冷却和敌军关闭；本次 vs 最佳行隐藏但仍记录）。"
-L["A compact full layout with a separator line and a slim enemy-forces bar (forces countdown below the bar)."] =
-    "紧凑的完整布局，带分隔线和纤细的敌军进度条（敌军倒计时显示在进度条下方）。"
+L["The standard layout: keystone, dungeon and affix icons on top, a large timer with its bar, the objectives as a list, the enemy-forces bar, then deaths, splits, checkpoints and cooldowns."] =
+    "标准布局：顶部为钥石、地下城和词缀图标，下方为大号计时器及其进度条，目标以列表显示，然后是敌军进度条，最后是死亡、分段、检查点和冷却。"
+L["A wide horizontal layout: dungeon, objectives, timer, deaths and splits side by side in one row, timer and enemy-forces bars below, cooldowns and checkpoints at the bottom."] =
+    "宽幅横向布局：地下城、目标、计时器、死亡和分段并排显示在一行，下方为计时器和敌军进度条，底部为冷却和检查点。"
+L["A narrow centered layout: keystone, dungeon and affix icons on top, a large timer with both bars in the middle, the objectives as a list, deaths, splits, checkpoints and cooldowns at the bottom."] =
+    "窄幅居中布局：顶部为钥石、地下城和词缀图标，中间为大号计时器和两条进度条，目标以列表显示，底部为死亡、分段、检查点和冷却。"
 L["Requires the !mMT_MediaPack addon for its fonts; without it the default font is used."] =
     "需要 !mMT_MediaPack 插件提供字体；未安装时将使用默认字体。"
 L["Download media pack"] = "下载媒体包"
 L["Copy the link to download the media pack (%s), then open it in your web browser:"] =
     "复制链接以下载媒体包（%s），然后在浏览器中打开："
-L["Back"] = "上一步"
+L["Welcome"] = "欢迎"
 L["Next"] = "下一步"
-L["Skip"] = "跳过"
+L["Setup"] = "设置向导"
 L["Finish"] = "完成"
 L["Setup complete! Open the options anytime with /mauimpt."] = "设置完成！随时使用 /mauimpt 打开选项。"
 L["Run setup wizard"] = "运行设置向导"
-L["Steps"] = "步骤"
+L["Step %d of %d"] = "第 %d 步，共 %d 步"
 L["Reopen the first-start setup wizard to pick a profile and load the recommended checkpoint targets."] =
     "重新打开首次启动设置向导，选择配置文件并加载推荐的检查点目标。"
 L["Automatically open the changelog once after the addon has been updated to a new version."] =
@@ -218,8 +219,8 @@ L["Use a fixed end color instead of the multiplied bar color."] = "使用固定�
 L["Background"] = "背景"
 L["Show background"] = "显示背景"
 L["Element order"] = "元素顺序"
-L["Only elements placed here are shown, from top to bottom; switching a module on does not add it. A row holds several elements side by side. Bars, separator lines and the objectives as a text list take a whole row."] =
-    "仅显示在此处放置的元素（从上到下）；启用模块不会自动添加它。一行可并排容纳多个元素。进度条、分隔线和文字列表形式的目标占据整行。"
+L["Only elements placed here are shown, from top to bottom; switching a module on does not add it. A row holds several elements side by side. Bars and the objectives as a text list take a whole row."] =
+    "仅显示在此处放置的元素（从上到下）；启用模块不会自动添加它。一行可并排容纳多个元素。进度条和文字列表形式的目标占据整行。"
 L["Reset order"] = "重置顺序"
 L["Reset the element order to the default layout?"] = "将元素顺序重置为默认布局？"
 L["Icon instead of label"] = "用图标代替标签"
@@ -441,9 +442,9 @@ L["Each line is an element of its own in the element order; it shows once you pl
 L["Rounded square"] = "圆角方形"
 L["Octagon"] = "八边形"
 L["Diamond"] = "菱形"
-L["Take a whole row"] = "占用整行"
-L["Keep the row to this line alone; otherwise it sits in its column like any other element."] = "此行仅属于这条线；否则它像其他元素一样位于所在列中。"
 L["Width (0 = full width)"] = "宽度（0 = 全宽）"
 L["Show cell guides"] = "显示单元格辅助线"
 L["This profile was made for the old layout and cannot be imported."] = "此配置文件来自旧版布局，无法导入。"
 L["Icons"] = "图标"
+L["Boss icon"] = "首领图标"
+L["PoNR icon"] = "PoNR 图标"

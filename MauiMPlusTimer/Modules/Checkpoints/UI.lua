@@ -8,13 +8,13 @@ local Checkpoints = Addon:GetModule("Checkpoints")
 local UI = Addon:NewTextBlockUI({ name = "Checkpoints", element = ns.E.checkpointsText, order = 60 })
 Checkpoints.UI = UI
 
--- Optional replacements for the "Boss" / "PoNR" labels.
-local ICON_BOSS_PATH = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Labels\\boss.tga"
-local ICON_PONR_PATH = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Labels\\ponr.tga"
+-- Optional replacements for the "Boss" / "PoNR" labels, picked from the
+-- label icon set.
 local WHITE = { 1, 1, 1 }
 
-local function labelIcon(path, color)
-    return Addon.Widgets:IconEscape(path, path, Addon.Widgets:IconSize(ns.E.checkpointsText), color or WHITE)
+local function labelIcon(path, category, color)
+    return Addon.Widgets:IconEscape(path, ns.Icons:Default(category),
+        Addon.Widgets:IconSize(ns.E.checkpointsText), color or WHITE)
 end
 
 -- sectionDelta: forces-% to the current boss target, positive is ahead.
@@ -36,12 +36,12 @@ function UI:Update(sectionDelta, ponr)
     -- color, since it is a target to reach, not an ahead/behind pace.
     if sectionDelta ~= nil then
         local label = useIcons
-            and labelIcon(ICON_BOSS_PATH, settings.bossIconColor) or L["Boss"]
+            and labelIcon(settings.bossIcon, "bossLabel", settings.bossIconColor) or L["Boss"]
         parts[#parts + 1] = label .. " " .. Addon.Utils.FormatPctDelta(sectionDelta)
     end
     if ponr ~= nil then
         local label = useIcons
-            and labelIcon(ICON_PONR_PATH, settings.ponrIconColor) or L["PoNR"]
+            and labelIcon(settings.ponrIcon, "ponrLabel", settings.ponrIconColor) or L["PoNR"]
         parts[#parts + 1] = string.format("%s %g%% (+%.1f%%)",
             label, ponr.next, math.max(ponr.remaining or 0, 0))
     end

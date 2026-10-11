@@ -862,6 +862,7 @@ function Controls:OpenList(control)
     local info = control.info
     local keys, values = sortedValues(node, info)
     local current = nodeGet(node, info)
+    local marked = member(node, "marked", info) or EMPTY
     local width = max(160, control.button:GetWidth())
 
     for i = 1, #keys do
@@ -870,6 +871,7 @@ function Controls:OpenList(control)
         row:SetPoint("TOPLEFT", list.content, "TOPLEFT", 0, -(i - 1) * OT.size.listRow)
         row:SetWidth(width)
         row.label:SetText(tostring(values[key] or key))
+        row.label:SetTextColor(OT:Unpack(marked[key] and "accent" or "text"))
         row.check:SetShown(key == current)
         row.selected:SetShown(key == current)
         row:SetScript("OnClick", function()

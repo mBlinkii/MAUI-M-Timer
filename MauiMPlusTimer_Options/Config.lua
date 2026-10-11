@@ -261,6 +261,19 @@ function Addon:BuildBlockOrderArgs()
     local function getValues() choices(); return values end
     local function getSorting() choices(); return sorting end
 
+    -- Blocks already in the table stand out in the list.
+    local placed = {}
+    local function getPlaced()
+        wipe(placed)
+        local cols = MainWindow:GetGrid().cols
+        for _, row in ipairs(MainWindow:GetBlockRows()) do
+            for c = 1, cols do
+                if row[c] then placed[row[c]] = true end
+            end
+        end
+        return placed
+    end
+
     local function notify()
         LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
     end
@@ -294,7 +307,7 @@ function Addon:BuildBlockOrderArgs()
         },
         desc = {
             type = "description", order = 1,
-            name = L["Only elements placed here are shown, from top to bottom; switching a module on does not add it. A row holds several elements side by side. Bars, separator lines and the objectives as a text list take a whole row."],
+            name = L["Only elements placed here are shown, from top to bottom; switching a module on does not add it. A row holds several elements side by side. Bars and the objectives as a text list take a whole row."],
         },
     }
 
@@ -326,7 +339,7 @@ function Addon:BuildBlockOrderArgs()
             for col = 1, grid.cols do
                 args[id .. "Col" .. col] = {
                     type = "select", order = base + col, width = grid.width, name = "",
-                    values = getValues, sorting = getSorting,
+                    values = getValues, sorting = getSorting, marked = getPlaced,
                     hidden = hidden,
                     get = function()
                         local row = MainWindow:GetBlockRows()[index]

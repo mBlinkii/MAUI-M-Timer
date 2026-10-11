@@ -213,6 +213,23 @@ function Utils.CopyInto(dst, src)
     return dst
 end
 
+-- The bundled faces carry Latin glyphs only, so other clients drop them from a
+-- preset and keep the theme's localized font.
+local NON_LATIN = { koKR = true, zhCN = true, zhTW = true, ruRU = true }
+local BUNDLED_FONTS = "MauiMPlusTimer\\Assets\\Fonts\\"
+
+function Utils.DropBundledFonts(tbl)
+    if type(tbl) ~= "table" or not NON_LATIN[GetLocale()] then return tbl end
+    for k, v in pairs(tbl) do
+        if type(v) == "table" then
+            Utils.DropBundledFonts(v)
+        elseif k == "font" and type(v) == "string" and v:find(BUNDLED_FONTS, 1, true) then
+            tbl[k] = nil
+        end
+    end
+    return tbl
+end
+
 -- CopyInto for untrusted imports: an existing key is only overwritten when the
 -- types match, so a corrupt value can never replace a table the UI unpacks.
 function Utils.CopyIntoTyped(dst, src)

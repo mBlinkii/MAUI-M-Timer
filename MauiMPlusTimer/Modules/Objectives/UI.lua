@@ -254,9 +254,12 @@ function UI:Update(bosses)
         timeStr = timeStr .. deltaStr
 
         -- The name gets what the time column leaves, so a long one ends in "..."
-        -- instead of running into the time.
+        -- instead of running into the time. No wider than its text: the
+        -- single-point anchor aligns it, a full-width string keeps its old
+        -- justification.
+        local avail
         if mode == "CENTER" then
-            row.name:SetWidth(math.max(20, width - math.abs(x)))
+            avail = math.max(20, width - math.abs(x))
             row.name:SetText(timeStr ~= "" and (nameStr .. "   " .. timeStr) or nameStr)
             row.time:SetText("")
             row.time:Hide()
@@ -264,9 +267,11 @@ function UI:Update(bosses)
             row.time:SetText(timeStr)
             row.time:Show()
             local timeW = timeStr ~= "" and (math.ceil(row.time:GetStringWidth()) + 8) or 0
-            row.name:SetWidth(math.max(20, width - math.abs(x) - timeW))
+            avail = math.max(20, width - math.abs(x) - timeW)
             row.name:SetText(nameStr)
         end
+        local need = Addon.Widgets:StableTextWidth(ns.E.objectiveText, row.name:GetText(), row.name)
+        row.name:SetWidth(need and math.min(need, avail) or avail)
         row.name:Show()
     end
 

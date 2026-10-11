@@ -26,9 +26,24 @@ for i = 1, 3 do
     table.insert(catalog.death, ASSET .. string.format("Death\\skull_%02d", i))
 end
 
+-- Label icons share one set; each label lists its own art first as the default.
+local LABELS = { "vsbest", "stopwatch", "delta", "hourglass", "boss", "ponr" }
+for category, first in pairs({ splitsLabel = "vsbest", bossLabel = "boss", ponrLabel = "ponr" }) do
+    local list = { ASSET .. "Labels\\" .. first }
+    for _, name in ipairs(LABELS) do
+        if name ~= first then list[#list + 1] = ASSET .. "Labels\\" .. name end
+    end
+    catalog[category] = list
+end
+-- The boss label can also take the death skulls.
+for i = 1, 3 do
+    table.insert(catalog.bossLabel, ASSET .. string.format("Death\\skull_%02d", i))
+end
+
 ns.Icons = {}
 
--- category: "done" | "pending" | "death" | "ready" | "brez" | "lust".
+-- category: "done" | "pending" | "death" | "ready" | "brez" | "lust" |
+-- "splitsLabel" | "bossLabel" | "ponrLabel".
 function ns.Icons:Default(category)
     local list = catalog[category]
     return list and list[1] or nil

@@ -53,11 +53,19 @@ function UI:Build()
     Addon.MainWindow:AddBlock("affixes", self.affixFrame, 7)
 end
 
--- A long name ends in "..." instead of running past its block.
+-- As wide as the text, so the single-point anchor aligns it; a full-width
+-- string keeps its old justification. A long name ends in "..." instead of
+-- running past its block.
+local function fitText(fs, frame, element)
+    local avail = math.max(20, frame:GetWidth())
+    local need = Addon.Widgets:StableTextWidth(element, fs:GetText(), fs)
+    fs:SetWidth(need and math.min(need, avail) or avail)
+end
+
 function UI:FitTexts()
     if not self.frame then return end
-    self.nameText:SetWidth(math.max(20, self.frame:GetWidth()))
-    self.affixText:SetWidth(math.max(20, self.affixFrame:GetWidth()))
+    fitText(self.nameText, self.frame, ns.E.dungeonName)
+    fitText(self.affixText, self.affixFrame, ns.E.dungeonAffixes)
 end
 
 function UI:LayoutBlocks()
@@ -145,7 +153,7 @@ function UI:LayoutLevel()
 
     if shape == "none" then
         badge:Hide()
-        fs:SetWidth(math.max(20, frame:GetWidth()))
+        fitText(fs, frame, ns.E.dungeonLevel)
         Addon.Widgets:LayoutText(fs, frame, ns.E.dungeonLevel, j)
         frame:SetHeight(lineH)
         return

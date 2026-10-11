@@ -8,8 +8,7 @@ local Splits = Addon:GetModule("Splits")
 local UI = Addon:NewTextBlockUI({ name = "Splits", element = ns.E.splitsText, order = 50 })
 Splits.UI = UI
 
--- Optional replacement for the "Run vs best" label.
-local ICON_PATH = "Interface\\AddOns\\MauiMPlusTimer\\Assets\\Icons\\Labels\\vsbest.tga"
+-- Tint of the optional icon that replaces the "Run vs best" label.
 local WHITE = { 1, 1, 1 }
 
 -- delta in seconds, negative is ahead. nil hides the block.
@@ -28,8 +27,8 @@ function UI:Update(delta)
         if settings.showLabel == false then
             label = nil
         elseif settings.labelIcon == true then
-            label = Addon.Widgets:IconEscape(ICON_PATH, ICON_PATH, Addon.Widgets:IconSize(ns.E.splitsText),
-                settings.labelIconColor or WHITE)
+            label = Addon.Widgets:IconEscape(settings.labelIconPath, ns.Icons:Default("splitsLabel"),
+                Addon.Widgets:IconSize(ns.E.splitsText), settings.labelIconColor or WHITE)
         else
             label = ns.L["Run vs best"] .. ":"
         end
