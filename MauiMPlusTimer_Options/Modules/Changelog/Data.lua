@@ -19,7 +19,7 @@ Changelog.Data = Data
 Data.entries = {
     {
         version = "1.7.1",
-        date = "14.10.2026",
+        date = "17.10.2026",
         updates = {
             "[System]: Updated the interface version for patch 12.1.5.",
         },

@@ -1,6 +1,6 @@
 # Changelog - MAUI M+ Timer
 
-## [ver. 1.7.1] - 14.10.2026
+## [ver. 1.7.1] - 17.10.2026
 ### 🔧 UPDATE
 - UPDATE - [System]: Updated the interface version for patch 12.1.5.
 
