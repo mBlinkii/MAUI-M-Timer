@@ -1,5 +1,9 @@
 # Changelog - MAUI M+ Timer
 
+## [ver. 1.7.1] - 14.10.2026
+### 🔧 UPDATE
+- UPDATE - [System]: Updated the interface version for patch 12.1.5.
+
 ## [ver. 1.7.0] - 11.10.2026
 ### 🐛 FIX
 - FIX - [Deaths]: The death counter follows the running key directly, so it keeps counting even when the start of the run was missed, for example after a /reload.

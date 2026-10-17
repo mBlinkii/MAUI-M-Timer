@@ -18,6 +18,13 @@ Changelog.Data = Data
 -- "->" and "-", and straight double quotes are escaped.
 Data.entries = {
     {
+        version = "1.7.1",
+        date = "14.10.2026",
+        updates = {
+            "[System]: Updated the interface version for patch 12.1.5.",
+        },
+    },
+    {
         version = "1.7.0",
         date = "11.10.2026",
         new = {
